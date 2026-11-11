@@ -22,13 +22,11 @@ import {
   Clock,
   RefreshCw,
   Ruler,
-  Mail,
   Phone,
   StickyNote,
   Eye,
   Coffee,
-  FileText,
-  ExternalLink
+  FileText
 } from 'lucide-react';
 import SquareFootage from '@/app/dashboard/calendar/components/SquareFootage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';

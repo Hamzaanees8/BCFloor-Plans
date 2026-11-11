@@ -398,7 +398,9 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
 > - Outer container MUST have `data-image-slot="true"`, `onMouseEnter/Leave` (sets `hoveredSlot`), and `onClick` (checks `e.altKey` before setting `activeSlot`).
 > - **Image Shadows:** Image container shadows must be applied ONLY to the right and bottom sides of the images (using `shadow-[4px_4px_6px_rgba(0,0,0,0.85)]` or similar offset box-shadows), never all sides (avoid generic classes like `shadow-lg` on image containers).
 > - `BoxIndicator` uses `isSlotActive("imageN")` helper — NOT `hoveredImage`.
-> - **CRITICAL IMAGE ASPECT FIT RULE (`objectFit="contain"`)**: Always pass `objectFit="contain"` to `<ImageEditor>` in all image slots. Without `objectFit="contain"`, `ImageEditor` defaults to `objectFit="cover"`, which crops the uploaded photo to force-fit the container aspect ratio. Passing `objectFit="contain"` fits the complete, uncropped photo inside the slot.
+> - **IMAGE CONTAINER DEFAULT FILL RULE (`objectFit="cover"`)**: Pass `objectFit="cover"` to `<ImageEditor>` in all property photo slots (default scale `1`, position `{x:0, y:0}`, rotation `0`). With `ImageEditor`'s dynamic `calculateBaseScale`, this ensures uploaded property photos dynamically fill the container edge-to-edge without letterbox bars. Dedicated logo slots (e.g. `agentLogo`, `image2`) pass `objectFit="contain"` to avoid cropping.
+> - **MEDIA PROCESSING STATUS (`isProcessing`)**: Pass `isProcessing={processingSlots.imageN}` to `<ImageEditor>` for non-blocking corner processing status pills.
+> - **SMOOTH FINE-GRAINED ZOOM (3%)**: Use `step = 0.03` (3%) in `handleZoom` instead of 10% for ultra-precise framing.
 > - Rotate, Edit, Delete are **3 separate `absolute` buttons** — NOT in a shared flex wrapper.
 > - Zoom controls div has **NO** `data-html2canvas-ignore`.
 > - Empty state placeholder div MUST have `data-html2canvas-ignore="true"` and pass `(e) => openImageSourceModal("imageN", e)`.
@@ -438,7 +440,8 @@ const openImageSourceModal = (imageSlot: string, e?: React.MouseEvent) => {
             scale={scale.image1}
             position={position.image1}
             rotation={rotation.image1}
-            objectFit="contain"
+            objectFit="cover"
+            isProcessing={processingSlots.image1}
           />
         </div>
 
@@ -947,3 +950,120 @@ Before considering any Listing Flyer upgrade complete, verify every item:
 - [ ] Deleting a field registers in `DeletedFieldsPanel` and can be restored.
 - [ ] `DraggableBox` moves smoothly and respects section lock states.
 - [ ] PDF export produces a clean, high-resolution flyer without UI overlays.
+
+---
+
+## 15. CANADIAN REAL ESTATE MODULAR ADDRESS STANDARD
+
+### 15.1 Four-Modular Field Structure + Sub-line
+Canadian real estate listings separate the address into 4 independent, draggable & deletable fields in Line 1 and a clean Regional Sub-line in Line 2:
+1. **Suite # (`roadName`)**: Unit/suite number with placeholder `"0"` and `min-w-[1ch]`.
+2. **MLS / Code (`addressCode`)**: MLS/Code field with placeholder `"0000-0000"`.
+3. **Street Number (`roadLabelBefore`)**: House/building number with placeholder `"Number"`.
+4. **Street Name (`roadLabelAfter`)**: Street name & suffix (e.g. `"100 Avenue Northwest"`) with placeholder `"Road"`.
+5. **Regional Sub-Line (`cityLine`)**: `[Neighborhood / Sub-Area], [City], [Province] [Postal Code]` with all country tags (`CA`, `Canada`) stripped out.
+
+### 15.2 Universal Auto-Parsing Algorithm (`useEffect([orderData])`)
+```typescript
+let suite = orderData.property.suite ? String(orderData.property.suite).trim() : "";
+let rawAddress = (orderData.property.address || (orderData as any).property_address || "").trim();
+if (rawAddress.includes(",")) {
+  rawAddress = rawAddress.split(",")[0].trim();
+}
+
+// 1. Detect if suite is prefixed in address (e.g. "101 - 3612 13 Ave" or "#101 3612 13 Ave")
+const suiteMatch = rawAddress.match(/^(?:#\s*|suite\s*|unit\s*)?(\d+[A-Za-z]?)\s*[-–—]\s*(.*)$/i);
+if (suiteMatch) {
+  if (!suite) suite = suiteMatch[1];
+  rawAddress = suiteMatch[2].trim();
+}
+
+// 2. Separate Code, Street Number, and Street Name
+const twoNumMatch = rawAddress.match(/^(\d+[A-Za-z]?)\s+(\d+(?:st|nd|rd|th|[A-Za-z])?)\s+(.+)$/i);
+const oneNumMatch = rawAddress.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+
+if (twoNumMatch) {
+  setAddressCode(twoNumMatch[1]);
+  setRoadLabelBefore(twoNumMatch[2]);
+  setRoadLabelAfter(twoNumMatch[3]);
+} else if (oneNumMatch) {
+  setRoadLabelBefore(oneNumMatch[1]);
+  setRoadLabelAfter(oneNumMatch[2]);
+} else {
+  setRoadLabelBefore("");
+  setRoadLabelAfter(rawAddress);
+}
+
+// Suite: if null, empty or "0", set to "" to show placeholder "0"
+if (!suite || suite === "0") {
+  setRoadName("");
+} else {
+  setRoadName(suite);
+}
+
+// 3. Construct Clean Location Sub-line (Strip country codes)
+const IGNORED_COUNTRY = /^(CA|Canada)$/i;
+const subArea = ((orderData.property as any).sub_area || "").trim();
+const headingVal = (orderData.property.heading || "").trim();
+const headingIsStreet = /^\d/.test(headingVal);
+const neighborhood = subArea || (headingVal && !headingIsStreet && headingVal !== rawAddress && !IGNORED_COUNTRY.test(headingVal) ? headingVal : "");
+const city = (orderData.property.city || "").trim();
+const province = (orderData.property.province || "").trim();
+const postalCode = (orderData.property.postal_code || "").trim();
+
+const locationParts: string[] = [];
+if (neighborhood) locationParts.push(neighborhood);
+if (city) locationParts.push(city);
+
+let provincePostal = "";
+const provinceClean = IGNORED_COUNTRY.test(province) ? "" : province;
+if (provinceClean && postalCode) provincePostal = `${provinceClean} ${postalCode}`;
+else if (provinceClean) provincePostal = provinceClean;
+else if (postalCode) provincePostal = postalCode;
+
+if (provincePostal) locationParts.push(provincePostal);
+if (locationParts.length > 0) setCityLine(locationParts.join(", "));
+```
+
+---
+
+## 16. ANTI-CLIPPING TYPOGRAPHY & AUTO-WIDTH STANDARD
+
+1. **Inline-Flex Auto-Width**:
+   Never use rigid `w-full` on single-line inputs or labels. Wrap in `shrink-0 inline-flex items-center` with `min-w-[1ch]` or `min-w-[2ch]` and `w-auto`.
+2. **Glyph Clearance Height**:
+   Set explicit heights and line-heights (e.g. `h-[30px] leading-none` or `h-[40px] leading-tight`) to guarantee descending letters (`g`, `y`, `p`, `q`) are never truncated.
+3. **`whitespace-nowrap`**:
+   Single-line fields and labels must include `whitespace-nowrap` to prevent unwanted line breaks when punctuation or numbers are typed.
+
+---
+
+## 17. BACKEND FALLBACK FONT SANITATION & PRE-SAVE BLUR
+
+1. **`document.activeElement.blur()`**:
+   In `handleSaveFeatureSheet` (`CreateFeatureSheet.tsx`), always blur the active element before triggering `exportToPayload()`. This forces any focused `StyledInput` to immediately emit its `onChange` event into state.
+2. **Template-Specific Fallbacks in `createPayload` (`file-manager.ts`)**:
+   Ensure `file-manager.ts` does not inject generic `20px` defaults on unedited contact fields. Pass the flyer's authentic template design font sizes (14px / 10px / 12px).
+3. **Payload Style Sanitization**:
+   In `parsePayloadToState` and `importFromPayload`, reset any legacy `20px` values on `fullName`, `propertyName`, `number`, and `email` back to template design sizes.
+
+---
+
+## 18. RUNBOOK: 8-FLYER UPGRADE SEQUENCE
+
+Roll out the modernized patterns across the remaining 8 listing flyers in this verified sequence:
+1. **Flyer 1**: `BcfpStandard13.tsx`
+2. **Flyer 3**: `BcfpStandard16.tsx`
+3. **Flyer 4**: `BcfpStandard17.tsx`
+4. **Flyer 5**: `BcfpStandard18.tsx`
+5. **Flyer 6**: `BcfpStandard19.tsx`
+6. **Flyer 7**: `BcfpStandard20.tsx`
+7. **Flyer 8**: `BcfpStandard21.tsx`
+8. **Flyer 9**: `BcfpStandard22.tsx`
+
+For each flyer:
+- Apply the 4-modular address architecture and universal regex hook.
+- Implement `processingSlots` and edge-to-edge default image filling (`objectFit="cover"`).
+- Verify section drag locks and `<DraggableBox>` wrapping for each field.
+- Verify `exportToPayload` and `importFromPayload` with font size preservation.
+- Run `npx tsc --noEmit --skipLibCheck` and verify 0 errors.

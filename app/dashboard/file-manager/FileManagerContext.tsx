@@ -434,6 +434,8 @@ export const initialFormData: FormData = {
   address: "",
   addressCode: "",
   roadName: "",
+  roadLabelBefore: "",
+  roadLabelAfter: "",
   cityLine: "",
   bedroom: "",
   bathroom: "",

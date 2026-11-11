@@ -1141,159 +1141,198 @@ const CreateFeatureSheet = forwardRef<
   /**
    * Test Helper: Fill whole sheet's fields with appropriate text according to that property
    */
-  // const handleAutoFillTestData = () => {
-  //   try {
-  //     const prop = orderData?.property;
-  //     const agent = orderData?.agent;
+  const handleAutoFillTestData = () => {
+    try {
+      const prop = orderData?.property;
+      const agent = orderData?.agent;
 
-  //     // Price
-  //     const rawPrice = prop?.listing_price ? String(prop.listing_price).trim() : "";
-  //     const priceFormatted = rawPrice ? (rawPrice.startsWith("$") ? rawPrice : `$${rawPrice}`) : "$1,498,000";
+      // Price
+      const rawPrice = prop?.listing_price ? String(prop.listing_price).trim() : "";
+      const priceFormatted = rawPrice ? (rawPrice.startsWith("$") ? rawPrice : `${rawPrice}`) : "$1,498,000";
 
-  //     // Agent Info
-  //     const agentName = `${agent?.first_name || ""} ${agent?.last_name || ""}`.trim() || "Sarah Jenkins";
-  //     const agentEmail = agent?.email || "sarah.jenkins@realtyexecutives.com";
-  //     const agentPhone = agent?.primary_phone || "604.555.0199";
-  //     const company = agent?.company_name || "Prestige Real Estate Group";
+      // Agent Info
+      const agentName = `${agent?.first_name || ""} ${agent?.last_name || ""}`.trim() || "Sarah Jenkins";
+      const agentEmail = agent?.email || "sarah.jenkins@realtyexecutives.com";
+      const agentPhone = agent?.primary_phone || "604.555.0199";
+      const company = agent?.company_name || "Prestige Real Estate Group";
 
-  //     // Address Fields
-  //     const streetAddress = prop?.address || (orderData as any)?.property_address?.split(",")[0] || "11920 145 Avenue Northwest";
-  //     const suiteNumber = prop?.suite ? String(prop.suite).trim() : "101";
-  //     const mlsNumber = prop?.mls_number ? String(prop.mls_number).trim() : "R2894102";
+      // Address Fields
+      const rawStreet = prop?.address || (orderData as any)?.property_address?.split(",")[0] || "16405 100 Avenue Northwest";
+      let streetAddress = rawStreet.trim();
+      let suiteNumber = prop?.suite ? String(prop.suite).trim() : "101";
+      const mlsNumber = prop?.mls_number ? String(prop.mls_number).trim() : "0000-0000";
 
-  //     const cityParts: string[] = [];
-  //     if (prop?.city) cityParts.push(String(prop.city).trim());
-  //     if (prop?.province) cityParts.push(String(prop.province).trim());
-  //     if (prop?.country && prop.country !== "CA" && prop.country !== "Canada") cityParts.push(String(prop.country).trim());
-  //     if (prop?.postal_code) cityParts.push(String(prop.postal_code).trim());
-  //     const cityLineFormatted = cityParts.join(", ") || "Edmonton, AB, T5X 1T6";
+      // Detect suite prefix in address
+      const suiteMatch = streetAddress.match(/^(?:#\s*|suite\s*|unit\s*)?(\d+[A-Za-z]?)\s*[-–—]\s*(.*)$/i);
+      if (suiteMatch) {
+        if (!suiteNumber || suiteNumber === "101") suiteNumber = suiteMatch[1];
+        streetAddress = suiteMatch[2].trim();
+      }
 
-  //     // Specs
-  //     const bedrooms = prop?.bedrooms ? String(prop.bedrooms).trim() : "4";
-  //     const bathrooms = prop?.bathrooms ? String(prop.bathrooms).trim() : "3.5";
-  //     const sqft = prop?.square_footage ? String(prop.square_footage).trim() : "2,850";
-  //     const builtYear = prop?.year_constructed ? String(prop.year_constructed).trim() : "2021";
-  //     const propDescription = prop?.description?.trim() || "Exquisite contemporary home crafted with meticulous attention to detail. Featuring an expansive open floor plan, soaring ceilings, chef-inspired kitchen with premium quartz island, and seamless indoor-outdoor living.";
+      // Check 2-number vs 1-number
+      const twoNumMatch = streetAddress.match(/^(\d+[A-Za-z]?)\s+(\d+(?:st|nd|rd|th|[A-Za-z])?)\s+(.+)$/i);
+      const oneNumMatch = streetAddress.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+      let parsedCode = mlsNumber;
+      let parsedStreetNum = "100";
+      let parsedStreetName = "Avenue Northwest";
 
-  //     const testPayload: any = {
-  //       id: 0,
-  //       uuid: selectedSheetUuid || "test-uuid",
-  //       order_id: orderData?.uuid || "",
-  //       type: "template",
-  //       template_key: selectedTemplate,
-  //       uploaded_by: "admin",
-  //       content: {
-  //         offeredAtPrice: { value: priceFormatted },
-  //         realtorName: { value: agentName },
-  //         realtorTitle: { value: "Personal Real Estate Corporation" },
-  //         companyName: { value: company },
-  //         emailLink: { value: agentEmail },
-  //         phoneNumber: { value: agentPhone },
-  //         contactLabel: { value: "Call Direct:" },
-  //         contactInfo: { value: `${agentPhone} | ${agentEmail}` },
-  //         propertyNotesTitle: { value: streetAddress },
-  //         propertyNotesDescription: { value: propDescription },
-  //         expandedDetail1Title: { value: "BY-LAW RESTRICTIONS:" },
-  //         expandedDetail1Description: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-  //         expandedDetail2Title: { value: "MAINT. FEES:" },
-  //         expandedDetail2Description: { value: "$485.00" },
-  //         expandedDetail3Title: { value: "MAINT. FEES INCLUDE:" },
-  //         expandedDetail3Description: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-  //         expandedDetail4Title: { value: "FEATURES INCLUDED:" },
-  //         expandedDetail4Description: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-  //         keyHighlightLabel: { value: "SITE INFLUENCES:" },
-  //         keyHighlights: {
-  //           value: ["Central Location", "Golf Course Nearby", "Marina Nearby", "Private Setting", "Recreation Nearby", "Shopping Nearby"]
-  //         },
-  //         otherDetails: {
-  //           bedroom: { value: bedrooms },
-  //           bathroom: { value: bathrooms },
-  //           sqft: { value: sqft },
-  //           builtYear: { value: builtYear },
-  //           amount: { value: priceFormatted },
-  //           number: { value: agentPhone },
-  //           addressCode: { value: mlsNumber },
-  //           mlsNumber: { value: mlsNumber },
-  //           roadName: { value: streetAddress },
-  //           cityLine: { value: cityLineFormatted },
-  //           suite: { value: suiteNumber },
-  //           propertyName: { value: company },
-  //           headline: { value: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE" },
-  //           amenities: { value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
-  //           view: { value: "Panoramic City, Water & North Shore Mountain Views" },
-  //           byLawRestrictions: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-  //           maintFees: { value: "$485.00" },
-  //           maintenanceFees: { value: "$485.00" },
-  //           maintFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-  //           maintenanceFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-  //           featuresIncluded: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-  //           siteInfluences: { value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
-  //           roadLabelBefore: { value: "No." },
-  //           roadLabelAfter: { value: "Avenue" },
-  //           addressHash: { value: "#" },
-  //           page2AddressHash: { value: "#" },
-  //           disclaimerText: { value: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed." },
-  //           _leftDetailFields: [
-  //             { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
-  //             { id: "maintFees", title: "MAINT. FEES:", value: "$485.00" },
-  //             { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
-  //             { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
-  //           ],
-  //           _rightDetailFields: [
-  //             { id: "siteInfluences", title: "SITE INFLUENCES:", value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
-  //             { id: "amenities", title: "AMENITIES:", value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
-  //             { id: "view", title: "VIEW:", value: "Panoramic City, Water & North Shore Mountain Views" },
-  //           ]
-  //         }
-  //       },
-  //       images: []
-  //     };
+      if (twoNumMatch) {
+        parsedCode = twoNumMatch[1];
+        parsedStreetNum = twoNumMatch[2];
+        parsedStreetName = twoNumMatch[3];
+      } else if (oneNumMatch) {
+        parsedStreetNum = oneNumMatch[1];
+        parsedStreetName = oneNumMatch[2];
+      } else {
+        parsedStreetNum = "";
+        parsedStreetName = streetAddress;
+      }
 
-  //     // 1. Update active component
-  //     if (activeStandardRef.current?.importFromPayload) {
-  //       activeStandardRef.current.importFromPayload(testPayload);
-  //     }
+      const cityParts: string[] = [];
+      if (prop?.city) cityParts.push(String(prop.city).trim());
+      if (prop?.province) cityParts.push(String(prop.province).trim());
+      if (prop?.country && prop.country !== "CA" && prop.country !== "Canada") cityParts.push(String(prop.country).trim());
+      if (prop?.postal_code) cityParts.push(String(prop.postal_code).trim());
+      let cityLineFormatted = cityParts.join(", ") || "Edmonton, AB T5P 4Y2";
+      cityLineFormatted = cityLineFormatted.replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ").replace(/,\s*,+/g, ", ").trim();
 
-  //     // 2. Update context state
-  //     updateFormData({
-  //       title: priceFormatted,
-  //       amount: priceFormatted,
-  //       fullName: agentName,
-  //       realtorName: agentName,
-  //       email: agentEmail,
-  //       phone: agentPhone,
-  //       number: agentPhone,
-  //       propertyName: company,
-  //       roadName: streetAddress,
-  //       cityLine: cityLineFormatted,
-  //       suite: suiteNumber,
-  //       addressCode: mlsNumber,
-  //       mlsNumber: mlsNumber,
-  //       bedroom: bedrooms,
-  //       bathroom: bathrooms,
-  //       sqft: sqft,
-  //       builtYear: builtYear,
-  //       description: propDescription,
-  //       byLawRestrictions: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)",
-  //       maintenanceFees: "$485.00",
-  //       maintenanceFeesInclude: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water",
-  //       featuresIncluded: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security",
-  //       siteInfluences: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby",
-  //       amenities: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub",
-  //       view: "Panoramic City, Water & North Shore Mountain Views",
-  //       headline: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE",
-  //       roadLabelBefore: "No.",
-  //       roadLabelAfter: "Avenue",
-  //       disclaimerText: "This communication is not intended to cause or induce breach of an existing agency agreement. Although this information is believed to be correct, its accuracy cannot be guaranteed."
-  //     });
+      const isListing = [
+        "BCFPStandard13", "BCFPStandard15", "BCFPStandard16", "BCFPStandard17",
+        "BCFPStandard18", "BCFPStandard19", "BCFPStandard20", "BCFPStandard21", "BCFPStandard22"
+      ].includes(selectedTemplate || "");
 
-  //     setHasUnsavedChanges(true);
-  //     toast.success("Sheet auto-filled with property test data!");
-  //   } catch (err) {
-  //     console.error("Error auto-filling test data:", err);
-  //     toast.error("Failed to auto-fill test data.");
-  //   }
-  // };
+      const suiteVal = (!suiteNumber || suiteNumber === "0") ? "" : suiteNumber;
+
+      // Specs
+      const bedrooms = prop?.bedrooms ? String(prop.bedrooms).trim() : "4";
+      const bathrooms = prop?.bathrooms ? String(prop.bathrooms).trim() : "3.5";
+      const sqft = prop?.square_footage ? String(prop.square_footage).trim() : "2,850";
+      const builtYear = prop?.year_constructed ? String(prop.year_constructed).trim() : "2021";
+      const propDescription = prop?.description?.trim() || "Exquisite contemporary home crafted with meticulous attention to detail. Featuring an expansive open floor plan, soaring ceilings, chef-inspired kitchen with premium quartz island, and seamless indoor-outdoor living.";
+
+      const testPayload: any = {
+        id: 0,
+        uuid: selectedSheetUuid || "test-uuid",
+        order_id: orderData?.uuid || "",
+        type: "template",
+        template_key: selectedTemplate,
+        uploaded_by: "admin",
+        content: {
+          offeredAtPrice: { value: priceFormatted },
+          realtorName: { value: agentName },
+          realtorTitle: { value: "Personal Real Estate Corporation" },
+          companyName: { value: company },
+          emailLink: { value: agentEmail },
+          phoneNumber: { value: agentPhone },
+          contactLabel: { value: isListing ? "CONTACT:" : "Call Direct:" },
+          contactInfo: { value: `${agentPhone} | ${agentEmail}` },
+          propertyNotesTitle: { value: isListing ? suiteVal : streetAddress },
+          propertyNotesDescription: { value: propDescription },
+          expandedDetail1Title: { value: "BY-LAW RESTRICTIONS:" },
+          expandedDetail1Description: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+          expandedDetail2Title: { value: "MAINT. FEES:" },
+          expandedDetail2Description: { value: "$485.00" },
+          expandedDetail3Title: { value: "MAINT. FEES INCLUDE:" },
+          expandedDetail3Description: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+          expandedDetail4Title: { value: "FEATURES INCLUDED:" },
+          expandedDetail4Description: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+          keyHighlightLabel: { value: "SITE INFLUENCES:" },
+          keyHighlights: {
+            value: ["Central Location", "Golf Course Nearby", "Marina Nearby", "Private Setting", "Recreation Nearby", "Shopping Nearby"]
+          },
+          otherDetails: {
+            bedroom: { value: bedrooms },
+            bathroom: { value: bathrooms },
+            sqft: { value: sqft },
+            builtYear: { value: builtYear },
+            amount: { value: priceFormatted },
+            number: { value: agentPhone },
+            phone: { value: agentPhone },
+            phoneLabel: { value: isListing ? "Phone:" : "PHONE:" },
+            emailLabel: { value: isListing ? "Email:" : "EMAIL:" },
+            contactLabel: { value: isListing ? "CONTACT:" : "Call Direct:" },
+            addressCode: { value: parsedCode },
+            mlsNumber: { value: parsedCode },
+            roadName: { value: isListing ? suiteVal : streetAddress },
+            cityLine: { value: cityLineFormatted },
+            suite: { value: suiteVal },
+            propertyName: { value: company },
+            headline: { value: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE" },
+            amenities: { value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+            view: { value: "Panoramic City, Water & North Shore Mountain Views" },
+            byLawRestrictions: { value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+            maintFees: { value: "$485.00" },
+            maintenanceFees: { value: "$485.00" },
+            maintFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+            maintenanceFeesInclude: { value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+            featuresIncluded: { value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+            siteInfluences: { value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+            roadLabelBefore: { value: parsedStreetNum },
+            roadLabelAfter: { value: parsedStreetName },
+            addressHash: { value: "#" },
+            page2AddressHash: { value: "#" },
+            disclaimerText: { value: "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless." },
+            _leftDetailFields: [
+              { id: "byLawRestrictions", title: "BY-LAW RESTRICTIONS:", value: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)" },
+              { id: "maintFees", title: "MAINT. FEES:", value: "$485.00" },
+              { id: "maintFeesInclude", title: "MAINT. FEES INCLUDE:", value: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water" },
+              { id: "featuresIncluded", title: "FEATURES INCLUDED:", value: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security" },
+            ],
+            _rightDetailFields: [
+              { id: "siteInfluences", title: "SITE INFLUENCES:", value: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby" },
+              { id: "amenities", title: "AMENITIES:", value: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub" },
+              { id: "view", title: "VIEW:", value: "Panoramic City, Water & North Shore Mountain Views" },
+            ]
+          }
+        },
+        images: []
+      };
+
+      // 1. Update active component
+      if (activeStandardRef.current?.importFromPayload) {
+        activeStandardRef.current.importFromPayload(testPayload);
+      }
+
+      // 2. Update context state
+      updateFormData({
+        title: priceFormatted,
+        amount: priceFormatted,
+        fullName: agentName,
+        realtorName: agentName,
+        email: agentEmail,
+        phone: agentPhone,
+        number: agentPhone,
+        propertyName: company,
+        roadName: isListing ? suiteVal : streetAddress,
+        cityLine: cityLineFormatted,
+        suite: suiteVal,
+        addressCode: parsedCode,
+        mlsNumber: parsedCode,
+        bedroom: bedrooms,
+        bathroom: bathrooms,
+        sqft: sqft,
+        builtYear: builtYear,
+        description: propDescription,
+        byLawRestrictions: "Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)",
+        maintenanceFees: "$485.00",
+        maintenanceFeesInclude: "Caretaker, Gardening, Garbage Pickup, Management, Recreation Facility, Water",
+        featuresIncluded: "Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW, Microwave, Security",
+        siteInfluences: "Central Location, Golf Course Nearby, Marina Nearby, Private Setting, Recreation Nearby, Shopping Nearby",
+        amenities: "Clubhouse, Exercise Centre, In Suite Laundry, Storage, Swirlpool/Hot Tub",
+        view: "Panoramic City, Water & North Shore Mountain Views",
+        headline: "EXCEPTIONAL ARCHITECTURAL MASTERPIECE",
+        roadLabelBefore: parsedStreetNum,
+        roadLabelAfter: parsedStreetName,
+        disclaimerText: "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless."
+      });
+
+      setHasUnsavedChanges(true);
+      toast.success("Sheet auto-filled with property test data!");
+    } catch (err) {
+      console.error("Error auto-filling test data:", err);
+      toast.error("Failed to auto-fill test data.");
+    }
+  };
 
   /**
    * Apply style properties from a source sheet to the currently open sheet.
@@ -3241,7 +3280,7 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
-                        {/* Auto-Fill Test Data button (Uncomment to use)
+                        {/* Auto-Fill Test Data button */}
                         <button
                           type="button"
                           onClick={handleAutoFillTestData}
@@ -3251,7 +3290,6 @@ const CreateFeatureSheet = forwardRef<
                           <span>⚡</span>
                           <span>Auto-Fill Test Data</span>
                         </button>
-                        */}
 
                         {/* Save Feature Sheet button */}
                         <button

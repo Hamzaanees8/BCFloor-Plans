@@ -1641,7 +1641,17 @@ export class FeatureSheetService {
       defaults: Partial<TextStyle>,
     ): StyledTextField | undefined => this.resolveTextField(field, defaults);
 
-    const isBcfp15 = params.templateKey === "BCFPStandard15";
+    const isListingFlyer = [
+      "BCFPStandard13",
+      "BCFPStandard15",
+      "BCFPStandard16",
+      "BCFPStandard17",
+      "BCFPStandard18",
+      "BCFPStandard19",
+      "BCFPStandard20",
+      "BCFPStandard21",
+      "BCFPStandard22",
+    ].includes(params.templateKey || "");
     if (params.offeredAtPrice) {
       content.offeredAtPrice = resolved(params.offeredAtPrice, { fontSize: "36px", fontWeight: "600", color: "#FFFFFF", textAlign: "center" });
     }
@@ -1651,7 +1661,7 @@ export class FeatureSheetService {
     if (params.realtorName) {
       content.realtorName = resolved(
         params.realtorName,
-        isBcfp15
+        isListingFlyer
           ? { fontSize: "14px", fontWeight: "400", color: "#FFFFFF" }
           : { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" },
       );
@@ -1659,7 +1669,7 @@ export class FeatureSheetService {
     if (params.companyName) {
       content.companyName = resolved(
         params.companyName,
-        isBcfp15
+        isListingFlyer
           ? { fontSize: "10px", fontWeight: "300", color: "#FFFFFF" }
           : { fontSize: "20px", fontWeight: "600", color: "#FFFFFF" },
       );
@@ -1670,25 +1680,25 @@ export class FeatureSheetService {
     if (params.propertyNotesDescription) {
       content.propertyNotesDescription = resolved(
         params.propertyNotesDescription,
-        isBcfp15
+        isListingFlyer
           ? { fontSize: "15px", fontWeight: "400", color: "#FFFFFF" }
           : { fontSize: "10px", fontWeight: "400", color: "#2C2E35" },
       );
     }
     if (params.expandedDetail1Title) {
-      content.expandedDetail1Title = resolved(params.expandedDetail1Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail1Title = resolved(params.expandedDetail1Title, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail1Description) {
-      content.expandedDetail1Description = resolved(params.expandedDetail1Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail1Description = resolved(params.expandedDetail1Description, isListingFlyer ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail2Title) {
-      content.expandedDetail2Title = resolved(params.expandedDetail2Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail2Title = resolved(params.expandedDetail2Title, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail2Description) {
-      content.expandedDetail2Description = resolved(params.expandedDetail2Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail2Description = resolved(params.expandedDetail2Description, isListingFlyer ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.keyHighlightLabel) {
-      content.keyHighlightLabel = resolved(params.keyHighlightLabel, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.keyHighlightLabel = resolved(params.keyHighlightLabel, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
 
     if (params.keyHighlights && params.keyHighlights.length > 0) {
@@ -1717,7 +1727,7 @@ export class FeatureSheetService {
     if (params.emailLink) {
       content.emailLink = resolved(
         params.emailLink,
-        isBcfp15
+        isListingFlyer
           ? { fontSize: "10px", fontWeight: "300" }
           : { fontSize: "20px", fontWeight: "100" },
       );
@@ -1728,13 +1738,13 @@ export class FeatureSheetService {
     if (params.phoneNumber) {
       content.phoneNumber = resolved(
         params.phoneNumber,
-        isBcfp15
+        isListingFlyer
           ? { fontSize: "10px", fontWeight: "300" }
           : { fontSize: "20px", fontWeight: "600" },
       );
     }
     if (params.contactLabel) {
-      content.contactLabel = resolved(params.contactLabel, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
+      content.contactLabel = resolved(params.contactLabel, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.contactInfo) {
       content.contactInfo = resolved(params.contactInfo, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
@@ -1743,16 +1753,16 @@ export class FeatureSheetService {
       content.ctaText = resolved(params.ctaText, { fontSize: "16px", fontWeight: "400", color: "#F2F2F2" });
     }
     if (params.expandedDetail3Title) {
-      content.expandedDetail3Title = resolved(params.expandedDetail3Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail3Title = resolved(params.expandedDetail3Title, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail3Description) {
-      content.expandedDetail3Description = resolved(params.expandedDetail3Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail3Description = resolved(params.expandedDetail3Description, isListingFlyer ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.expandedDetail4Title) {
-      content.expandedDetail4Title = resolved(params.expandedDetail4Title, isBcfp15 ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
+      content.expandedDetail4Title = resolved(params.expandedDetail4Title, isListingFlyer ? { fontSize: "16px", fontWeight: "400" } : { fontSize: "12px", fontWeight: "700", color: "#00B9F2" });
     }
     if (params.expandedDetail4Description) {
-      content.expandedDetail4Description = resolved(params.expandedDetail4Description, isBcfp15 ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
+      content.expandedDetail4Description = resolved(params.expandedDetail4Description, isListingFlyer ? { fontSize: "8px", fontWeight: "300" } : { fontSize: "10px", fontWeight: "600", color: "#FFFFFF" });
     }
     if (params.otherDetails) {
       content.otherDetails = params.otherDetails as unknown as
@@ -2681,8 +2691,18 @@ export class FeatureSheetService {
           ...((payload as any).fieldStyles || {}),
         };
 
-        const isBcfp15 = payload?.template_key === "BCFPStandard15";
-        if (isBcfp15) {
+        const isListingFlyer = [
+          "BCFPStandard13",
+          "BCFPStandard15",
+          "BCFPStandard16",
+          "BCFPStandard17",
+          "BCFPStandard18",
+          "BCFPStandard19",
+          "BCFPStandard20",
+          "BCFPStandard21",
+          "BCFPStandard22",
+        ].includes(payload?.template_key || "");
+        if (isListingFlyer) {
           if (directStyles.fullName?.fontSize === "20px") {
             directStyles.fullName = { ...directStyles.fullName, fontSize: "14px" };
           }

@@ -70,6 +70,56 @@ const cleanPdfPlaceholders = (cloneRoot) => {
       }
     }
   });
+
+  // 4. Hide borders and box shadows for image placeholders that have no image added
+  const imageSlots = cloneRoot.querySelectorAll(
+    '[data-image-slot="true"], [data-logo-slot="true"], [data-slot-type="logo"]'
+  );
+  imageSlots.forEach((slot) => {
+    // Check if slot contains a valid uploaded or background image
+    const imgs = Array.from(slot.querySelectorAll("img"));
+    const hasValidImg = imgs.some((img) => {
+      const src = (img.getAttribute("src") || img.src || "").trim();
+      return (
+        src &&
+        src !== "about:blank" &&
+        !src.startsWith("data:image/svg+xml")
+      );
+    });
+
+    const hasBgImg = Array.from(
+      slot.querySelectorAll("[style*='background-image'], [style*='backgroundImage']")
+    ).some((el) => {
+      const bg = el.style.backgroundImage || "";
+      return bg && bg !== "none" && !bg.includes("data:image/svg+xml");
+    });
+
+    if (!hasValidImg && !hasBgImg) {
+      slot.setAttribute("data-empty-image-slot", "true");
+      slot.style.setProperty("visibility", "hidden", "important");
+      slot.style.setProperty("border", "none", "important");
+      slot.style.setProperty("box-shadow", "none", "important");
+      slot.style.setProperty("outline", "none", "important");
+      slot.style.setProperty("background", "transparent", "important");
+      slot.style.setProperty("background-color", "transparent", "important");
+
+      const children = slot.querySelectorAll("*");
+      children.forEach((child) => {
+        child.style.setProperty("visibility", "hidden", "important");
+        child.style.setProperty("border", "none", "important");
+        child.style.setProperty("box-shadow", "none", "important");
+        child.style.setProperty("outline", "none", "important");
+        child.style.setProperty("background", "transparent", "important");
+        child.style.setProperty("background-color", "transparent", "important");
+      });
+    }
+  });
+
+  // 5. Disable contentEditable state on cloned inputs so browser selection/caret UI never interferes
+  const editables = cloneRoot.querySelectorAll("[contenteditable]");
+  editables.forEach((el) => {
+    el.setAttribute("contenteditable", "false");
+  });
 };
 
 import html2canvas from "html2canvas";
@@ -156,8 +206,19 @@ const DownloadPdf = async (
 
   document.body.appendChild(clone);
 
+  // Temporarily set live pages zoom to 1 to guarantee 100% accurate, unzoomed computed styles during sync
+  const originalZooms = livePages.map((p) => p.style.zoom);
+  livePages.forEach((p) => {
+    p.style.zoom = "1";
+  });
+
   // Preserve live DOM computed layout, positioning, flex alignment, line heights, padding & transforms
   syncLiveLayout(section, clone);
+
+  // Restore original zoom immediately on live pages
+  livePages.forEach((p, index) => {
+    p.style.zoom = originalZooms[index] || "0.85";
+  });
 
   await preloadImages(clone);
 
@@ -266,6 +327,22 @@ const DownloadPdf = async (
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
+  // Inject temporary style on host document to fix html2canvas FontMetrics baseline bug:
+  // Tailwind's `@tailwind base` sets `img { display: block }`, which pushes html2canvas's
+  // 1x1 spacer <img> onto a new line below <span> inside FontMetrics.parseMetrics(document),
+  // inflating baseline by the full line height and shifting ALL text down by 4-15px.
+  const fontMetricsFixStyle = document.createElement("style");
+  fontMetricsFixStyle.setAttribute("data-html2canvas-fontmetrics-fix", "true");
+  fontMetricsFixStyle.textContent = `
+    img[src^="data:image/gif;base64,R0lGOD"] {
+      display: inline !important;
+      vertical-align: baseline !important;
+      max-width: none !important;
+      height: 1px !important;
+    }
+  `;
+  document.head.appendChild(fontMetricsFixStyle);
+
   try {
     const pWidth = renderWidth;
     const pHeight = renderHeight;
@@ -318,9 +395,22 @@ const DownloadPdf = async (
 
       const elOptions = {
         ...options,
-        backgroundColor: pageBg,
+        backgroundColor: pageBg || "#ffffff",
         height: totalHeight,
         windowHeight: totalHeight,
+        onclone: (clonedDoc) => {
+          // Ensure FontMetrics fix also applies inside the cloned iframe document
+          const clonedFixStyle = clonedDoc.createElement("style");
+          clonedFixStyle.textContent = `
+            img[src^="data:image/gif;base64,R0lGOD"] {
+              display: inline !important;
+              vertical-align: baseline !important;
+              max-width: none !important;
+              height: 1px !important;
+            }
+          `;
+          clonedDoc.head.appendChild(clonedFixStyle);
+        },
       };
 
       const canvas = await html2canvas(el, elOptions);
@@ -328,6 +418,7 @@ const DownloadPdf = async (
       // For no-bleed: crop the 0.125" bleed zone from all 4 edges of the
       // captured canvas, leaving only the 8.5" × 11" safe-zone content.
       // For with-bleed: use the full canvas as-is (8.75" × 11.25").
+      // Always initialize with white fill to guarantee pure white backgrounds in JPEG output.
       let finalImgData;
       if (!withBleed) {
         const scale = options.scale || 6.25;
@@ -337,14 +428,24 @@ const DownloadPdf = async (
         const cropped = document.createElement("canvas");
         cropped.width = cropW;
         cropped.height = cropH;
-        cropped.getContext("2d").drawImage(
+        const ctx = cropped.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, cropW, cropH);
+        ctx.drawImage(
           canvas,
           cropPx, cropPx, cropW, cropH,
           0, 0, cropW, cropH
         );
         finalImgData = cropped.toDataURL("image/jpeg", 0.95);
       } else {
-        finalImgData = canvas.toDataURL("image/jpeg", 0.95);
+        const filled = document.createElement("canvas");
+        filled.width = canvas.width;
+        filled.height = canvas.height;
+        const ctx = filled.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(canvas, 0, 0);
+        finalImgData = filled.toDataURL("image/jpeg", 0.95);
       }
 
       if (i > 0) {
@@ -385,6 +486,10 @@ const DownloadPdf = async (
     console.error("Error generating PDF:", error);
     if (document.body.contains(clone)) {
       document.body.removeChild(clone);
+    }
+  } finally {
+    if (fontMetricsFixStyle && fontMetricsFixStyle.parentNode) {
+      fontMetricsFixStyle.parentNode.removeChild(fontMetricsFixStyle);
     }
   }
 };
@@ -552,11 +657,21 @@ const applyFauxShadows = (cloneRoot) => {
   const allElements = Array.from(cloneRoot.querySelectorAll("*"));
 
   allElements.forEach((el) => {
-    if (el.classList.contains("pdf-page") || el.getAttribute("data-html2canvas-ignore") === "true") {
+    if (
+      el.classList.contains("pdf-page") ||
+      el.getAttribute("data-html2canvas-ignore") === "true" ||
+      el.getAttribute("data-empty-image-slot") === "true" ||
+      el.getAttribute("data-no-shadow") === "true" ||
+      el.closest('[data-empty-image-slot="true"]')
+    ) {
       return;
     }
 
     const computed = window.getComputedStyle(el);
+    if (computed.visibility === "hidden" || el.style.visibility === "hidden") {
+      return;
+    }
+
     let rawShadow = computed.boxShadow;
 
     for (const [cls, val] of Object.entries(tailwindShadowMap)) {
@@ -668,6 +783,24 @@ const applyFauxShadows = (cloneRoot) => {
       }
     });
 
+    // If the element itself has a background color, cover the interior of the faux shadow
+    // so concentric semi-transparent dark layers don't tint the element's interior background.
+    const elBg = computed.backgroundColor;
+    if (elBg && elBg !== "transparent" && elBg !== "rgba(0, 0, 0, 0)") {
+      const bgCover = document.createElement("div");
+      bgCover.style.position = "absolute";
+      bgCover.style.top = "0";
+      bgCover.style.left = "0";
+      bgCover.style.right = "0";
+      bgCover.style.bottom = "0";
+      bgCover.style.backgroundColor = elBg;
+      if (borderRadius && borderRadius !== "0px") {
+        bgCover.style.borderRadius = borderRadius;
+      }
+      bgCover.style.pointerEvents = "none";
+      shadowHost.appendChild(bgCover);
+    }
+
     Array.from(el.children).forEach((child) => {
       const childStyle = window.getComputedStyle(child);
       if (childStyle.position === "static") {
@@ -677,6 +810,40 @@ const applyFauxShadows = (cloneRoot) => {
         child.style.zIndex = "1";
       }
     });
+
+    // If element has a border, ensure a border layer sits on top of shadowHost
+    // so the faux shadow layers NEVER tint the white/colored border gray
+    const bTop = parseFloat(computed.borderTopWidth) || 0;
+    const bRight = parseFloat(computed.borderRightWidth) || 0;
+    const bBottom = parseFloat(computed.borderBottomWidth) || 0;
+    const bLeft = parseFloat(computed.borderLeftWidth) || 0;
+    if (
+      (bTop > 0 || bRight > 0 || bBottom > 0 || bLeft > 0) &&
+      computed.borderStyle !== "none"
+    ) {
+      const borderCover = document.createElement("div");
+      borderCover.className = "pdf-faux-border-cover";
+      borderCover.style.position = "absolute";
+      borderCover.style.top = `-${bTop}px`;
+      borderCover.style.left = `-${bLeft}px`;
+      borderCover.style.right = `-${bRight}px`;
+      borderCover.style.bottom = `-${bBottom}px`;
+      borderCover.style.borderTop = `${computed.borderTopWidth} ${computed.borderTopStyle} ${computed.borderTopColor}`;
+      borderCover.style.borderRight = `${computed.borderRightWidth} ${computed.borderRightStyle} ${computed.borderRightColor}`;
+      borderCover.style.borderBottom = `${computed.borderBottomWidth} ${computed.borderBottomStyle} ${computed.borderBottomColor}`;
+      borderCover.style.borderLeft = `${computed.borderLeftWidth} ${computed.borderLeftStyle} ${computed.borderLeftColor}`;
+      if (borderRadius && borderRadius !== "0px") {
+        borderCover.style.borderRadius = borderRadius;
+      }
+      borderCover.style.pointerEvents = "none";
+      borderCover.style.zIndex = "5";
+      borderCover.style.boxSizing = "border-box";
+
+      // Make original border transparent so borderCover is the only rendered border (strictly 2px, never doubled)
+      el.style.borderColor = "transparent";
+
+      el.appendChild(borderCover);
+    }
 
     el.insertBefore(shadowHost, el.firstChild);
   });

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Lock, Eye, EyeOff, Info } from "lucide-react";
+import { Lock, Eye, EyeOff } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -23,8 +23,6 @@ export default function EmailEditorCanvasWrapper({
   orgName,
   logoUrl,
   primaryColor = "#2563EB",
-  orgEmail,
-  orgPhone,
   isWhitelabel = false,
   children,
   defaultExpanded = true,
@@ -58,7 +56,9 @@ export default function EmailEditorCanvasWrapper({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs max-w-[220px]">
-                    This header branding is automatically added to the top of all outgoing emails. You do not need to re-add your logo here.
+                    This header branding is automatically added to the top of
+                    all outgoing emails. You do not need to re-add your logo
+                    here.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -81,6 +81,7 @@ export default function EmailEditorCanvasWrapper({
             style={{ borderBottom: `3px solid ${primaryColor || "#2563EB"}` }}
           >
             {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
                 alt={`${orgName} Logo`}

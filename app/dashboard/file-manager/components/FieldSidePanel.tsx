@@ -95,6 +95,59 @@ function Section({
 
 // ─── Dropdown helper ─────────────────────────────────────────────────────────
 
+function matchFontOption(
+  options: { label: string; value: string; css?: string }[],
+  value: string,
+) {
+  if (!value) return undefined;
+  const cleanVal = value.trim().toLowerCase().replace(/^font-/, "");
+
+  // 1. Exact match on value, css, or label
+  const exact = options.find(
+    (o) =>
+      o.value.toLowerCase() === value.toLowerCase() ||
+      (o.css && o.css.toLowerCase() === value.toLowerCase()) ||
+      o.label.toLowerCase() === value.toLowerCase() ||
+      o.label.toLowerCase() === cleanVal,
+  );
+  if (exact) return exact;
+
+  // Extract primary family name (before first comma, stripped of quotes)
+  const primaryVal = cleanVal.split(",")[0].replace(/['"]/g, "").trim();
+
+  // If primary is just "sans-serif" or "sans", match only Sans Serif
+  if (primaryVal === "sans-serif" || primaryVal === "sans") {
+    return options.find(
+      (o) =>
+        o.label.toLowerCase() === "sans serif" ||
+        o.value.toLowerCase() === "sans-serif",
+    );
+  }
+  if (primaryVal === "serif") {
+    return options.find(
+      (o) =>
+        o.value.toLowerCase() === "serif" ||
+        o.label.toLowerCase() === "serif",
+    );
+  }
+
+  // 2. Match primary font name against option label or primary css name
+  return options.find((o) => {
+    const oLabel = o.label.toLowerCase();
+    const oPrimary = (o.css || o.value)
+      .split(",")[0]
+      .replace(/['"]/g, "")
+      .trim()
+      .toLowerCase();
+    return (
+      oLabel === primaryVal ||
+      oPrimary === primaryVal ||
+      oPrimary.includes(primaryVal) ||
+      primaryVal.includes(oPrimary)
+    );
+  });
+}
+
 function PanelDropdown({
   label,
   options,
@@ -120,12 +173,9 @@ function PanelDropdown({
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const current = options.find(
-    (o) =>
-      o.value === value ||
-      (o.css && value && o.css.toLowerCase() === value.toLowerCase()) ||
-      (value && o.css && value.toLowerCase().includes(o.css.split(",")[0].toLowerCase())),
-  );
+  const current =
+    options.find((o) => o.value === value) ||
+    matchFontOption(options, value);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -143,24 +193,30 @@ function PanelDropdown({
       </button>
       {open && (
         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[200] max-h-52 overflow-auto">
-          {options.map((o) => (
-            <button
-              key={o.value + o.label}
-              type="button"
-              onClick={() => {
-                onChange(o.value);
-                setOpen(false);
-              }}
-              style={o.css ? { fontFamily: o.css } : undefined}
-              className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${
-                o.value === value || (o.css && value && o.css.toLowerCase() === value.toLowerCase())
-                  ? "bg-gray-800 text-white hover:bg-gray-700"
-                  : "text-gray-800"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+          {options.map((o) => {
+            const isSelected =
+              current?.value === o.value ||
+              o.value === value ||
+              (o.css && value && o.css.toLowerCase() === value.toLowerCase());
+            return (
+              <button
+                key={o.value + o.label}
+                type="button"
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                style={o.css ? { fontFamily: o.css } : undefined}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 transition-colors ${
+                  isSelected
+                    ? "bg-gray-800 text-white hover:bg-gray-700"
+                    : "text-gray-800"
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

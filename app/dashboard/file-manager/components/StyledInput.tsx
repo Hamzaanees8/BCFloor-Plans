@@ -494,6 +494,10 @@ type StyledInputProps = {
   onDelete?: () => void;
   /** Reset position callback forwarded to the panel */
   onResetPosition?: () => void;
+  /** Opt-in block paragraph mode so wrapped lines flow underneath a leading label via textIndentPx */
+  flowMode?: boolean;
+  /** First-line horizontal indent (px) applied when flowMode is true */
+  textIndentPx?: number;
   [key: string]: any;
 };
 
@@ -670,6 +674,8 @@ export default function StyledInput({
   onNudge,
   onDelete,
   onResetPosition,
+  flowMode = false,
+  textIndentPx,
   style: passedStyle,
   ...props
 }: StyledInputProps) {
@@ -711,8 +717,26 @@ export default function StyledInput({
       ? draggableBox.id.charAt(0).toUpperCase() + draggableBox.id.slice(1)
       : "Text Field");
 
-  const [fontWeight, setFontWeight] = useState("font-normal");
-  const [fontSize, setFontSize] = useState<string>("16px");
+  const [fontWeight, setFontWeight] = useState<string>(() => {
+    if (inputStyle?.fontWeight) return fontWeightToClass(inputStyle.fontWeight);
+    if (className) {
+      if (className.includes("font-extrabold")) return "font-extrabold";
+      if (className.includes("font-bold")) return "font-bold";
+      if (className.includes("font-semibold")) return "font-semibold";
+      if (className.includes("font-medium")) return "font-medium";
+      if (className.includes("font-light") || className.includes("font-thin")) return "font-thin";
+      if (className.includes("font-normal")) return "font-normal";
+    }
+    return "font-normal";
+  });
+  const [fontSize, setFontSize] = useState<string>(() => {
+    if (inputStyle?.fontSize) return inputStyle.fontSize;
+    if (className) {
+      const match = className.match(/text-\[(\d+px)\]/);
+      if (match) return match[1];
+    }
+    return "16px";
+  });
   const [italic, setItalic] = useState(false);
   const [underline, setUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<
@@ -721,7 +745,22 @@ export default function StyledInput({
   const [verticalAlign, setVerticalAlign] = useState<
     "top" | "center" | "bottom"
   >("center");
-  const [fontFamily, setFontFamily] = useState<string>("font-sans");
+  const [fontFamily, setFontFamily] = useState<string>(() => {
+    if (inputStyle?.fontFamily) return fontFamilyToClass(inputStyle.fontFamily);
+    if (className) {
+      if (className.includes("font-raleway")) return "font-raleway";
+      if (className.includes("font-alexandria")) return "font-alexandria";
+      if (className.includes("font-caslon-bold")) return "font-caslon-bold";
+      if (className.includes("font-caslon")) return "font-caslon";
+      if (className.includes("font-trajan-bold")) return "font-trajan-bold";
+      if (className.includes("font-trajan-regular") || className.includes("font-trajan")) return "font-trajan-regular";
+      if (className.includes("font-gothic-bold")) return "font-gothic-bold";
+      if (className.includes("font-gothic")) return "font-gothic";
+      if (className.includes("font-arial-bold")) return "font-arial-bold";
+      if (className.includes("font-serif")) return "font-serif";
+    }
+    return "font-sans";
+  });
   const [internalValue, setInternalValue] = useState(value || "");
   const [isFocused, setIsFocused] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(!value);
@@ -802,9 +841,10 @@ export default function StyledInput({
       setShowPlaceholder(!stringValue);
       if (
         editableRef.current &&
+        editableRef.current.innerText !== stringValue &&
         editableRef.current.textContent !== stringValue
       ) {
-        editableRef.current.textContent = stringValue;
+        editableRef.current.innerText = stringValue;
       }
     }
   }, [value]);
@@ -899,47 +939,35 @@ export default function StyledInput({
         (f.css && fontFamily && f.css.toLowerCase() === fontFamily.toLowerCase()),
     );
     if (matchCustom) return matchCustom.css;
-    if (customFonts.length > 0 && fontFamily === "font-sans") {
+    if (customFonts.length > 0 && (fontFamily === "font-sans" || fontFamily === "sans-serif")) {
       return customFonts[0].css;
     }
-    switch (fontFamily) {
-      case "font-alexandria":
-        return "Alexandria, sans-serif";
-      case "font-raleway":
-        return "Raleway, sans-serif";
-      case "font-caslon-bold":
-        return "ACaslonProBold, serif";
-      case "font-caslon-regular":
-        return "ACaslonProRegular, serif";
-      case "font-caslon-italic":
-        return "ACaslonProItalic, serif";
-      case "font-bickham-bold":
-        return "BickhamScriptBold, cursive";
-      case "font-bickham-regular":
-        return "BickhamScriptRegular, cursive";
-      case "font-caslon":
-        return "ACaslonPro, serif";
-      case "font-bickham":
-        return "BickhamScript, cursive";
-      case "font-gothic":
-        return "GothicRegular, sans-serif";
-      case "font-gothic-bold":
-        return "GothicBold, sans-serif";
-      case "font-trajan-bold":
-        return "TrajanProBold, serif";
-      case "font-trajan":
-      case "font-trajan-regular":
-        return "TrajanProRegular, serif";
-      case "font-arial-bold":
-        return "ArialBold, sans-serif";
-      case "font-arial-regular":
-        return "Arial, sans-serif";
-      case "font-serif":
-        return "serif";
-      case "font-sans":
-      default:
-        return customFonts.length > 0 ? customFonts[0].css : "sans-serif";
-    }
+    const f = (fontFamily || "").toLowerCase();
+    if (f.includes("alexandria")) return "var(--font-alexandria), Alexandria, sans-serif";
+    if (f.includes("raleway")) return "Raleway, sans-serif";
+    if (f.includes("acaslonproboldbcfp7") || f.includes("caslon-bold") || (f.includes("caslon") && f.includes("bold")))
+      return "ACaslonProBold, serif";
+    if (f.includes("acaslonproregular") || f.includes("caslon-regular"))
+      return "ACaslonProRegular, serif";
+    if (f.includes("acaslonproitalic") || f.includes("caslon-italic"))
+      return "ACaslonProItalic, serif";
+    if (f.includes("bickhamscriptbold") || f.includes("bickham-bold") || (f.includes("bickham") && f.includes("bold")))
+      return "BickhamScriptBold, cursive";
+    if (f.includes("bickhamscriptregular") || f.includes("bickham-regular"))
+      return "BickhamScriptRegular, cursive";
+    if (f.includes("caslon")) return "ACaslonPro, serif";
+    if (f.includes("bickham")) return "BickhamScript, cursive";
+    if (f.includes("gothic-bold") || f.includes("gothicbold") || (f.includes("gothic") && f.includes("bold")))
+      return "GothicBold, sans-serif";
+    if (f.includes("gothic")) return "GothicRegular, sans-serif";
+    if (f.includes("trajan-bold") || f.includes("trajanprobold") || (f.includes("trajan") && f.includes("bold")))
+      return "TrajanProBold, serif";
+    if (f.includes("trajan")) return "TrajanProRegular, serif";
+    if (f.includes("arial-bold") || f.includes("arialbold") || (f.includes("arial") && f.includes("bold")))
+      return "ArialBold, sans-serif";
+    if (f.includes("arial")) return "Arial, sans-serif";
+    if (f.includes("serif") && !f.includes("sans-serif")) return "serif";
+    return customFonts.length > 0 ? customFonts[0].css : "sans-serif";
   };
 
   const getAlignContentStyle = () => {
@@ -999,41 +1027,26 @@ export default function StyledInput({
       const ffCss = (() => {
         const matchCustom = customFonts.find((f) => f.value === ff);
         if (matchCustom) return matchCustom.css;
-        if (customFonts.length > 0 && ff === "font-sans") {
+        if (customFonts.length > 0 && (ff === "font-sans" || ff === "sans-serif")) {
           return customFonts[0].css;
         }
-        switch (ff) {
-          case "font-alexandria":
-            return "Alexandria, sans-serif";
-          case "font-raleway":
-            return "Raleway, sans-serif";
-          case "font-caslon-bold":
-            return "ACaslonProBold, serif";
-          case "font-caslon-regular":
-            return "ACaslonProRegular, serif";
-          case "font-caslon-italic":
-            return "ACaslonProItalic, serif";
-          case "font-bickham-bold":
-            return "BickhamScriptBold, cursive";
-          case "font-bickham-regular":
-            return "BickhamScriptRegular, cursive";
-          case "font-caslon":
-            return "ACaslonPro, serif";
-          case "font-bickham":
-            return "BickhamScript, cursive";
-          case "font-gothic":
-            return "GothicRegular, sans-serif";
-          case "font-gothic-bold":
-            return "GothicBold, sans-serif";
-          case "font-trajan-bold":
-            return "TrajanPro, serif";
-          case "font-trajan":
-            return "TrajanProRegular, serif";
-          case "font-arial-bold":
-            return "ArialBold, sans-serif";
-          default:
-            return "sans-serif";
-        }
+        const f = (ff || "").toLowerCase();
+        if (f.includes("alexandria")) return "var(--font-alexandria), Alexandria, sans-serif";
+        if (f.includes("raleway")) return "Raleway, sans-serif";
+        if (f.includes("caslon") && f.includes("bold")) return "ACaslonProBold, serif";
+        if (f.includes("caslon") && f.includes("italic")) return "ACaslonProItalic, serif";
+        if (f.includes("caslon") && f.includes("regular")) return "ACaslonProRegular, serif";
+        if (f.includes("caslon")) return "ACaslonPro, serif";
+        if (f.includes("bickham") && f.includes("bold")) return "BickhamScriptBold, cursive";
+        if (f.includes("bickham")) return "BickhamScript, cursive";
+        if (f.includes("gothic") && f.includes("bold")) return "GothicBold, sans-serif";
+        if (f.includes("gothic")) return "GothicRegular, sans-serif";
+        if (f.includes("trajan") && f.includes("bold")) return "TrajanProBold, serif";
+        if (f.includes("trajan")) return "TrajanProRegular, serif";
+        if (f.includes("arial") && f.includes("bold")) return "ArialBold, sans-serif";
+        if (f.includes("arial")) return "Arial, sans-serif";
+        if (f.includes("serif") && !f.includes("sans-serif")) return "serif";
+        return customFonts.length > 0 ? customFonts[0].css : "sans-serif";
       })();
 
       const alignContentStr = (() => {
@@ -1080,7 +1093,8 @@ export default function StyledInput({
 
     const caret = saveCaretPosition(el);
 
-    const newValue = el.textContent || "";
+    const rawValue = (el.innerText !== undefined ? el.innerText : el.textContent) || "";
+    const newValue = rawValue.replace(/\r\n/g, "\n");
     setInternalValue(newValue);
     setShowPlaceholder(newValue.length === 0);
 
@@ -1187,9 +1201,11 @@ export default function StyledInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter") {
       e.preventDefault();
-      editableRef.current?.blur();
+      document.execCommand("insertLineBreak");
+      handleInput();
+      return;
     }
     const isDeleteKey =
       e.key === "Delete" ||
@@ -1266,6 +1282,23 @@ export default function StyledInput({
   const activeTextAlign = textAlign || inputStyle?.textAlign || "left";
   const activeVerticalAlign =
     verticalAlign || inputStyle?.verticalAlign || "center";
+
+  const isSingleLine =
+    (props.rows === undefined || Number(props.rows) <= 1) &&
+    !props.multiline &&
+    !String(internalValue || "").includes("\n");
+
+  const activeLineHeight = (() => {
+    if (passedStyle?.lineHeight) return passedStyle.lineHeight;
+    if (className?.includes("leading-none")) return 1;
+    if (className?.includes("leading-tight")) return 1.25;
+    if (className?.includes("leading-snug")) return 1.375;
+    if (className?.includes("leading-normal")) return 1.5;
+    const matchLeading = className?.match(/leading-\[(\d+(\.\d+)?(px|rem|em)?)\]/);
+    if (matchLeading) return matchLeading[1];
+    return isSingleLine ? 1 : 1.25;
+  })();
+
   const cleanedClassName = className
     ? className
         .replace(
@@ -1283,8 +1316,10 @@ export default function StyledInput({
   return (
     <div
       ref={wrapperRef}
+      data-styled-input-wrapper="true"
+      data-single-line={isSingleLine ? "true" : "false"}
       className={cn(
-        "relative inline-block w-full content-center",
+        flowMode ? "relative block w-full" : "relative inline-block w-full content-center",
         wrapperClassName,
       )}
       onMouseEnter={() => (hoverRef.current = true)}
@@ -1300,6 +1335,8 @@ export default function StyledInput({
         <div
           ref={editableRef}
           contentEditable
+          data-styled-input="true"
+          data-single-line={isSingleLine ? "true" : "false"}
           onInput={handleInput}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -1312,31 +1349,52 @@ export default function StyledInput({
             fontStyle: italic ? "italic" : "normal",
             textDecoration: underline ? "underline" : "none",
             fontFamily: getFontFamilyStyle(),
-            lineHeight: 1.25,
+            lineHeight: activeLineHeight,
             margin: 0,
             padding: "0 2px",
             minWidth: passedStyle?.minWidth || "1.25ch",
             boxSizing: "border-box",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent:
-              activeVerticalAlign === "top"
-                ? "flex-start"
-                : activeVerticalAlign === "bottom"
-                  ? "flex-end"
-                  : "center",
-            alignItems:
-              activeTextAlign === "left"
-                ? "flex-start"
-                : activeTextAlign === "right"
-                  ? "flex-end"
-                  : activeTextAlign === "justify"
-                    ? "stretch"
-                    : "center",
+            ...(flowMode
+              ? {
+                  display: "block",
+                  textIndent:
+                    textIndentPx !== undefined ? `${textIndentPx}px` : undefined,
+                  minHeight: "1.35em",
+                }
+              : {
+                  display: "flex",
+                  flexDirection: isSingleLine ? "row" : "column",
+                  justifyContent: isSingleLine
+                    ? activeTextAlign === "left"
+                      ? "flex-start"
+                      : activeTextAlign === "right"
+                        ? "flex-end"
+                        : activeTextAlign === "justify"
+                          ? "stretch"
+                          : "center"
+                    : activeVerticalAlign === "top"
+                      ? "flex-start"
+                      : activeVerticalAlign === "bottom"
+                        ? "flex-end"
+                        : "center",
+                  alignItems: isSingleLine
+                    ? activeVerticalAlign === "top"
+                      ? "flex-start"
+                      : activeVerticalAlign === "bottom"
+                        ? "flex-end"
+                        : "center"
+                    : activeTextAlign === "left"
+                      ? "flex-start"
+                      : activeTextAlign === "right"
+                        ? "flex-end"
+                        : activeTextAlign === "justify"
+                          ? "stretch"
+                          : "center",
+                  alignContent: getAlignContentStyle(),
+                }),
             width: "100%",
             height: "100%",
             outline: "none",
-            alignContent: getAlignContentStyle(),
           }}
           className={cn(
             "col-start-1 row-start-1",
@@ -1368,30 +1426,50 @@ export default function StyledInput({
               fontWeight: getFontWeightStyle(),
               fontStyle: italic ? "italic" : "normal",
               fontFamily: getFontFamilyStyle(),
-              lineHeight: 1.25,
+              lineHeight: activeLineHeight,
               margin: 0,
               padding: "0 2px",
               minWidth: passedStyle?.minWidth || "1.25ch",
               boxSizing: "border-box",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent:
-                activeVerticalAlign === "top"
-                  ? "flex-start"
-                  : activeVerticalAlign === "bottom"
-                    ? "flex-end"
-                    : "center",
-              alignItems:
-                activeTextAlign === "left"
-                  ? "flex-start"
-                  : activeTextAlign === "right"
-                    ? "flex-end"
-                    : activeTextAlign === "justify"
-                      ? "stretch"
-                      : "center",
+              ...(flowMode
+                ? {
+                    display: "block",
+                    textIndent:
+                      textIndentPx !== undefined ? `${textIndentPx}px` : undefined,
+                  }
+                : {
+                    display: "flex",
+                    flexDirection: isSingleLine ? "row" : "column",
+                    justifyContent: isSingleLine
+                      ? activeTextAlign === "left"
+                        ? "flex-start"
+                        : activeTextAlign === "right"
+                          ? "flex-end"
+                          : activeTextAlign === "justify"
+                            ? "stretch"
+                            : "center"
+                      : activeVerticalAlign === "top"
+                        ? "flex-start"
+                        : activeVerticalAlign === "bottom"
+                          ? "flex-end"
+                          : "center",
+                    alignItems: isSingleLine
+                      ? activeVerticalAlign === "top"
+                        ? "flex-start"
+                        : activeVerticalAlign === "bottom"
+                          ? "flex-end"
+                          : "center"
+                      : activeTextAlign === "left"
+                        ? "flex-start"
+                        : activeTextAlign === "right"
+                          ? "flex-end"
+                          : activeTextAlign === "justify"
+                            ? "stretch"
+                            : "center",
+                    alignContent: getAlignContentStyle(),
+                  }),
               width: "100%",
               height: "100%",
-              alignContent: getAlignContentStyle(),
               backgroundColor: "transparent",
             }}
           >
@@ -1605,7 +1683,7 @@ export default function StyledInput({
                     {
                       label: "Alexandria",
                       value: "font-alexandria",
-                      css: "Alexandria, sans-serif",
+                      css: "var(--font-alexandria), Alexandria, sans-serif",
                     },
                     {
                       label: "Raleway",

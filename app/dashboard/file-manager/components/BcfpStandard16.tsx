@@ -1,4 +1,4 @@
-import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut, Lock, Unlock } from "lucide-react";
+import { House, Pencil, RotateCw, Trash, ZoomIn, ZoomOut, Lock, Unlock, Square, Layers, Sun } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import React, {
   forwardRef,
@@ -53,6 +53,79 @@ const BoxIndicator: React.FC<BoxIndicatorProps> = ({ isVisible }) => {
   );
 };
 
+interface ParagraphDetailFieldProps {
+  labelFieldId: string;
+  labelValue: string;
+  labelPlaceholder: string;
+  onLabelChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  labelStyle?: TextStyle;
+  onLabelStyleChange: (style: TextStyle) => void;
+  value: string;
+  placeholder: string;
+  rows?: number;
+  onValueChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  valueStyle?: TextStyle;
+  onValueStyleChange: (style: TextStyle) => void;
+}
+
+/** Renders an editable bold label over a paragraph-flowing editable value whose wrapped lines align with the label start. */
+const ParagraphDetailField: React.FC<ParagraphDetailFieldProps> = ({
+  labelFieldId,
+  labelValue,
+  labelPlaceholder,
+  onLabelChange,
+  labelStyle,
+  onLabelStyleChange,
+  value,
+  placeholder,
+  rows = 1,
+  onValueChange,
+  valueStyle,
+  onValueStyleChange,
+}) => {
+  const titleRef = useRef<HTMLDivElement>(null);
+  const [titleWidth, setTitleWidth] = useState(0);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    const measure = () => {
+      setTitleWidth(el.offsetWidth);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [labelValue, labelStyle]);
+
+  return (
+    <div className="relative w-full">
+      <div ref={titleRef} className="absolute top-0 left-0 z-20 inline-block">
+        <StyledInput
+          fieldId={labelFieldId}
+          value={labelValue}
+          onChange={onLabelChange}
+          inputStyle={labelStyle}
+          onChangeStyle={onLabelStyleChange}
+          className="font-bold text-[16px] leading-[1.3] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
+          placeholder={labelPlaceholder}
+          wrapperClassName="w-auto shrink-0"
+        />
+      </div>
+      <StyledInput
+        flowMode
+        textIndentPx={titleWidth + 6}
+        value={value}
+        rows={rows}
+        onChange={onValueChange}
+        inputStyle={valueStyle}
+        onChangeStyle={onValueStyleChange}
+        className="font-normal text-[13px] leading-[1.35] pt-[2px] text-left text-black bg-transparent focus:outline-none border-none placeholder-gray-400 placeholder:font-[400]"
+        placeholder={placeholder}
+      />
+    </div>
+  );
+};
 
 const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
@@ -78,24 +151,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
     const [addressCode, setAddressCode] = useState("");
     const [roadName, setRoadName] = useState("");
     const [cityLine, setCityLine] = useState("");
-    const [roadLabelBefore, setRoadLabelBefore] = useState("NUMBER");
-    const [roadLabelAfter, setRoadLabelAfter] = useState("ROAD");
-    const [page2RoadLabelBefore, setPage2RoadLabelBefore] = useState("NUMBER");
-    const [page2RoadLabelAfter, setPage2RoadLabelAfter] = useState("ROAD");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("");
+    const [page2RoadLabelBefore, setPage2RoadLabelBefore] = useState("");
+    const [page2RoadLabelAfter, setPage2RoadLabelAfter] = useState("");
     const [bedroomLabel, setBedroomLabel] = useState("BEDROOM •");
     const [bathroomLabel, setBathroomLabel] = useState("BATHROOM •");
     const [sqftLabel, setSqftLabel] = useState("SQ FT •");
     const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
     const [byLawLabel, setByLawLabel] = useState("BY-LAW RESTRICTIONS:");
-    const [maintFeesLabel, setMaintFeesLabel] = useState("MAINT.FEES:");
+    const [maintFeesLabel, setMaintFeesLabel] = useState("MAINT. FEES:");
     const [maintFeesIncludeLabel, setMaintFeesIncludeLabel] = useState("MAINTENANCE FEES INCLUDE:");
     const [featuresIncludedLabel, setFeaturesIncludedLabel] = useState("FEATURES INCLUDED:");
     const [siteInfluencesLabel, setSiteInfluencesLabel] = useState("SITE INFLUENCES:");
     const [amenitiesLabel, setAmenitiesLabel] = useState("AMENITIES:");
     const [viewLabel, setViewLabel] = useState("VIEW:");
     const [contactLabel, setContactLabel] = useState("CONTACT:");
-    const [phoneLabel, setPhoneLabel] = useState("Phone:");
-    const [emailLabel, setEmailLabel] = useState("Email:");
+    const [phoneLabel, setPhoneLabel] = useState("PHONE:");
+    const [emailLabel, setEmailLabel] = useState("EMAIL:");
     const [mlsLabel, setMlsLabel] = useState("MLS #");
     const [disclaimerText, setDisclaimerText] = useState(
       "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floorplans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless."
@@ -226,12 +299,71 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           uploadedBy: "admin",
           type: "template",
           primaryColor: "#00AEEF",
-          offeredAtPrice: amount,
-          realtorName: fullName,
-          emailLink: email,
-          companyName: propertyName,
-          propertyNotesTitle: roadName,
-          propertyNotesDescription: description,
+          offeredAtPrice: {
+            value: amount,
+            style: {
+              ...fieldStyles.amount,
+              fontSize: fieldStyles.amount?.fontSize || "24px",
+            },
+          },
+          realtorName: {
+            value: fullName,
+            style: {
+              ...fieldStyles.fullName,
+              fontSize:
+                fieldStyles.fullName?.fontSize === "20px"
+                  ? "14px"
+                  : fieldStyles.fullName?.fontSize || "14px",
+            },
+          },
+          emailLink: {
+            value: email,
+            style: {
+              ...fieldStyles.email,
+              fontSize:
+                fieldStyles.email?.fontSize === "20px"
+                  ? "11px"
+                  : fieldStyles.email?.fontSize || "11px",
+            },
+          },
+          companyName: {
+            value: propertyName,
+            style: {
+              ...fieldStyles.propertyName,
+              fontSize:
+                fieldStyles.propertyName?.fontSize === "20px"
+                  ? "12px"
+                  : fieldStyles.propertyName?.fontSize || "12px",
+            },
+          },
+          phoneNumber: {
+            value: number,
+            style: {
+              ...fieldStyles.number,
+              fontSize:
+                fieldStyles.number?.fontSize === "20px"
+                  ? "11px"
+                  : fieldStyles.number?.fontSize || "11px",
+            },
+          },
+          contactLabel: {
+            value: contactLabel,
+            style: fieldStyles.contactLabel || {},
+          },
+          propertyNotesTitle: {
+            value: roadName,
+            style: {
+              ...fieldStyles.roadName,
+              fontSize: fieldStyles.roadName?.fontSize || "24px",
+            },
+          },
+          propertyNotesDescription: {
+            value: description,
+            style: {
+              ...fieldStyles.description,
+              fontSize: fieldStyles.description?.fontSize || "10px",
+            },
+          },
           expandedDetail1Title: "By-law Restrictions",
           expandedDetail1Description: byLawRestrictions,
           expandedDetail2Title: "Maint. Fees",
@@ -278,6 +410,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             emailLabel,
             mlsLabel,
             disclaimerText,
+            imageSettings,
           },
           images,
           imageScales: scale,
@@ -307,7 +440,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         if (state.realtorName) setFullName(state.realtorName as string);
         if (state.emailLink) setEmail(state.emailLink as string);
         if (state.companyName) setPropertyName(state.companyName as string);
-        if (state.propertyNotesTitle)
+        if (state.propertyNotesTitle && state.propertyNotesTitle !== "0")
           setRoadName(state.propertyNotesTitle as string);
         if (state.propertyNotesDescription)
           setDescription(state.propertyNotesDescription as string);
@@ -327,6 +460,12 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         if (state.otherDetails) {
           const details = state.otherDetails as Record<string, unknown>;
           if (details.maintFees) setMaintFees(details.maintFees as string);
+          if (details.imageSettings) {
+            setImageSettings((prev) => ({
+              ...prev,
+              ...(details.imageSettings as Record<string, ImageSettingOptions>),
+            }));
+          }
           if (details.addressHash !== undefined) setAddressHash(details.addressHash as string);
           if (details.page2AddressHash !== undefined) setPage2AddressHash(details.page2AddressHash as string);
           if (details.maintFeesInclude)
@@ -341,10 +480,26 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           if (details.addressCode)
             setAddressCode(details.addressCode as string);
           if (details.cityLine) setCityLine(details.cityLine as string);
-          if (details.roadLabelBefore !== undefined) setRoadLabelBefore(details.roadLabelBefore as string);
-          if (details.roadLabelAfter !== undefined) setRoadLabelAfter(details.roadLabelAfter as string);
-          if (details.page2RoadLabelBefore !== undefined) setPage2RoadLabelBefore(details.page2RoadLabelBefore as string);
-          if (details.page2RoadLabelAfter !== undefined) setPage2RoadLabelAfter(details.page2RoadLabelAfter as string);
+          if (
+            details.roadLabelBefore &&
+            String(details.roadLabelBefore).toLowerCase() !== "number"
+          )
+            setRoadLabelBefore(details.roadLabelBefore as string);
+          if (
+            details.roadLabelAfter &&
+            String(details.roadLabelAfter).toLowerCase() !== "road"
+          )
+            setRoadLabelAfter(details.roadLabelAfter as string);
+          if (
+            details.page2RoadLabelBefore &&
+            String(details.page2RoadLabelBefore).toLowerCase() !== "number"
+          )
+            setPage2RoadLabelBefore(details.page2RoadLabelBefore as string);
+          if (
+            details.page2RoadLabelAfter &&
+            String(details.page2RoadLabelAfter).toLowerCase() !== "road"
+          )
+            setPage2RoadLabelAfter(details.page2RoadLabelAfter as string);
           if (details.bedroomLabel !== undefined) setBedroomLabel(details.bedroomLabel as string);
           if (details.bathroomLabel !== undefined) setBathroomLabel(details.bathroomLabel as string);
           if (details.sqftLabel !== undefined) setSqftLabel(details.sqftLabel as string);
@@ -398,7 +553,34 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             ...(state.imagePositions as unknown as typeof prev),
           }));
         }
-        if (state.fieldStyles) {
+        const c16 = (payload?.content as Record<string, any>) || {};
+        const od16 = (c16.otherDetails as Record<string, any>) || {};
+        const incomingStyles16: Record<string, TextStyle> = {
+          ...((od16.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c16.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((state.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
+        };
+
+        if (incomingStyles16.fullName?.fontSize === "20px") {
+          incomingStyles16.fullName = { ...incomingStyles16.fullName, fontSize: "14px" };
+        }
+        if (incomingStyles16.propertyName?.fontSize === "20px") {
+          incomingStyles16.propertyName = { ...incomingStyles16.propertyName, fontSize: "12px" };
+        }
+        if (incomingStyles16.number?.fontSize === "20px") {
+          incomingStyles16.number = { ...incomingStyles16.number, fontSize: "11px" };
+        }
+        if (incomingStyles16.email?.fontSize === "20px") {
+          incomingStyles16.email = { ...incomingStyles16.email, fontSize: "11px" };
+        }
+
+        if (Object.keys(incomingStyles16).length > 0) {
+          setFieldStyles((prev) => ({
+            ...prev,
+            ...incomingStyles16,
+          }));
+        } else if (state.fieldStyles) {
           setFieldStyles(state.fieldStyles as Record<string, any>);
         }
         if ((state as any).fieldPositions) {
@@ -429,8 +611,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       showGuide: contextShowGuide,
     } = useFileManagerContext() as any;
 
-    const showBleed = propShowBleed ?? contextShowBleed ?? false;
-    const showGuide = propShowGuide ?? contextShowGuide ?? false;
+    const showBleed = propShowBleed ?? contextShowBleed ?? true;
+    const showGuide = propShowGuide ?? contextShowGuide ?? true;
 
     // Hover state for BoxIndicator
     const [hoveredImageSlot, setHoveredImageSlot] = useState<string | null>(null);
@@ -442,11 +624,45 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       description: false,
       details: false,
       contact: false,
+      disclaimer: false,
       page2Header: false,
     });
 
     const toggleSectionLock = (sec: string) => {
       setLockedSections((prev) => ({ ...prev, [sec]: !prev[sec] }));
+    };
+
+    interface ImageSettingOptions {
+      showBorder: boolean;
+      showWhiteBg: boolean;
+      showShadow: boolean;
+    }
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >(() => ({
+      image1: { showBorder: true, showWhiteBg: true, showShadow: true },
+      ...((formData as any)?.imageSettings || {}),
+    }));
+
+    const toggleImageSetting = (
+      key: keyof typeof images,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || {
+          showBorder: true,
+          showWhiteBg: true,
+          showShadow: true,
+        };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
     };
 
     // Field positions
@@ -558,26 +774,111 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             setBuiltYear(orderData.property.year_constructed.toString());
           if (orderData.property.description)
             setDescription(orderData.property.description);
-          if (orderData.property.mls_number)
-            setAddressCode(orderData.property.mls_number);
-          if (orderData.property.suite) setRoadName(orderData.property.suite);
-          const addressParts: string[] = [];
-          const propAddress =
+          let suite = orderData.property.suite
+            ? String(orderData.property.suite).trim()
+            : "";
+          let rawAddress = (
             orderData.property.address ||
             (orderData as any).property_address ||
-            "";
-          if (propAddress) addressParts.push(propAddress.trim());
-          if (orderData.property.city)
-            addressParts.push(orderData.property.city.trim());
-          if (orderData.property.province)
-            addressParts.push(orderData.property.province.trim());
-          if (orderData.property.country)
-            addressParts.push(orderData.property.country.trim());
-          if (orderData.property.postal_code)
-            addressParts.push(orderData.property.postal_code.trim());
+            ""
+          ).trim();
+          if (rawAddress.includes(",")) {
+            rawAddress = rawAddress.split(",")[0].trim();
+          }
 
-          const fullAddress = addressParts.join(", ");
-          if (fullAddress) setCityLine(fullAddress);
+          // 1. Detect if suite is prefixed in address (e.g. "101 - 3612 13 Ave" or "#101 3612 13 Ave")
+          const suiteMatch =
+            rawAddress.match(
+              /^(?:#\s*|suite\s*|unit\s*)?(\d+[A-Za-z]?)\s*[-–—]\s*(.*)$/i,
+            ) ||
+            rawAddress.match(
+              /^(?:#\s*|suite\s+|unit\s+)(\d+[A-Za-z]?)[,\s]+(.*)$/i,
+            );
+          if (suiteMatch) {
+            if (!suite) suite = suiteMatch[1];
+            rawAddress = suiteMatch[2].trim();
+          }
+
+          // MLS Number -> addressCode (fallback before two-number address parsing)
+          if (orderData.property.mls_number) {
+            setAddressCode(orderData.property.mls_number.toString());
+          } else if ((orderData.property as any).mls) {
+            setAddressCode(String((orderData.property as any).mls));
+          } else {
+            setAddressCode("");
+          }
+
+          // 2. Separate Code, Street Number, and Street Name from rawAddress
+          const twoNumMatch = rawAddress.match(
+            /^(\d+[A-Za-z]?)\s+(\d+(?:st|nd|rd|th|[A-Za-z])?)\s+(.+)$/i,
+          );
+          const oneNumMatch = rawAddress.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
+
+          if (twoNumMatch) {
+            setAddressCode(twoNumMatch[1]);
+            setRoadLabelBefore(twoNumMatch[2]);
+            setRoadLabelAfter(twoNumMatch[3]);
+            setPage2RoadLabelBefore(twoNumMatch[2]);
+            setPage2RoadLabelAfter(twoNumMatch[3]);
+          } else if (oneNumMatch) {
+            setRoadLabelBefore(oneNumMatch[1]);
+            setRoadLabelAfter(oneNumMatch[2]);
+            setPage2RoadLabelBefore(oneNumMatch[1]);
+            setPage2RoadLabelAfter(oneNumMatch[2]);
+          } else {
+            setRoadLabelBefore("");
+            setRoadLabelAfter(rawAddress);
+            setPage2RoadLabelBefore("");
+            setPage2RoadLabelAfter(rawAddress);
+          }
+
+          // Suite -> roadName (if suite is null, empty or zero, leave as "" to show "0" via placeholder)
+          if (!suite || suite === "0") {
+            setRoadName("");
+          } else {
+            setRoadName(suite);
+          }
+
+          setDeletedStandardFieldIds((prev) =>
+            prev.filter(
+              (id) =>
+                id !== "addressCode" &&
+                id !== "page2AddressCode" &&
+                id !== "addressHash" &&
+                id !== "page2AddressHash" &&
+                id !== "roadLabelBefore" &&
+                id !== "page2RoadLabelBefore" &&
+                id !== "roadName" &&
+                id !== "page2RoadName" &&
+                id !== "roadLabelAfter" &&
+                id !== "page2RoadLabelAfter",
+            ),
+          );
+
+          // 3. Construct Clean Location Sub-line (Sub-area/Neighborhood, City, Province, Postal Code)
+          const IGNORED_COUNTRY = /^(CA|Canada)$/i;
+          const subArea = ((orderData.property as any).sub_area || "").trim();
+          const neighborhood = subArea;
+          const city = (orderData.property.city || "").trim();
+          const province = (orderData.property.province || "").trim();
+          const postalCode = (orderData.property.postal_code || "").trim();
+          const country = ((orderData.property as any).country || "").trim();
+
+          const locationParts: string[] = [];
+          if (neighborhood) locationParts.push(neighborhood);
+          if (city) locationParts.push(city);
+
+          let provincePostal = "";
+          const provinceClean = IGNORED_COUNTRY.test(province) ? "" : province;
+          if (provinceClean && postalCode)
+            provincePostal = `${provinceClean} ${postalCode}`;
+          else if (provinceClean) provincePostal = provinceClean;
+          else if (postalCode) provincePostal = postalCode;
+
+          if (provincePostal) locationParts.push(provincePostal);
+          if (country && !IGNORED_COUNTRY.test(country))
+            locationParts.push(country);
+          if (locationParts.length > 0) setCityLine(locationParts.join(", "));
         }
         if (orderData.agent) {
           const agent = orderData.agent;
@@ -610,16 +911,33 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         if (formData.amount) setAmount(formData.amount);
         if (formData.number) setNumber(formData.number);
         if (formData.addressCode) setAddressCode(formData.addressCode);
-        if (formData.roadName) setRoadName(formData.roadName);
+        if (formData.roadName && formData.roadName !== "0")
+          setRoadName(formData.roadName);
         if (formData.cityLine) setCityLine(formData.cityLine);
         if (formData.bedroom) setBedroom(formData.bedroom);
         if (formData.bathroom) setBathroom(formData.bathroom);
         if (formData.sqft) setSqft(formData.sqft);
         if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if ((formData as any).roadLabelBefore !== undefined) setRoadLabelBefore((formData as any).roadLabelBefore);
-        if ((formData as any).roadLabelAfter !== undefined) setRoadLabelAfter((formData as any).roadLabelAfter);
-        if ((formData as any).page2RoadLabelBefore !== undefined) setPage2RoadLabelBefore((formData as any).page2RoadLabelBefore);
-        if ((formData as any).page2RoadLabelAfter !== undefined) setPage2RoadLabelAfter((formData as any).page2RoadLabelAfter);
+        if (
+          (formData as any).roadLabelBefore &&
+          String((formData as any).roadLabelBefore).toLowerCase() !== "number"
+        )
+          setRoadLabelBefore((formData as any).roadLabelBefore);
+        if (
+          (formData as any).roadLabelAfter &&
+          String((formData as any).roadLabelAfter).toLowerCase() !== "road"
+        )
+          setRoadLabelAfter((formData as any).roadLabelAfter);
+        if (
+          (formData as any).page2RoadLabelBefore &&
+          String((formData as any).page2RoadLabelBefore).toLowerCase() !== "number"
+        )
+          setPage2RoadLabelBefore((formData as any).page2RoadLabelBefore);
+        if (
+          (formData as any).page2RoadLabelAfter &&
+          String((formData as any).page2RoadLabelAfter).toLowerCase() !== "road"
+        )
+          setPage2RoadLabelAfter((formData as any).page2RoadLabelAfter);
         if ((formData as any).bedroomLabel !== undefined) setBedroomLabel((formData as any).bedroomLabel);
         if ((formData as any).bathroomLabel !== undefined) setBathroomLabel((formData as any).bathroomLabel);
         if ((formData as any).sqftLabel !== undefined) setSqftLabel((formData as any).sqftLabel);
@@ -651,9 +969,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             ...prev,
             ...(formData.imagePositions as typeof position),
           }));
+        if ((formData as any).imageSettings)
+          setImageSettings((prev) => ({
+            ...prev,
+            ...((formData as any).imageSettings as Record<string, ImageSettingOptions>),
+          }));
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [orderData]);
 
     useEffect(() => {
       updateFormData({
@@ -714,6 +1037,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         },
         fieldPositions,
         fieldStyles,
+        imageSettings,
       });
     }, [
       byLawRestrictions,
@@ -771,6 +1095,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
       image8Rotation,
       fieldPositions,
       fieldStyles,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -824,35 +1149,8 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
 
     const handleMouseMove = (key: keyof typeof images, e: React.MouseEvent) => {
       if (!dragging[key]) return;
-      let dx = (e.clientX - lastPosition.current[key].x) / 0.85;
-      let dy = (e.clientY - lastPosition.current[key].y) / 0.85;
-
-      const rotations: Record<string, number> = {
-        image1: image1Rotation,
-        image2: image2Rotation,
-        image3: image3Rotation,
-        image4: image4Rotation,
-        image5: image5Rotation,
-        image6: image6Rotation,
-        image7: image7Rotation,
-        image8: image8Rotation,
-      };
-      const currentRot = rotations[key] || 0;
-      if (currentRot % 360 !== 0) {
-        const angle = ((currentRot % 360) + 360) % 360;
-        if (angle === 90) {
-          const temp = dx;
-          dx = dy;
-          dy = -temp;
-        } else if (angle === 180) {
-          dx = -dx;
-          dy = -dy;
-        } else if (angle === 270) {
-          const temp = dx;
-          dx = -dy;
-          dy = temp;
-        }
-      }
+      const dx = (e.clientX - lastPosition.current[key].x) / 0.85;
+      const dy = (e.clientY - lastPosition.current[key].y) / 0.85;
 
       setPosition((prev) => ({
         ...prev,
@@ -1009,7 +1307,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         </div>
 
         <div
-          className="pdf-page relative overflow-hidden flex flex-col bg-white"
+          className="pdf-page relative overflow-hidden flex flex-col bg-white shadow-xl"
           style={{
             width: showBleed ? "8.75in" : "8.5in",
             height: showBleed ? "11.25in" : "11in",
@@ -1017,14 +1315,17 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           }}
         >
         
-        {/* Bleed guide border (red dashed) */}
+        {/* Bleed guide border (red dashed) — 0.125" inset from outer bleed edge */}
         {showGuide && showBleed && (
           <div
             data-html2canvas-ignore="true"
-            className="absolute inset-0 border-2 border-dashed border-red-500 pointer-events-none select-none z-40"
+            className="absolute border-2 border-dashed border-red-500 pointer-events-none select-none z-40"
+            style={{
+              inset: "0.125in",
+            }}
           >
-            <span className="absolute top-0 left-0 bg-red-600 text-white font-bold text-[8.5px] tracking-wider uppercase px-2 py-0.5 shadow-sm z-50">
-              BLEED BORDER (0.125&quot; / 3MM)
+            <span className="absolute bottom-full left-0 -mb-[1px] bg-red-600 text-white font-bold text-[8.5px] leading-none tracking-wider uppercase px-2 py-[1px] rounded-t-[4px] shadow-sm z-50">
+              Bleed Border (0.125&quot; / 3mm)
             </span>
           </div>
         )}
@@ -1043,13 +1344,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           </div>
         )}
 
-          <div className="relative w-full flex flex-col">
+          <div className="relative w-full h-full flex flex-col">
             <svg
-              viewBox="0 0 631.26 828.16"
+              viewBox="0 0 630 828.16"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               xmlnsXlink="http://www.w3.org/1999/xlink"
-              className="w-full h-full"
+              preserveAspectRatio="none"
+              className="w-[calc(100%+2px)] h-[calc(100%+2px)] -m-[1px] block"
             >
               <g clipPath="url(#clip0_0_1)">
                 <path
@@ -1069,7 +1371,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 height={390}
               >
                 <path
-                  d="M0 0L0.796 141.262C589.63 61.577 630 389.2 630 389.2V0H0Z"
+                  d="M0 0L0 141.262C589.63 61.577 630 389.2 630 389.2V0H0Z"
                   fill="white"
                 />
               </mask>
@@ -1092,7 +1394,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 height={338}
               >
                 <path
-                  d="M0 828.16H630V742.76C41.165 822.446 0.796 491.856 0.796 491.856L0 828.16Z"
+                  d="M0 828.16H630V742.76C41.165 822.446 0 491.856 0 491.856L0 828.16Z"
                   fill="white"
                 />
               </mask>
@@ -1151,214 +1453,277 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 />
               </defs>
             </svg>
-            <div data-safezone-container="true" className="absolute bottom-0 left-0 w-[63%] max-w-[510px] flex flex-col z-10 px-[40px] pb-[40px] group/sec">
-              <button
-                type="button"
-                data-html2canvas-ignore="true"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSectionLock("contact");
-                }}
-                className={`absolute top-2 right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+            <div
+              className="absolute left-0 flex flex-col z-10 px-[56px] pointer-events-none"
+              style={{
+                bottom: showBleed ? "calc(0.375in + 42px)" : "calc(0.25in + 42px)",
+              }}
+            >
+              <div
+                data-safezone-container="true"
+                className={`flex flex-col gap-[1px] w-fit relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec pointer-events-none ${
                   lockedSections.contact
-                    ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
-                    : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                    ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                    : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
                 }`}
-                title={lockedSections.contact ? "Unlock Contact Section" : "Lock Contact Section"}
               >
-                {lockedSections.contact ? (
-                  <>
-                    <Lock className="w-3 h-3" />
-                    <span>Locked</span>
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-3 h-3" />
-                    <span>Lock</span>
-                  </>
+                <button
+                  type="button"
+                  data-html2canvas-ignore="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSectionLock("contact");
+                  }}
+                  className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 pointer-events-auto ${
+                    lockedSections.contact
+                      ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                      : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                  }`}
+                  title={lockedSections.contact ? "Unlock Contact Section" : "Lock Contact Section"}
+                >
+                  {lockedSections.contact ? (
+                    <>
+                      <Lock className="w-3 h-3" />
+                      <span>Locked</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3 h-3" />
+                      <span>Lock</span>
+                    </>
+                  )}
+                </button>
+                {!isFieldDeleted("contactHeaderLabel") && (
+                  <DraggableBox
+                    id="contactHeaderLabel"
+                    position={fieldPositions.contactHeaderLabel}
+                    onPositionChange={updateFieldPosition}
+                    label="Contact Label"
+                    zoom={0.85}
+                    containerClassName="w-fit mb-1 pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactHeaderLabel", "Contact Label", contactLabel, "Contact", fieldStyles.contactLabel)}
+                    deleteTitle="Remove Contact Label"
+                  >
+                    <StyledInput
+                      fieldId="contactLabel"
+                      value={contactLabel}
+                      onChange={(e) => setContactLabel(e.target.value)}
+                      inputStyle={fieldStyles["contactLabel"]}
+                      onChangeStyle={(s) => updateFieldStyle("contactLabel", s)}
+                      className="text-[15px] font-light leading-tight text-[#ffff] bg-transparent focus:outline-none border-none placeholder-white w-auto shrink-0"
+                      placeholder="CONTACT:"
+                      wrapperClassName="w-auto shrink-0"
+                    />
+                  </DraggableBox>
                 )}
-              </button>
-              {!isFieldDeleted("contactHeaderLabel") && (
-                <DraggableBox
-                  id="contactHeaderLabel"
-                  position={fieldPositions.contactHeaderLabel}
-                  onPositionChange={updateFieldPosition}
-                  label="Contact Label"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactHeaderLabel", "Contact Label", contactLabel, "Contact", fieldStyles.contactLabel)}
-                  deleteTitle="Remove Contact Label"
-                >
-                  <StyledInput
-                    fieldId="contactLabel"
-                    value={contactLabel}
-                    onChange={(e) => setContactLabel(e.target.value)}
-                    inputStyle={fieldStyles["contactLabel"]}
-                    onChangeStyle={(s) => updateFieldStyle("contactLabel", s)}
-                    className="text-[14px] font-[300] text-[#ffff] bg-transparent focus:outline-none border-none placeholder-white w-auto shrink-0"
-                    placeholder="CONTACT:"
-                    wrapperClassName="w-auto shrink-0"
-                  />
-                </DraggableBox>
-              )}
-              {!isFieldDeleted("contactName") && (
-                <DraggableBox
-                  id="contactName"
-                  position={fieldPositions.contactName}
-                  onPositionChange={updateFieldPosition}
-                  label="Agent Name"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactName", "Agent Name", fullName, "Contact", fieldStyles.fullName)}
-                  deleteTitle="Remove Agent Name"
-                >
-                  <StyledInput
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    inputStyle={fieldStyles["fullName"]}
-                    onChangeStyle={(s) => updateFieldStyle("fullName", s)}
-                    className=" text-[16px] w-[170px] font-normal text-[#fff] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                    placeholder="FIRSTNAME LASTNAME"
-                  />
-                </DraggableBox>
-              )}
-              {!isFieldDeleted("contactBrokerage") && (
-                <DraggableBox
-                  id="contactBrokerage"
-                  position={fieldPositions.contactBrokerage}
-                  onPositionChange={updateFieldPosition}
-                  label="Brokerage"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactBrokerage", "Brokerage", propertyName, "Contact", fieldStyles.propertyName)}
-                  deleteTitle="Remove Brokerage"
-                >
-                  <StyledInput
-                    value={propertyName}
-                    onChange={(e) => setPropertyName(e.target.value)}
-                    inputStyle={fieldStyles["propertyName"]}
-                    onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
-                    className=" text-[16px] font-normal h-[22px] font- bg-transparent text-left text-white w-[170px] focus:outline-none border-none placeholder-white placeholder:font-[200]"
-                    placeholder="MACDONALD  Realty"
-                  />
-                </DraggableBox>
-              )}
-              {!isFieldDeleted("contactPhone") && (
-                <DraggableBox
-                  id="contactPhone"
-                  position={fieldPositions.contactPhone}
-                  onPositionChange={updateFieldPosition}
-                  label="Phone"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactPhone", "Phone", number, "Contact", fieldStyles.number)}
-                  deleteTitle="Remove Phone"
-                >
-                  <div className="flex gap-2 font-normal text-[16px] text-white items-center">
+                {!isFieldDeleted("contactName") && (
+                  <DraggableBox
+                    id="contactName"
+                    position={fieldPositions.contactName}
+                    onPositionChange={updateFieldPosition}
+                    label="Agent Name"
+                    zoom={0.85}
+                    containerClassName="w-fit pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactName", "Agent Name", fullName, "Contact", fieldStyles.fullName)}
+                    deleteTitle="Remove Agent Name"
+                  >
                     <StyledInput
-                      fieldId="phoneLabel"
-                      value={phoneLabel}
-                      onChange={(e) => setPhoneLabel(e.target.value)}
-                      inputStyle={fieldStyles["phoneLabel"]}
-                      onChangeStyle={(s) => updateFieldStyle("phoneLabel", s)}
-                      className="font-normal text-[16px] text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
-                      placeholder="Phone:"
-                      wrapperClassName="w-auto shrink-0"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      inputStyle={fieldStyles["fullName"]}
+                      onChangeStyle={(s) => updateFieldStyle("fullName", s)}
+                      className="text-[15px] w-[200px] font-bold leading-tight text-[#fff] h-[20px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[700]"
+                      placeholder="FIRSTNAME LASTNAME"
                     />
+                  </DraggableBox>
+                )}
+                {!isFieldDeleted("contactBrokerage") && (
+                  <DraggableBox
+                    id="contactBrokerage"
+                    position={fieldPositions.contactBrokerage}
+                    onPositionChange={updateFieldPosition}
+                    label="Brokerage"
+                    zoom={0.85}
+                    containerClassName="w-fit pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactBrokerage", "Brokerage", propertyName, "Contact", fieldStyles.propertyName)}
+                    deleteTitle="Remove Brokerage"
+                  >
                     <StyledInput
-                      value={number}
-                      onChange={(e) => setNumber(e.target.value)}
-                      inputStyle={fieldStyles["number"]}
-                      onChangeStyle={(s) => updateFieldStyle("number", s)}
-                      className="font-normal w-[180px] text-[16px] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                      placeholder="604.000.0000"
+                      value={propertyName}
+                      onChange={(e) => setPropertyName(e.target.value)}
+                      inputStyle={fieldStyles["propertyName"]}
+                      onChangeStyle={(s) => updateFieldStyle("propertyName", s)}
+                      className="text-[14px] font-light leading-tight h-[19px] bg-transparent text-left text-white w-[210px] focus:outline-none border-none placeholder-white placeholder:font-[300]"
+                      placeholder="MACDONALD REALTY"
                     />
-                  </div>
-                </DraggableBox>
-              )}
-              {!isFieldDeleted("contactEmail") && (
-                <DraggableBox
-                  id="contactEmail"
-                  position={fieldPositions.contactEmail}
-                  onPositionChange={updateFieldPosition}
-                  label="Email"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactEmail", "Email", email, "Contact", fieldStyles.email)}
-                  deleteTitle="Remove Email"
+                  </DraggableBox>
+                )}
+                {!isFieldDeleted("contactPhone") && (
+                  <DraggableBox
+                    id="contactPhone"
+                    position={fieldPositions.contactPhone}
+                    onPositionChange={updateFieldPosition}
+                    label="Phone"
+                    zoom={0.85}
+                    containerClassName="w-fit pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactPhone", "Phone", number, "Contact", fieldStyles.number)}
+                    deleteTitle="Remove Phone"
+                  >
+                    <div className="flex gap-1.5 font-normal text-[14px] leading-tight text-white items-center">
+                      <StyledInput
+                        fieldId="phoneLabel"
+                        value={phoneLabel}
+                        onChange={(e) => setPhoneLabel(e.target.value)}
+                        inputStyle={fieldStyles["phoneLabel"]}
+                        onChangeStyle={(s) => updateFieldStyle("phoneLabel", s)}
+                        className="font-bold text-[14px] leading-tight text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
+                        placeholder="PHONE:"
+                        wrapperClassName="w-auto shrink-0"
+                      />
+                      <StyledInput
+                        value={number}
+                        onChange={(e) => setNumber(e.target.value)}
+                        inputStyle={fieldStyles["number"]}
+                        onChangeStyle={(s) => updateFieldStyle("number", s)}
+                        className="font-light w-[180px] text-[14px] leading-tight h-[19px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[300]"
+                        placeholder="604.000.0000"
+                      />
+                    </div>
+                  </DraggableBox>
+                )}
+                {!isFieldDeleted("contactEmail") && (
+                  <DraggableBox
+                    id="contactEmail"
+                    position={fieldPositions.contactEmail}
+                    onPositionChange={updateFieldPosition}
+                    label="Email"
+                    zoom={0.85}
+                    containerClassName="w-fit pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactEmail", "Email", email, "Contact", fieldStyles.email)}
+                    deleteTitle="Remove Email"
+                  >
+                    <div className="flex gap-1.5 font-normal text-[14px] leading-tight text-white items-center">
+                      <StyledInput
+                        fieldId="emailLabel"
+                        value={emailLabel}
+                        onChange={(e) => setEmailLabel(e.target.value)}
+                        inputStyle={fieldStyles["emailLabel"]}
+                        onChangeStyle={(s) => updateFieldStyle("emailLabel", s)}
+                        className="font-bold text-[14px] leading-tight text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
+                        placeholder="EMAIL:"
+                        wrapperClassName="w-auto shrink-0"
+                      />
+                      <StyledInput
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        inputStyle={fieldStyles["email"]}
+                        onChangeStyle={(s) => updateFieldStyle("email", s)}
+                        className="font-light w-[220px] text-[14px] leading-tight h-[19px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[300]"
+                        placeholder="Enter email here"
+                      />
+                    </div>
+                  </DraggableBox>
+                )}
+                {!isFieldDeleted("contactMls") && (
+                  <DraggableBox
+                    id="contactMls"
+                    position={fieldPositions.contactMls}
+                    onPositionChange={updateFieldPosition}
+                    label="MLS Number"
+                    zoom={0.85}
+                    containerClassName="w-fit pointer-events-auto"
+                    disabled={lockedSections.contact}
+                    onDelete={() => removeStandardField("contactMls", "MLS Number", addressCode, "Contact", fieldStyles.addressCode)}
+                    deleteTitle="Remove MLS Number"
+                  >
+                    <div className="flex gap-1.5 font-bold text-nowrap text-[14px] leading-tight text-white items-center">
+                      <StyledInput
+                        fieldId="mlsLabel"
+                        value={mlsLabel}
+                        onChange={(e) => setMlsLabel(e.target.value)}
+                        inputStyle={fieldStyles["mlsLabel"]}
+                        onChangeStyle={(s) => updateFieldStyle("mlsLabel", s)}
+                        className="font-bold text-[14px] leading-tight text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
+                        placeholder="MLS #"
+                        wrapperClassName="w-auto shrink-0"
+                      />
+                      <StyledInput
+                        value={addressCode}
+                        onChange={(e) => setAddressCode(e.target.value)}
+                        inputStyle={fieldStyles["addressCode"]}
+                        onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
+                        className="font-bold w-[200px] text-[14px] leading-tight h-[19px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[700]"
+                        placeholder="V981073"
+                      />
+                    </div>
+                  </DraggableBox>
+                )}
+              </div>
+            </div>
+            <div
+              className="absolute z-20 pointer-events-none"
+              style={{
+                left: showBleed ? "0.375in" : "0.25in",
+                right: showBleed ? "0.375in" : "0.25in",
+                bottom: showBleed ? "calc(0.375in + 4px)" : "calc(0.25in + 4px)",
+              }}
+            >
+              <div
+                data-safezone-container="true"
+                className={`relative flex gap-2 items-end text-[#ffffff] w-full border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec pointer-events-none ${
+                  lockedSections.disclaimer
+                    ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                    : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                }`}
+              >
+                <button
+                  type="button"
+                  data-html2canvas-ignore="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSectionLock("disclaimer");
+                  }}
+                  className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 pointer-events-auto ${
+                    lockedSections.disclaimer
+                      ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                      : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                  }`}
+                  title={lockedSections.disclaimer ? "Unlock Disclaimer Section" : "Lock Disclaimer Section"}
                 >
-                  <div className="flex gap-2 font-normal text-[16px] text-white items-center">
-                    <StyledInput
-                      fieldId="emailLabel"
-                      value={emailLabel}
-                      onChange={(e) => setEmailLabel(e.target.value)}
-                      inputStyle={fieldStyles["emailLabel"]}
-                      onChangeStyle={(s) => updateFieldStyle("emailLabel", s)}
-                      className="font-normal text-[16px] text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
-                      placeholder="Email:"
-                      wrapperClassName="w-auto shrink-0"
-                    />
-                    <StyledInput
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      inputStyle={fieldStyles["email"]}
-                      onChangeStyle={(s) => updateFieldStyle("email", s)}
-                      className="font-normal w-[250px] text-[16px] h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[200]"
-                      placeholder="Enter email here"
-                    />
-                  </div>
-                </DraggableBox>
-              )}
-              {!isFieldDeleted("contactMls") && (
-                <DraggableBox
-                  id="contactMls"
-                  position={fieldPositions.contactMls}
-                  onPositionChange={updateFieldPosition}
-                  label="MLS Number"
-                  zoom={0.85}
-                  disabled={lockedSections.contact}
-                  onDelete={() => removeStandardField("contactMls", "MLS Number", addressCode, "Contact", fieldStyles.addressCode)}
-                  deleteTitle="Remove MLS Number"
-                >
-                  <div className="flex gap-2 font-normal text-nowrap text-[16px] text-white items-center">
-                    <StyledInput
-                      fieldId="mlsLabel"
-                      value={mlsLabel}
-                      onChange={(e) => setMlsLabel(e.target.value)}
-                      inputStyle={fieldStyles["mlsLabel"]}
-                      onChangeStyle={(s) => updateFieldStyle("mlsLabel", s)}
-                      className="font-normal text-[16px] text-white bg-transparent w-auto shrink-0 focus:outline-none border-none placeholder-white"
-                      placeholder="MLS #"
-                      wrapperClassName="w-auto shrink-0"
-                    />
-                    <StyledInput
-                      value={addressCode}
-                      onChange={(e) => setAddressCode(e.target.value)}
-                      inputStyle={fieldStyles["addressCode"]}
-                      onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                      className="font-thin w-[200px] text-[16px]  h-[22px] bg-transparent text-left focus:outline-none border-none placeholder-white placeholder:font-[500]"
-                      placeholder="V981073"
-                    />
-                  </div>
-                </DraggableBox>
-              )}
-              <div className="relative flex gap-2 items-end py-2 z-2 text-[#ffffff] w-full">
+                  {lockedSections.disclaimer ? (
+                    <>
+                      <Lock className="w-3 h-3" />
+                      <span>Locked</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3 h-3" />
+                      <span>Lock</span>
+                    </>
+                  )}
+                </button>
                 {!isFieldDeleted("contactDisclaimer") && (
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <DraggableBox
                       id="contactDisclaimer"
                       position={fieldPositions.contactDisclaimer}
                       onPositionChange={updateFieldPosition}
                       label="Disclaimer"
                       zoom={0.85}
-                      disabled={lockedSections.contact}
-                      onDelete={() => removeStandardField("contactDisclaimer", "Disclaimer", disclaimerText, "Contact", fieldStyles.disclaimerText)}
+                      containerClassName="w-full pointer-events-auto"
+                      disabled={lockedSections.disclaimer}
+                      onDelete={() => removeStandardField("contactDisclaimer", "Disclaimer", disclaimerText, "Disclaimer", fieldStyles.disclaimerText)}
                       deleteTitle="Remove Disclaimer"
                     >
                       <StyledInput
                         fieldId="disclaimerText"
                         value={disclaimerText}
-                        rows={3}
+                        rows={2}
                         onChange={(e) => setDisclaimerText(e.target.value)}
                         inputStyle={fieldStyles["disclaimerText"]}
                         onChangeStyle={(s) => updateFieldStyle("disclaimerText", s)}
@@ -1369,15 +1734,15 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   </div>
                 )}
                 {!isFieldDeleted("footerIcons") && (
-                  <div className="shrink-0">
+                  <div className="shrink-0 pointer-events-auto">
                     <DraggableBox
                       id="footerIcons"
                       position={fieldPositions.footerIcons}
                       onPositionChange={updateFieldPosition}
                       label="Footer Icons"
                       zoom={0.85}
-                      disabled={lockedSections.contact}
-                      onDelete={() => removeStandardField("footerIcons", "Footer Icons", "Icons", "Contact")}
+                      disabled={lockedSections.disclaimer}
+                      onDelete={() => removeStandardField("footerIcons", "Footer Icons", "Icons", "Disclaimer")}
                       deleteTitle="Remove Footer Icons"
                     >
                       <span className="flex flex-col">
@@ -1434,9 +1799,27 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
             </div>
             <div className=""> </div>
           </div>
-          <div data-safezone-container="true" className="flex flex-col absolute top-0 py-[40px] px-[40px] w-full gap-4">
-            <div className="flex items-center justify-between">
-              <div className="relative group/sec">
+          <div data-safezone-container="true" className="flex flex-col absolute inset-0 py-[38px] px-[56px] w-full h-full gap-2.5">
+            <div className="flex items-center gap-4">
+              <div className="w-[65%] flex justify-end overflow-visible">
+                <div
+                  data-safezone-container="true"
+                  className={`min-w-full w-fit shrink-0 relative border-[3.5px] border-solid border-transparent rounded-lg px-3 py-1.5 transition-all duration-150 group/sec ${
+                    lockedSections.address
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-0 bottom-0 right-0"
+                  style={{
+                    left: showBleed ? "calc(0.125in - 56px)" : "-56px",
+                    backgroundImage:
+                      "linear-gradient(90deg, rgba(0, 72, 118, 0) 0%, rgba(0, 62, 104, 0.22) 32%, rgba(8, 52, 88, 0.38) 72%, rgba(16, 48, 78, 0.46) 100%)",
+                    backgroundRepeat: "no-repeat",
+                  }}
+                />
                 <button
                   type="button"
                   data-html2canvas-ignore="true"
@@ -1444,7 +1827,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     e.stopPropagation();
                     toggleSectionLock("address");
                   }}
-                  className={`absolute -top-3 -right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                  className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
                     lockedSections.address
                       ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
                       : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
@@ -1463,60 +1846,28 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     </>
                   )}
                 </button>
-                <div className="flex flex-col items-center">
-                  <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-2">
-                    {!isFieldDeleted("addressHash") && (
-                      <DraggableBox
-                        id="addressHash"
-                        position={fieldPositions.addressHash}
-                        onPositionChange={updateFieldPosition}
-                        label="Unit # Symbol"
-                        zoom={0.85}
-                        disabled={lockedSections.address}
-                        containerClassName="w-auto inline-flex items-center shrink-0"
-                        className="w-auto inline-flex items-center shrink-0"
-                        onDelete={() =>
-                          removeStandardField(
-                            "addressHash",
-                            "Unit # Symbol",
-                            "#",
-                            "Address",
-                          )
-                        }
-                        deleteTitle="Remove Unit # Symbol"
-                      >
-                        <StyledInput
-                            fieldId="addressHash"
-                            fieldLabel="Unit # Symbol"
-                            value={addressHash}
-                            onChange={(e) => setAddressHash(e.target.value)}
-                            inputStyle={fieldStyles["addressHash"] || fieldStyles.addressHash}
-                            onChangeStyle={(s) => updateFieldStyle("addressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-bold text-[28px] text-[#ffffff] leading-none mr-0.5"
-                            placeholder="#"
-                            disabled={lockedSections.address}
-                            onDelete={() =>
-                              removeStandardField(
-                                "addressHash",
-                                "Unit # Symbol",
-                                "#",
-                                "Address",
-                              )
-                            }
-                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
-                          />
-                      </DraggableBox>
-                    )}
+                <div className="relative z-10 flex flex-col items-end w-full">
+                  <div className="w-full text-[24px] font-bold font-alexandria leading-none mt-0 text-white flex justify-end items-center gap-2 whitespace-nowrap">
                     {!isFieldDeleted("addressCode") && (
                       <DraggableBox
                         id="addressCode"
                         position={fieldPositions.addressCode}
                         onPositionChange={updateFieldPosition}
-                        label="Address Code"
+                        label="MLS / Code"
                         zoom={0.85}
                         disabled={lockedSections.address}
-                        onDelete={() => removeStandardField("addressCode", "Address Code", addressCode, "Address", fieldStyles.addressCode)}
-                        deleteTitle="Remove Address Code"
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "addressCode",
+                            "MLS / Code",
+                            addressCode,
+                            "Address",
+                            fieldStyles.addressCode,
+                          )
+                        }
+                        deleteTitle="Remove MLS / Code"
                       >
                         <StyledInput
                           value={addressCode}
@@ -1525,65 +1876,111 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("addressCode", s)
                           }
-                          className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="font-alexandria font-bold text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-bold whitespace-nowrap"
                           placeholder="0000-0000"
+                          wrapperClassName="w-auto shrink-0"
                         />
                       </DraggableBox>
                     )}
-                    <div className="text-white flex items-center uppercase gap-1.5">
-                      {!isFieldDeleted("roadLabelBefore") && (
+                    {!isFieldDeleted("roadName") && (
+                      <DraggableBox
+                        id="roadName"
+                        position={fieldPositions.roadName}
+                        onPositionChange={updateFieldPosition}
+                        label="Suite #"
+                        zoom={0.85}
+                        disabled={lockedSections.address}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "roadName",
+                            "Suite #",
+                            roadName,
+                            "Address",
+                            fieldStyles.roadName,
+                          )
+                        }
+                        deleteTitle="Remove Suite #"
+                      >
                         <StyledInput
-                          fieldId="roadLabelBefore"
-                          fieldLabel="Road Label Before"
+                          value={roadName}
+                          onChange={(e) => setRoadName(e.target.value)}
+                          inputStyle={fieldStyles["roadName"]}
+                          onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                          className="font-alexandria font-bold text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-center w-auto min-w-[1ch] focus:outline-none border-none placeholder-gray-300 placeholder:font-bold whitespace-nowrap"
+                          placeholder="0"
+                          wrapperClassName="w-auto shrink-0"
+                        />
+                      </DraggableBox>
+                    )}
+                    {!isFieldDeleted("roadLabelBefore") && (
+                      <DraggableBox
+                        id="roadLabelBefore"
+                        position={fieldPositions.roadLabelBefore}
+                        onPositionChange={updateFieldPosition}
+                        label="Street Number"
+                        zoom={0.85}
+                        disabled={lockedSections.address}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "roadLabelBefore",
+                            "Street Number",
+                            roadLabelBefore,
+                            "Address",
+                            fieldStyles.roadLabelBefore,
+                          )
+                        }
+                        deleteTitle="Remove Street Number"
+                      >
+                        <StyledInput
                           value={roadLabelBefore}
                           onChange={(e) => setRoadLabelBefore(e.target.value)}
                           inputStyle={fieldStyles["roadLabelBefore"]}
                           onChangeStyle={(s) => updateFieldStyle("roadLabelBefore", s)}
-                          className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto min-w-[70px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="font-alexandria font-bold text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-left w-auto focus:outline-none border-none placeholder-gray-300 placeholder:font-bold whitespace-nowrap"
                           placeholder="NUMBER"
                           wrapperClassName="w-auto shrink-0"
-                          disabled={lockedSections.address}
                         />
-                      )}
-                      {!isFieldDeleted("roadName") && (
-                        <DraggableBox
-                          id="roadName"
-                          position={fieldPositions.roadName}
-                          onPositionChange={updateFieldPosition}
-                          label="Road Name"
-                          zoom={0.85}
-                          disabled={lockedSections.address}
-                          onDelete={() => removeStandardField("roadName", "Road Name", roadName, "Address", fieldStyles.roadName)}
-                          deleteTitle="Remove Road Name"
-                        >
-                          <StyledInput
-                            value={roadName}
-                            onChange={(e) => setRoadName(e.target.value)}
-                            inputStyle={fieldStyles["roadName"]}
-                            onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-auto min-w-[30px] px-1 focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                            placeholder="0"
-                          />
-                        </DraggableBox>
-                      )}
-                      {!isFieldDeleted("roadLabelAfter") && (
+                      </DraggableBox>
+                    )}
+                    {!isFieldDeleted("roadLabelAfter") && (
+                      <DraggableBox
+                        id="roadLabelAfter"
+                        position={fieldPositions.roadLabelAfter}
+                        onPositionChange={updateFieldPosition}
+                        label="Street Name"
+                        zoom={0.85}
+                        disabled={lockedSections.address}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "roadLabelAfter",
+                            "Street Name",
+                            roadLabelAfter,
+                            "Address",
+                            fieldStyles.roadLabelAfter,
+                          )
+                        }
+                        deleteTitle="Remove Street Name"
+                      >
                         <StyledInput
-                          fieldId="roadLabelAfter"
-                          fieldLabel="Road Label After"
                           value={roadLabelAfter}
                           onChange={(e) => setRoadLabelAfter(e.target.value)}
                           inputStyle={fieldStyles["roadLabelAfter"]}
                           onChangeStyle={(s) => updateFieldStyle("roadLabelAfter", s)}
-                          className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto min-w-[50px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="font-alexandria font-bold text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-left w-auto focus:outline-none border-none placeholder-gray-300 placeholder:font-bold whitespace-nowrap"
                           placeholder="ROAD"
                           wrapperClassName="w-auto shrink-0"
-                          disabled={lockedSections.address}
                         />
-                      )}
-                    </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="relative z-10 flex justify-between items-center">
                   <div className="w-[290px] text-white text-[10px] justify-self-center">
                     {!isFieldDeleted("cityLine") && (
                       <DraggableBox
@@ -1601,7 +1998,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           onChange={(e) => setCityLine(e.target.value)}
                           inputStyle={fieldStyles["cityLine"]}
                           onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                          className="text-white text-[20px] h-[20px] bg-transparent text-left w-[300px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="font-alexandria font-thin text-white text-[20px] h-[24px] leading-none bg-transparent text-left w-[300px] focus:outline-none border-none placeholder-gray-300 placeholder:font-thin"
                           placeholder="BRIGHOUSE SOUTH, RICHMOND"
                         />
                       </DraggableBox>
@@ -1624,17 +2021,30 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           onChange={(e) => setAmount(e.target.value)}
                           inputStyle={fieldStyles["amount"]}
                           onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                          className="font-light text-[16px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-right focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                          className="font-light text-[16px] h-[30px] w-[125px] leading-none mt-0 bg-transparent text-white text-right focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
                           placeholder="$000,000"
                         />
                       </DraggableBox>
                     )}
                   </div>
                 </div>
+                </div>
               </div>
-              <div className="w-[200px] h-[100px] shrink-0">
+              <div className="w-[35%] h-[100px]">
                 <div
-                  className={`my-0 w-[200px] h-[100px] relative overflow-hidden group ${images.image1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                  className={`my-0 w-full h-[100px] relative overflow-hidden group transition-all ${
+                    (imageSettings.image1?.showWhiteBg ?? true)
+                      ? "bg-white"
+                      : "bg-transparent"
+                  } ${
+                    (imageSettings.image1?.showBorder ?? true)
+                      ? "border-2 border-[#fff]"
+                      : "border-0"
+                  } ${
+                    (imageSettings.image1?.showShadow ?? true)
+                      ? "shadow-[4px_4px_6px_rgba(0,0,0,0.4)]"
+                      : ""
+                  } ${images.image1 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   onMouseEnter={() => setHoveredImageSlot("image1")}
                   onMouseLeave={() => setHoveredImageSlot(null)}
                 >
@@ -1656,7 +2066,73 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           rotation={image1Rotation}
                           objectFit="cover"
                           isProcessing={processingSlots.image1}
-/>
+                        />
+
+                        {/* Top-Left Border, Shadow, White Background Toggles */}
+                        <div
+                          data-html2canvas-ignore="true"
+                          className="absolute top-2 left-2 z-20 flex gap-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleImageSetting("image1", "showBorder");
+                            }}
+                            className={`p-1 rounded-full shadow text-xs transition-colors ${
+                              (imageSettings.image1?.showBorder ?? true)
+                                ? "bg-[#8B3DFF] text-white"
+                                : "bg-white text-gray-700 hover:bg-gray-100"
+                            }`}
+                            title={
+                              (imageSettings.image1?.showBorder ?? true)
+                                ? "Remove Border"
+                                : "Show Border"
+                            }
+                          >
+                            <Square className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleImageSetting("image1", "showShadow");
+                            }}
+                            className={`p-1 rounded-full shadow text-xs transition-colors ${
+                              (imageSettings.image1?.showShadow ?? true)
+                                ? "bg-[#8B3DFF] text-white"
+                                : "bg-white text-gray-700 hover:bg-gray-100"
+                            }`}
+                            title={
+                              (imageSettings.image1?.showShadow ?? true)
+                                ? "Hide Shadow"
+                                : "Show Shadow"
+                            }
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleImageSetting("image1", "showWhiteBg");
+                            }}
+                            className={`p-1 rounded-full shadow text-xs transition-colors ${
+                              (imageSettings.image1?.showWhiteBg ?? true)
+                                ? "bg-[#8B3DFF] text-white"
+                                : "bg-white text-gray-700 hover:bg-gray-100"
+                            }`}
+                            title={
+                              (imageSettings.image1?.showWhiteBg ?? true)
+                                ? "Remove White Background"
+                                : "Show White Background"
+                            }
+                          >
+                            <Sun className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
                         {/* Zoom Controls */}
                         <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
@@ -1676,41 +2152,43 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage1Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image1")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image1", fileInputRef1)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image1")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image1", fileInputRef1)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
                         // onClick={() => fileInputRef4.current?.click()}
                         onClick={() => openImageSourceModal("image1")}
-                        className="w-[200px] h-[100px] bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
+                        className="w-full h-full bg-gray-200  text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400"
                       >
                         Select Image
                       </div>
@@ -1727,10 +2205,10 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 </div>
               </div>
             </div>
-            <div className="flex gap-4 ">
-              <div className="w-[65%] flex flex-col gap-4">
+            <div className="flex gap-4 flex-1 min-h-0">
+              <div className="w-[65%] flex flex-col gap-1.5">
                 <div
-                  className={`h-[300px] w-full group relative overflow-hidden ${images.image2 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                  className={`h-[306px] w-full border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group relative overflow-hidden ${images.image2 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   onMouseEnter={() => setHoveredImageSlot("image2")}
                   onMouseDown={(e) => handleMouseDown("image2", e)}
                   onMouseMove={(e) => handleMouseMove("image2", e)}
@@ -1766,35 +2244,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         >
                           <ZoomOut className="w-4 h-4 text-gray-700" />
                         </button>
+                      </div>
+
+                      {/* Top-Right Rotate, Edit, Delete Controls */}
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                         <button
                           type="button"
                           onClick={() =>
                             setImage2Rotation((r) => (r + 90) % 360)
                           }
-                          className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                          className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                           title="Rotate"
                         >
                           <RotateCw className="w-4 h-4 text-gray-700" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openImageSourceModal("image2")}
+                          className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                          title="Edit image"
+                        >
+                          <Pencil className="w-4 h-4 text-gray-700" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete("image2", fileInputRef2)}
+                          className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                          title="Delete image"
+                        >
+                          <Trash className="w-4 h-4 text-red-500" />
+                        </button>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => openImageSourceModal("image2")}
-                        className="absolute top-[110px] right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Edit image"
-                      >
-                        <Pencil className="w-4 h-4 text-gray-700" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete("image2", fileInputRef2)}
-                        className="absolute top-[110px] right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                        title="Delete image"
-                      >
-                        <Trash className="w-4 h-4 text-red-500" />
-                      </button>
                     </>
                   ) : (
                     <div
@@ -1813,7 +2293,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     className="hidden"
                   />
                 </div>
-                <div className="mt-2 relative group/sec">
+                <div
+                  data-safezone-container="true"
+                  className={`relative border-[3.5px] border-solid border-transparent rounded-lg py-1 px-1 transition-all duration-150 group/sec ${
+                    lockedSections.specs
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
                   <button
                     type="button"
                     data-html2canvas-ignore="true"
@@ -1821,7 +2308,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       e.stopPropagation();
                       toggleSectionLock("specs");
                     }}
-                    className={`absolute -top-3 -right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                    className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
                       lockedSections.specs
                         ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
                         : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
@@ -1840,7 +2327,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       </>
                     )}
                   </button>
-                  <div className="font-bold text-[12px] text-[#2B648E] flex flex-wrap items-center gap-2">
+                  <div className="font-bold text-[12px] text-[#2B648E] flex flex-wrap items-center gap-1">
                     {!isFieldDeleted("specBedroom") && (
                       <DraggableBox
                         id="specBedroom"
@@ -1852,7 +2339,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onDelete={() => removeStandardField("specBedroom", "Bedroom", bedroom, "Specs", fieldStyles.bedroom)}
                         deleteTitle="Remove Bedroom"
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 px-1 py-0.5">
                           <StyledInput
                             fieldId="bedroom"
                             fieldLabel="Bedroom Count"
@@ -1860,7 +2347,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBedroom(e.target.value)}
                             inputStyle={fieldStyles["bedroom"]}
                             onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                            className="font-semibold text-[12px] bg-transparent text-left w-auto min-w-[14px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            className="font-semibold text-[12px] bg-transparent text-center w-auto min-w-[26px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                             placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1871,7 +2358,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBedroomLabel(e.target.value)}
                             inputStyle={fieldStyles["bedroomLabel"]}
                             onChangeStyle={(s) => updateFieldStyle("bedroomLabel", s)}
-                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[70px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
+                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[70px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
                             placeholder="BEDROOM •"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1889,7 +2376,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onDelete={() => removeStandardField("specBathroom", "Bathroom", bathroom, "Specs", fieldStyles.bathroom)}
                         deleteTitle="Remove Bathroom"
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 px-1 py-0.5">
                           <StyledInput
                             fieldId="bathroom"
                             fieldLabel="Bathroom Count"
@@ -1897,7 +2384,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBathroom(e.target.value)}
                             inputStyle={fieldStyles["bathroom"]}
                             onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                            className="font-semibold text-[12px] bg-transparent text-left w-auto min-w-[14px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            className="font-semibold text-[12px] bg-transparent text-center w-auto min-w-[26px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                             placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1908,7 +2395,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBathroomLabel(e.target.value)}
                             inputStyle={fieldStyles["bathroomLabel"]}
                             onChangeStyle={(s) => updateFieldStyle("bathroomLabel", s)}
-                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[80px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
+                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[78px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
                             placeholder="BATHROOM •"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1926,7 +2413,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onDelete={() => removeStandardField("specSqft", "Square Feet", sqft, "Specs", fieldStyles.sqft)}
                         deleteTitle="Remove Square Feet"
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 px-1 py-0.5">
                           <StyledInput
                             fieldId="sqft"
                             fieldLabel="Square Feet"
@@ -1934,7 +2421,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setSqft(e.target.value)}
                             inputStyle={fieldStyles["sqft"]}
                             onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                            className="font-semibold text-[12px] bg-transparent text-left h-[20px] w-auto min-w-[28px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            className="font-semibold text-[12px] bg-transparent text-center h-[24px] w-auto min-w-[38px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                             placeholder="000"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1945,7 +2432,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setSqftLabel(e.target.value)}
                             inputStyle={fieldStyles["sqftLabel"]}
                             onChangeStyle={(s) => updateFieldStyle("sqftLabel", s)}
-                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[55px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
+                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[52px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
                             placeholder="SQ FT •"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1963,7 +2450,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onDelete={() => removeStandardField("specBuiltYear", "Built Year", builtYear, "Specs", fieldStyles.builtYear)}
                         deleteTitle="Remove Built Year"
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 px-1 py-0.5">
                           <StyledInput
                             fieldId="builtYearLabel"
                             fieldLabel="Built Year Label"
@@ -1971,7 +2458,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBuiltYearLabel(e.target.value)}
                             inputStyle={fieldStyles["builtYearLabel"]}
                             onChangeStyle={(s) => updateFieldStyle("builtYearLabel", s)}
-                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[60px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
+                            className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto min-w-[56px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[700]"
                             placeholder="BUILT IN"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1982,7 +2469,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                             onChange={(e) => setBuiltYear(e.target.value)}
                             inputStyle={fieldStyles["builtYear"]}
                             onChangeStyle={(s) => updateFieldStyle("builtYear", s)}
-                            className="font-semibold text-[12px] bg-transparent text-left w-auto min-w-[32px] h-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
+                            className="font-semibold text-[12px] bg-transparent text-center w-auto min-w-[42px] h-[24px] cursor-text focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
                             placeholder="0000"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1991,7 +2478,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     )}
                   </div>
                 </div>
-                <div className="relative group/sec">
+                <div
+                  data-safezone-container="true"
+                  className={`min-h-[145px] relative border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                    lockedSections.description
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
                   <button
                     type="button"
                     data-html2canvas-ignore="true"
@@ -1999,7 +2493,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       e.stopPropagation();
                       toggleSectionLock("description");
                     }}
-                    className={`absolute -top-3 -right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                    className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
                       lockedSections.description
                         ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
                         : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
@@ -2031,11 +2525,11 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     >
                       <StyledInput
                         value={description}
-                        rows={7}
+                        rows={5}
                         onChange={(e) => setDescription(e.target.value)}
-                        inputStyle={fieldStyles["description"]}
+                        inputStyle={{ verticalAlign: "top", ...fieldStyles["description"] }}
                         onChangeStyle={(s) => updateFieldStyle("description", s)}
-                        className="w-full font-normal text-[12px] z-20 text-[#231F20] leading-[1.6] italic bg-transparent text-left focus:outline-none border-none placeholder-grey placeholder:font-[500]"
+                        className="w-full min-h-[135px] font-normal text-[12px] z-20 text-[#231F20] leading-[1.45] italic bg-transparent text-left focus:outline-none border-none placeholder-grey placeholder:font-[500]"
                         placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building.
                         This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally
                         unobstructed VIEWS overlooking Brighouse Park & to the South and South
@@ -2050,7 +2544,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     </DraggableBox>
                   )}
                 </div>
-                <div className="flex flex-col gap-2 mt-2 relative group/sec">
+                <div
+                  data-safezone-container="true"
+                  className={`flex flex-col gap-[5px] min-h-[310px] shrink-0 mt-1 relative border-[3.5px] border-solid border-transparent rounded-lg p-1 pb-1 transition-all duration-150 group/sec pointer-events-none ${
+                    lockedSections.details
+                      ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                      : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+                  }`}
+                >
                   <button
                     type="button"
                     data-html2canvas-ignore="true"
@@ -2058,7 +2559,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       e.stopPropagation();
                       toggleSectionLock("details");
                     }}
-                    className={`absolute -top-3 -right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                    className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 pointer-events-auto ${
                       lockedSections.details
                         ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
                         : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
@@ -2084,33 +2585,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="By-law Restrictions"
                       zoom={0.85}
+                      containerClassName="pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("byLawRestrictions", "By-law Restrictions", byLawRestrictions, "Details", fieldStyles.byLawRestrictions)}
                       deleteTitle="Remove By-law Restrictions"
                     >
-                      <div className="text-[#2B648E] text-[12px] flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="byLawLabel"
-                          value={byLawLabel}
-                          onChange={(e) => setByLawLabel(e.target.value)}
-                          inputStyle={fieldStyles["byLawLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("byLawLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="BY-LAW RESTRICTIONS:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={byLawRestrictions}
-                          rows={1}
-                          onChange={(e) => setByLawRestrictions(e.target.value)}
-                          inputStyle={fieldStyles["byLawRestrictions"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("byLawRestrictions", s)
-                          }
-                          className="font-semibold text-[12px] text-left bg-transparent text-[#2B648E] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Pets Allowed w/Rest., Rentals Allowed"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="byLawLabel"
+                        labelValue={byLawLabel}
+                        labelPlaceholder="BY-LAW RESTRICTIONS:"
+                        onLabelChange={(e) => setByLawLabel(e.target.value)}
+                        labelStyle={fieldStyles["byLawLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("byLawLabel", s)}
+                        value={byLawRestrictions}
+                        placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                        onValueChange={(e) => setByLawRestrictions(e.target.value)}
+                        valueStyle={fieldStyles["byLawRestrictions"]}
+                        onValueStyleChange={(s) => updateFieldStyle("byLawRestrictions", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2121,31 +2613,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="Maint. Fees"
                       zoom={0.85}
+                      containerClassName="ml-[8px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("maintFees", "Maintenance Fees", maintFees, "Details", fieldStyles.maintFees)}
                       deleteTitle="Remove Maintenance Fees"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-2 w-fit flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="maintFeesLabel"
-                          value={maintFeesLabel}
-                          onChange={(e) => setMaintFeesLabel(e.target.value)}
-                          inputStyle={fieldStyles["maintFeesLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("maintFeesLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="MAINT.FEES:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={maintFees}
-                          rows={1}
-                          onChange={(e) => setMaintFees(e.target.value)}
-                          inputStyle={fieldStyles["maintFees"]}
-                          onChangeStyle={(s) => updateFieldStyle("maintFees", s)}
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="$000.00"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="maintFeesLabel"
+                        labelValue={maintFeesLabel}
+                        labelPlaceholder="MAINT. FEES:"
+                        onLabelChange={(e) => setMaintFeesLabel(e.target.value)}
+                        labelStyle={fieldStyles["maintFeesLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("maintFeesLabel", s)}
+                        value={maintFees}
+                        placeholder="$000.00"
+                        onValueChange={(e) => setMaintFees(e.target.value)}
+                        valueStyle={fieldStyles["maintFees"]}
+                        onValueStyleChange={(s) => updateFieldStyle("maintFees", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2156,33 +2641,25 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="Maint. Fees Include"
                       zoom={0.85}
+                      containerClassName="ml-[24px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("maintFeesInclude", "Maint. Fees Include", maintFeesInclude, "Details", fieldStyles.maintFeesInclude)}
                       deleteTitle="Remove Maint. Fees Include"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-6 flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="maintFeesIncludeLabel"
-                          value={maintFeesIncludeLabel}
-                          onChange={(e) => setMaintFeesIncludeLabel(e.target.value)}
-                          inputStyle={fieldStyles["maintFeesIncludeLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("maintFeesIncludeLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="MAINTENANCE FEES INCLUDE:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={maintFeesInclude}
-                          rows={2}
-                          onChange={(e) => setMaintFeesInclude(e.target.value)}
-                          inputStyle={fieldStyles["maintFeesInclude"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("maintFeesInclude", s)
-                          }
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="maintFeesIncludeLabel"
+                        labelValue={maintFeesIncludeLabel}
+                        labelPlaceholder="MAINT. FEES INCLUDE:"
+                        onLabelChange={(e) => setMaintFeesIncludeLabel(e.target.value)}
+                        labelStyle={fieldStyles["maintFeesIncludeLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("maintFeesIncludeLabel", s)}
+                        value={maintFeesInclude}
+                        rows={2}
+                        placeholder="Gardening, Garbage  Pickup, Gas, Hot Water, Management, Recreation Facility, Other"
+                        onValueChange={(e) => setMaintFeesInclude(e.target.value)}
+                        valueStyle={fieldStyles["maintFeesInclude"]}
+                        onValueStyleChange={(s) => updateFieldStyle("maintFeesInclude", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2193,33 +2670,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="Features Included"
                       zoom={0.85}
+                      containerClassName="ml-[52px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("featuresIncluded", "Features Included", featuresIncluded, "Details", fieldStyles.featuresIncluded)}
                       deleteTitle="Remove Features Included"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-[65px] flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="featuresIncludedLabel"
-                          value={featuresIncludedLabel}
-                          onChange={(e) => setFeaturesIncludedLabel(e.target.value)}
-                          inputStyle={fieldStyles["featuresIncludedLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("featuresIncludedLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="FEATURES INCLUDED:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={featuresIncluded}
-                          rows={1}
-                          onChange={(e) => setFeaturesIncluded(e.target.value)}
-                          inputStyle={fieldStyles["featuresIncluded"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("featuresIncluded", s)
-                          }
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="featuresIncludedLabel"
+                        labelValue={featuresIncludedLabel}
+                        labelPlaceholder="FEATURES INCLUDED:"
+                        onLabelChange={(e) => setFeaturesIncludedLabel(e.target.value)}
+                        labelStyle={fieldStyles["featuresIncludedLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("featuresIncludedLabel", s)}
+                        value={featuresIncluded}
+                        placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
+                        onValueChange={(e) => setFeaturesIncluded(e.target.value)}
+                        valueStyle={fieldStyles["featuresIncluded"]}
+                        onValueStyleChange={(s) => updateFieldStyle("featuresIncluded", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2230,33 +2698,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="Site Influences"
                       zoom={0.85}
+                      containerClassName="ml-[102px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("siteInfluences", "Site Influences", siteInfluences, "Details", fieldStyles.siteInfluences)}
                       deleteTitle="Remove Site Influences"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-[100px] flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="siteInfluencesLabel"
-                          value={siteInfluencesLabel}
-                          onChange={(e) => setSiteInfluencesLabel(e.target.value)}
-                          inputStyle={fieldStyles["siteInfluencesLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("siteInfluencesLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="SITE INFLUENCES:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={siteInfluences}
-                          rows={1}
-                          onChange={(e) => setSiteInfluences(e.target.value)}
-                          inputStyle={fieldStyles["siteInfluences"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("siteInfluences", s)
-                          }
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Central Location, Golf Course Nearby"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="siteInfluencesLabel"
+                        labelValue={siteInfluencesLabel}
+                        labelPlaceholder="SITE INFLUENCES:"
+                        onLabelChange={(e) => setSiteInfluencesLabel(e.target.value)}
+                        labelStyle={fieldStyles["siteInfluencesLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("siteInfluencesLabel", s)}
+                        value={siteInfluences}
+                        placeholder="Central Location, Golf Course Nearby"
+                        onValueChange={(e) => setSiteInfluences(e.target.value)}
+                        valueStyle={fieldStyles["siteInfluences"]}
+                        onValueStyleChange={(s) => updateFieldStyle("siteInfluences", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2267,31 +2726,24 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="Amenities"
                       zoom={0.85}
+                      containerClassName="ml-[158px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("amenities", "Amenities", amenities, "Details", fieldStyles.amenities)}
                       deleteTitle="Remove Amenities"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-[135px] flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="amenitiesLabel"
-                          value={amenitiesLabel}
-                          onChange={(e) => setAmenitiesLabel(e.target.value)}
-                          inputStyle={fieldStyles["amenitiesLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("amenitiesLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="AMENITIES:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={amenities}
-                          rows={1}
-                          onChange={(e) => setAmenities(e.target.value)}
-                          inputStyle={fieldStyles["amenities"]}
-                          onChangeStyle={(s) => updateFieldStyle("amenities", s)}
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Exercise Centre, Garden, In Suite Laundry"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="amenitiesLabel"
+                        labelValue={amenitiesLabel}
+                        labelPlaceholder="AMENITIES:"
+                        onLabelChange={(e) => setAmenitiesLabel(e.target.value)}
+                        labelStyle={fieldStyles["amenitiesLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("amenitiesLabel", s)}
+                        value={amenities}
+                        placeholder="Exercise Centre, Garden, In Suite Laundry"
+                        onValueChange={(e) => setAmenities(e.target.value)}
+                        valueStyle={fieldStyles["amenities"]}
+                        onValueStyleChange={(s) => updateFieldStyle("amenities", s)}
+                      />
                     </DraggableBox>
                   )}
 
@@ -2302,39 +2754,32 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                       onPositionChange={updateFieldPosition}
                       label="View"
                       zoom={0.85}
+                      containerClassName="ml-[232px] pointer-events-auto"
                       disabled={lockedSections.details}
                       onDelete={() => removeStandardField("view", "View", view, "Details", fieldStyles.view)}
                       deleteTitle="Remove View"
                     >
-                      <div className="text-[#2B648E] text-[12px] pl-[220px] flex items-center gap-1.5">
-                        <StyledInput
-                          fieldId="viewLabel"
-                          value={viewLabel}
-                          onChange={(e) => setViewLabel(e.target.value)}
-                          inputStyle={fieldStyles["viewLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("viewLabel", s)}
-                          className="font-bold text-[12px] text-[#2B648E] bg-transparent text-left w-auto shrink-0 focus:outline-none border-none placeholder-gray-400 placeholder:font-[700]"
-                          placeholder="VIEW:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        <StyledInput
-                          value={view}
-                          rows={1}
-                          onChange={(e) => setView(e.target.value)}
-                          inputStyle={fieldStyles["view"]}
-                          onChangeStyle={(s) => updateFieldStyle("view", s)}
-                          className="font-semibold text-[12px] text-left text-[#2B648E] bg-transparent focus:outline-none border-none placeholder-gray-300 placeholder:font-[500]"
-                          placeholder="Soutn & SW - van island"
-                        />
-                      </div>
+                      <ParagraphDetailField
+                        labelFieldId="viewLabel"
+                        labelValue={viewLabel}
+                        labelPlaceholder="VIEW:"
+                        onLabelChange={(e) => setViewLabel(e.target.value)}
+                        labelStyle={fieldStyles["viewLabel"]}
+                        onLabelStyleChange={(s) => updateFieldStyle("viewLabel", s)}
+                        value={view}
+                        placeholder="South & SW - Van Isl."
+                        onValueChange={(e) => setView(e.target.value)}
+                        valueStyle={fieldStyles["view"]}
+                        onValueStyleChange={(s) => updateFieldStyle("view", s)}
+                      />
                     </DraggableBox>
                   )}
                 </div>
               </div>
               <div className="w-[35%]">
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-[25px]">
                   <div
-                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image3 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    className={`w-full h-[148px] relative border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group overflow-hidden ${images.image3 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseEnter={() => setHoveredImageSlot("image3")}
                     onMouseDown={(e) => handleMouseDown("image3", e)}
                     onMouseMove={(e) => handleMouseMove("image3", e)}
@@ -2371,34 +2816,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage3Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image3")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image3", fileInputRef3)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image3")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image3", fileInputRef3)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
@@ -2417,7 +2865,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image4 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    className={`w-full h-[148px] relative border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group overflow-hidden ${images.image4 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseEnter={() => setHoveredImageSlot("image4")}
                     onMouseDown={(e) => handleMouseDown("image4", e)}
                     onMouseMove={(e) => handleMouseMove("image4", e)}
@@ -2454,34 +2902,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage4Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image4")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image4", fileInputRef4)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image4")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image4", fileInputRef4)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
@@ -2500,7 +2951,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image5 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    className={`w-full h-[148px] relative border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group overflow-hidden ${images.image5 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseEnter={() => setHoveredImageSlot("image5")}
                     onMouseDown={(e) => handleMouseDown("image5", e)}
                     onMouseMove={(e) => handleMouseMove("image5", e)}
@@ -2537,34 +2988,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage5Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image5")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image5", fileInputRef5)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image5")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image5", fileInputRef5)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
@@ -2583,7 +3037,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image6 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    className={`w-full h-[148px] relative border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group overflow-hidden ${images.image6 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseEnter={() => setHoveredImageSlot("image6")}
                     onMouseDown={(e) => handleMouseDown("image6", e)}
                     onMouseMove={(e) => handleMouseMove("image6", e)}
@@ -2620,34 +3074,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage6Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image6")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image6", fileInputRef6)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image6")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image6", fileInputRef6)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
@@ -2666,7 +3123,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     />
                   </div>
                   <div
-                    className={`w-full h-[150px] relative border-2 border-[#fff] bg-white shadow-md group overflow-hidden ${images.image7 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    className={`w-full h-[148px] relative border-2 border-[#fff] bg-white shadow-[4px_4px_6px_rgba(0,0,0,0.4)] group overflow-hidden ${images.image7 ? "cursor-grab active:cursor-grabbing" : ""}`}
                     onMouseEnter={() => setHoveredImageSlot("image7")}
                     onMouseDown={(e) => handleMouseDown("image7", e)}
                     onMouseMove={(e) => handleMouseMove("image7", e)}
@@ -2703,34 +3160,37 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
                           </button>
+                        </div>
+
+                        {/* Top-Right Rotate, Edit, Delete Controls */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
                           <button
                             type="button"
                             onClick={() =>
                               setImage7Rotation((r) => (r + 90) % 360)
                             }
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
                             title="Rotate"
                           >
                             <RotateCw className="w-4 h-4 text-gray-700" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageSourceModal("image7")}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Edit image"
+                          >
+                            <Pencil className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete("image7", fileInputRef7)}
+                            className="bg-white p-1 rounded-full shadow hover:bg-gray-100"
+                            title="Delete image"
+                          >
+                            <Trash className="w-4 h-4 text-red-500" />
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => openImageSourceModal("image7")}
-                          className="absolute top-2 right-10 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Edit image"
-                        >
-                          <Pencil className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete("image7", fileInputRef7)}
-                          className="absolute top-2 right-2 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                          title="Delete image"
-                        >
-                          <Trash className="w-4 h-4 text-red-500" />
-                        </button>
                       </>
                     ) : (
                       <div
@@ -2764,7 +3224,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         </div>
 
         <div
-          className="pdf-page relative overflow-hidden flex flex-col bg-white"
+          className="pdf-page relative overflow-hidden flex flex-col bg-white shadow-xl"
           style={{
             width: showBleed ? "8.75in" : "8.5in",
             height: showBleed ? "11.25in" : "11in",
@@ -2772,14 +3232,17 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
           }}
         >
         
-        {/* Bleed guide border (red dashed) */}
+        {/* Bleed guide border (red dashed) — 0.125" inset from outer bleed edge */}
         {showGuide && showBleed && (
           <div
             data-html2canvas-ignore="true"
-            className="absolute inset-0 border-2 border-dashed border-red-500 pointer-events-none select-none z-40"
+            className="absolute border-2 border-dashed border-red-500 pointer-events-none select-none z-40"
+            style={{
+              inset: "0.125in",
+            }}
           >
-            <span className="absolute top-0 left-0 bg-red-600 text-white font-bold text-[8.5px] tracking-wider uppercase px-2 py-0.5 shadow-sm z-50">
-              BLEED BORDER (0.125&quot; / 3MM)
+            <span className="absolute bottom-full left-0 -mb-[1px] bg-red-600 text-white font-bold text-[8.5px] leading-none tracking-wider uppercase px-2 py-[1px] rounded-t-[4px] shadow-sm z-50">
+              Bleed Border (0.125&quot; / 3mm)
             </span>
           </div>
         )}
@@ -2799,7 +3262,14 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
         )}
 
           <div data-safezone-container="true" className="relative w-full h-full flex flex-col group">
-            <div className="absolute top-10 right-[70px] z-20 group/sec">
+            <div
+              data-safezone-container="true"
+              className={`absolute top-10 right-[70px] z-20 border-[3.5px] border-solid border-transparent rounded-lg p-1 transition-all duration-150 group/sec ${
+                lockedSections.page2Header
+                  ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)] hover:bg-amber-500/5"
+                  : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)] hover:bg-[#8B3DFF]/5"
+              }`}
+            >
               <button
                 type="button"
                 data-html2canvas-ignore="true"
@@ -2807,7 +3277,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                   e.stopPropagation();
                   toggleSectionLock("page2Header");
                 }}
-                className={`absolute -top-3 -right-2 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
+                className={`absolute -top-3 right-1 z-30 p-1 rounded-md transition-all duration-150 shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer opacity-0 group-hover/sec:opacity-100 ${
                   lockedSections.page2Header
                     ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
                     : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
@@ -2828,73 +3298,67 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               </button>
               <div className="flex flex-col items-center">
                 <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-2">
-                  {!isFieldDeleted("page2AddressHash") && (
-                    <DraggableBox
-                      id="page2AddressHash"
-                      position={fieldPositions.page2AddressHash}
-                      onPositionChange={updateFieldPosition}
-                      label="Unit # Symbol (Page 2)"
-                      zoom={0.85}
-                      disabled={lockedSections.page2Header}
-                      containerClassName="w-auto inline-flex items-center shrink-0"
-                      inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
-                                onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
-                                className="w-auto inline-flex items-center shrink-0"
-                      onDelete={() =>
-                        removeStandardField(
-                          "page2AddressHash",
-                          "Unit # Symbol (Page 2)",
-                          "#",
-                          "Page 2 Header",
-                        )
-                      }
-                      deleteTitle="Remove Unit # Symbol"
-                    >
-                      <StyledInput
-                            fieldId="page2AddressHash"
-                            fieldLabel="Unit # Symbol (Page 2)"
-                            value={page2AddressHash}
-                            onChange={(e) => setPage2AddressHash(e.target.value)}
-                            inputStyle={fieldStyles["page2AddressHash"] || fieldStyles.page2AddressHash}
-                            onChangeStyle={(s) => updateFieldStyle("page2AddressHash", s)}
-                            className="min-w-[1ch] w-auto bg-transparent focus:outline-none border-none select-text cursor-text p-0 m-0 font-light text-[28px] text-[#ffffff] leading-none mr-0.5"
-                            placeholder="#"
-                            disabled={lockedSections.page2Header}
-                            onDelete={() =>
-                              removeStandardField(
-                                "page2AddressHash",
-                                "Unit # Symbol (Page 2)",
-                                "#",
-                                "Page 2 Header",
-                              )
-                            }
-                            wrapperClassName="w-auto shrink-0 inline-flex items-center content-center"
-                          />
-                    </DraggableBox>
-                  )}
                   {!isFieldDeleted("page2AddressCode") && (
                     <DraggableBox
                       id="page2AddressCode"
                       position={fieldPositions.page2AddressCode}
                       onPositionChange={updateFieldPosition}
-                      label="Address Code"
+                      label="MLS / Code (Page 2)"
                       zoom={0.85}
                       disabled={lockedSections.page2Header}
-                      onDelete={() => removeStandardField("page2AddressCode", "Address Code", addressCode, "Page 2 Header", fieldStyles.addressCode)}
-                      deleteTitle="Remove Address Code"
+                      containerClassName="w-auto inline-flex items-center shrink-0"
+                      className="w-auto inline-flex items-center"
+                      onDelete={() => removeStandardField("page2AddressCode", "MLS / Code (Page 2)", addressCode, "Page 2 Header", fieldStyles.addressCode)}
+                      deleteTitle="Remove MLS / Code"
                     >
                       <StyledInput
                         value={addressCode}
                         onChange={(e) => setAddressCode(e.target.value)}
                         inputStyle={fieldStyles["addressCode"]}
                         onChangeStyle={(s) => updateFieldStyle("addressCode", s)}
-                        className="font-light text-[28px] h-[30px] w-[150px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
                         placeholder="0000-0000"
+                        wrapperClassName="w-auto shrink-0"
                       />
                     </DraggableBox>
                   )}
-                  <div className="text-white flex items-center uppercase gap-1.5">
-                    {!isFieldDeleted("page2RoadLabelBefore") && (
+                  {!isFieldDeleted("page2RoadName") && (
+                    <DraggableBox
+                      id="page2RoadName"
+                      position={fieldPositions.page2RoadName}
+                      onPositionChange={updateFieldPosition}
+                      label="Suite # (Page 2)"
+                      zoom={0.85}
+                      disabled={lockedSections.page2Header}
+                      containerClassName="w-auto inline-flex items-center shrink-0"
+                      className="w-auto inline-flex items-center"
+                      onDelete={() => removeStandardField("page2RoadName", "Suite # (Page 2)", roadName, "Page 2 Header", fieldStyles.roadName)}
+                      deleteTitle="Remove Suite #"
+                    >
+                      <StyledInput
+                        value={roadName}
+                        onChange={(e) => setRoadName(e.target.value)}
+                        inputStyle={fieldStyles["roadName"]}
+                        onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-auto min-w-[1ch] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
+                        placeholder="0"
+                        wrapperClassName="w-auto shrink-0"
+                      />
+                    </DraggableBox>
+                  )}
+                  {!isFieldDeleted("page2RoadLabelBefore") && (
+                    <DraggableBox
+                      id="page2RoadLabelBefore"
+                      position={fieldPositions.page2RoadLabelBefore}
+                      onPositionChange={updateFieldPosition}
+                      label="Street Number (Page 2)"
+                      zoom={0.85}
+                      disabled={lockedSections.page2Header}
+                      containerClassName="w-auto inline-flex items-center shrink-0"
+                      className="w-auto inline-flex items-center"
+                      onDelete={() => removeStandardField("page2RoadLabelBefore", "Street Number (Page 2)", page2RoadLabelBefore, "Page 2 Header", fieldStyles.page2RoadLabelBefore)}
+                      deleteTitle="Remove Street Number"
+                    >
                       <StyledInput
                         fieldId="page2RoadLabelBefore"
                         fieldLabel="Page 2 Road Label Before"
@@ -2902,34 +3366,26 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onChange={(e) => setPage2RoadLabelBefore(e.target.value)}
                         inputStyle={fieldStyles["page2RoadLabelBefore"]}
                         onChangeStyle={(s) => updateFieldStyle("page2RoadLabelBefore", s)}
-                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto min-w-[70px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
                         placeholder="NUMBER"
                         wrapperClassName="w-auto shrink-0"
                         disabled={lockedSections.page2Header}
                       />
-                    )}
-                    {!isFieldDeleted("page2RoadName") && (
-                      <DraggableBox
-                        id="page2RoadName"
-                        position={fieldPositions.page2RoadName}
-                        onPositionChange={updateFieldPosition}
-                        label="Road Name"
-                        zoom={0.85}
-                        disabled={lockedSections.page2Header}
-                        onDelete={() => removeStandardField("page2RoadName", "Road Name", roadName, "Page 2 Header", fieldStyles.roadName)}
-                        deleteTitle="Remove Road Name"
-                      >
-                        <StyledInput
-                          value={roadName}
-                          onChange={(e) => setRoadName(e.target.value)}
-                          inputStyle={fieldStyles["roadName"]}
-                          onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                          className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center w-auto min-w-[30px] px-1 focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
-                          placeholder="0"
-                        />
-                      </DraggableBox>
-                    )}
-                    {!isFieldDeleted("page2RoadLabelAfter") && (
+                    </DraggableBox>
+                  )}
+                  {!isFieldDeleted("page2RoadLabelAfter") && (
+                    <DraggableBox
+                      id="page2RoadLabelAfter"
+                      position={fieldPositions.page2RoadLabelAfter}
+                      onPositionChange={updateFieldPosition}
+                      label="Street Name (Page 2)"
+                      zoom={0.85}
+                      disabled={lockedSections.page2Header}
+                      containerClassName="w-auto inline-flex items-center shrink-0"
+                      className="w-auto inline-flex items-center"
+                      onDelete={() => removeStandardField("page2RoadLabelAfter", "Street Name (Page 2)", page2RoadLabelAfter, "Page 2 Header", fieldStyles.page2RoadLabelAfter)}
+                      deleteTitle="Remove Street Name"
+                    >
                       <StyledInput
                         fieldId="page2RoadLabelAfter"
                         fieldLabel="Page 2 Road Label After"
@@ -2937,13 +3393,13 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                         onChange={(e) => setPage2RoadLabelAfter(e.target.value)}
                         inputStyle={fieldStyles["page2RoadLabelAfter"]}
                         onChangeStyle={(s) => updateFieldStyle("page2RoadLabelAfter", s)}
-                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto min-w-[50px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200]"
+                        className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left w-auto focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
                         placeholder="ROAD"
                         wrapperClassName="w-auto shrink-0"
                         disabled={lockedSections.page2Header}
                       />
-                    )}
-                  </div>
+                    </DraggableBox>
+                  )}
                 </div>
               </div>
               <div className="flex justify-end ">
@@ -2977,15 +3433,16 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               xmlnsXlink="http://www.w3.org/1999/xlink"
-              className="w-full h-full z-10 pointer-events-none absolute inset-0"
+              preserveAspectRatio="none"
+              className="w-[calc(100%+2px)] h-[calc(100%+2px)] z-10 pointer-events-none absolute -inset-[1px] block"
             >
               <g clipPath="url(#clip0_490_7741)">
                 <path
-                  d="M634 772.5L3.40317 786.148L1.96216 597.068C1.96216 597.068 43.3123 789.714 634 730.5V772.5Z"
+                  d="M634 772.5L0 786.148L0 597.068C0 597.068 43.3123 789.714 634 730.5V772.5Z"
                   fill="#00AEEF"
                 />
                 <path
-                  d="M1.08723 32.053L634 18L632.254 303C632.254 303 589.614 -2.59341 1 84.1671L1.08723 32.053Z"
+                  d="M0 32.053L634 18L634 303C634 303 589.614 -2.59341 0 84.1671L0 32.053Z"
                   fill="#00AEEF"
                 />
               </g>
@@ -3001,7 +3458,7 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 height={230}
               >
                 <path
-                  d="M0 830H634V757.613C42.165 806.399 1.796 604 1.796 604L0 830Z"
+                  d="M0 830H634V757.613C42.165 806.399 0 604 0 604L0 830Z"
                   fill="white"
                 />
               </mask>
@@ -3022,18 +3479,18 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 maskUnits="userSpaceOnUse"
                 x={0}
                 y={0}
-                width={631}
+                width={634}
                 height={294}
               >
                 <path
-                  d="M0 0L0.797263 65.958C590.566 -7.14 631 293.4 631 293.4V0H0Z"
+                  d="M0 0L0 65.958C590.566 -7.14 634 293.4 634 293.4V0H0Z"
                   fill="white"
                 />
               </mask>
               <g mask="url(#mask1_490_7741)">
                 <rect
                   y={-8}
-                  width={631}
+                  width={634}
                   height={302}
                   fill="url(#pattern1_490_7741)"
                 />
@@ -3104,52 +3561,6 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                     objectFit="cover"
                     isProcessing={processingSlots.image8}
                   />
-
-                  {/* Zoom Controls */}
-                  <div className="absolute z-[22] bottom-[100px] right-8 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleZoom("image8", "in")}
-                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleZoom("image8", "out")}
-                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImage8Rotation((r) => (r + 90) % 360)}
-                      className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-                      title="Rotate"
-                    >
-                      <RotateCw className="w-4 h-4 text-gray-700" />
-                    </button>
-                  </div>
-
-                  {/* Edit/Delete Buttons */}
-                  <button
-                    type="button"
-                    onClick={() => openImageSourceModal("image8")}
-                    className="absolute z-[22] top-[100px] right-20 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Edit image"
-                  >
-                    <Pencil className="w-4 h-4 text-gray-700" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete("image8", fileInputRef8)}
-                    className="absolute z-[22] top-[100px] right-10 bg-white p-1 rounded-full shadow opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Delete image"
-                  >
-                    <Trash className="w-4 h-4 text-red-500" />
-                  </button>
                 </>
               ) : (
                 <div
@@ -3168,6 +3579,64 @@ const BcfpStandard16 = forwardRef<BcfpStandard16Ref, BcfpStandard16Props>(
                 className="hidden"
               />
             </div>
+
+            {images.image8 && (
+              <>
+                {/* Top Controls: Rotate, Edit, Delete (above SVG and Header) */}
+                <div
+                  data-html2canvas-ignore="true"
+                  className="absolute z-50 top-3 right-3 flex items-center gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setImage8Rotation((r) => (r + 90) % 360)}
+                    className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                    title="Rotate"
+                  >
+                    <RotateCw className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openImageSourceModal("image8")}
+                    className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                    title="Edit image"
+                  >
+                    <Pencil className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete("image8", fileInputRef8)}
+                    className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                    title="Delete image"
+                  >
+                    <Trash className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+
+                {/* Bottom Zoom Controls (above SVG) */}
+                <div
+                  data-html2canvas-ignore="true"
+                  className="absolute z-50 bottom-[100px] right-8 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image8", "in")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-4 h-4 text-gray-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleZoom("image8", "out")}
+                    className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-4 h-4 text-gray-700" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
