@@ -269,3 +269,25 @@ export function isServiceRequiringTravel(
 
     return true;
 }
+
+/**
+ * Returns the minimum required duration (in minutes) for scheduling a service.
+ * Admins have no minimum duration constraint beyond selecting at least one slot (returns 0).
+ * Agents on create must meet the full requiredDuration.
+ * Agents on edit can keep an existing shorter booked slot (bookedDuration),
+ * but cannot reduce it further; if bookedDuration >= requiredDuration (or no booked slot exists),
+ * they must meet requiredDuration.
+ */
+export function getMinRequiredDuration(params: {
+    requiredDuration: number;
+    bookedDuration?: number;
+    isEdit: boolean;
+    isAdmin: boolean;
+}): number {
+    const { requiredDuration, bookedDuration = 0, isEdit, isAdmin } = params;
+    if (isAdmin) return 0;
+    if (isEdit && bookedDuration > 0 && requiredDuration > 0) {
+        return Math.min(requiredDuration, bookedDuration);
+    }
+    return requiredDuration;
+}

@@ -17,7 +17,7 @@ import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightT
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
-import { getEffectiveServiceDuration, isServiceRequiringTravel } from '../utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, getMinRequiredDuration, isServiceRequiringTravel } from '../utils/serviceTimeUtils'
 import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
@@ -65,9 +65,10 @@ async function isPropertyInsideVendorArea(propertyCoords: Coordinate | null, ven
 
 export interface ScheduleProps {
     invalidServices?: string[];
+    bookedServiceDurations?: Record<string, number>;
 }
 
-const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
+const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: ScheduleProps) => {
     const { organization } = useOrganization();
     const searchParams = useSearchParams();
     const isEdit = searchParams.get('isEdit') === 'true';
@@ -141,7 +142,11 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
         portalSettings,
         setPortalSettings,
         floorplanAreas,
+        isBookNowMode,
     } = useOrderContext();
+
+    const isAdmin = (userType as string)?.toLowerCase() === 'admin';
+    const isAgent = (userType as string)?.toLowerCase() === 'agent' || (isBookNowMode && !isAdmin);
 
 
     const [isFloorplanModalOpen, setIsFloorplanModalOpen] = useState(false);
@@ -644,15 +649,33 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                             (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
                         );
                         const currentDuration = serviceSlots.length * 15;
+                        const bookedDuration =
+                            (service.uuid ? bookedServiceDurations[service.uuid] : undefined) ??
+                            (service.id ? bookedServiceDurations[String(service.id)] : undefined) ??
+                            0;
+                        const minRequiredDuration = getMinRequiredDuration({
+                            requiredDuration,
+                            bookedDuration,
+                            isEdit,
+                            isAdmin,
+                        });
+                        const isUnderMinDuration =
+                            isAgent &&
+                            isTravelRequired &&
+                            serviceSlots.length > 0 &&
+                            minRequiredDuration > 0 &&
+                            currentDuration < minRequiredDuration;
                         const isVendorAssigned = Boolean(selectedVendor && selectedVendor !== 'all' && selectedVendor !== 'none');
 
                         const isFullyScheduled = !isTravelRequired
                             ? isVendorAssigned
-                            : ((userType === 'admin' || isEdit) ? serviceSlots.length > 0 : (currentDuration >= requiredDuration && requiredDuration > 0));
+                            : (isAdmin
+                                ? serviceSlots.length > 0
+                                : (minRequiredDuration > 0 ? currentDuration >= minRequiredDuration : serviceSlots.length > 0));
 
                         const isInvalid = !isTravelRequired
                             ? (!isVendorAssigned && (invalidServices.includes(service.uuid || '') || (service.id && invalidServices.includes(String(service.id)))))
-                            : ((userType === 'admin' || isEdit) ? (serviceSlots.length === 0 && invalidServices.includes(service.uuid || '')) : invalidServices.includes(service.uuid || ''));
+                            : (isAdmin ? (serviceSlots.length === 0 && invalidServices.includes(service.uuid || '')) : invalidServices.includes(service.uuid || ''));
 
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -1236,60 +1259,71 @@ const Schedule = ({ invalidServices = [] }: ScheduleProps) => {
                                                 );
 
                                                 return (
-                                                    <OneDayCalendar
-                                                        selectedVendors={
-                                                            selectedVendor === 'all'
-                                                                ? (
-                                                                    service.uuid
-                                                                        ? (() => {
-                                                                            // Issue 2: When Override is ON include non-service vendors too;
-                                                                            // Issue 1: For past dates, also include the previously-booked vendor
-                                                                            const normalVendors = [
-                                                                                ...(filteredVendorsByService[service.uuid] ?? []),
-                                                                                ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
-                                                                            ];
-                                                                            const normalUUIDs = new Set(normalVendors.map(v => v.uuid));
-                                                                            const extraVendors = scheduleOverride === 1
-                                                                                ? vendorsData.filter(v => v.uuid && !normalUUIDs.has(v.uuid))
-                                                                                : [];
-                                                                            const bookedVendors = vendorsData.filter(v =>
-                                                                                v.uuid &&
-                                                                                !normalUUIDs.has(v.uuid) &&
-                                                                                serviceSlots.some(s => (s.vendor?.uuid || s.vendor_id) === v.uuid)
-                                                                            );
-                                                                            return [...normalVendors, ...extraVendors, ...bookedVendors]
-                                                                                .map((v) => v.uuid)
-                                                                                .filter((uuid): uuid is string => typeof uuid === 'string');
-                                                                        })()
-                                                                        : []
-                                                                )
-                                                                : [selectedVendor].filter(
-                                                                    (uuid): uuid is string => typeof uuid === 'string'
-                                                                )
-                                                        }
-                                                        service={service}
-                                                        calendarIdx={idx}
-                                                        serviceKey={serviceKey}
-                                                        showAllVendorsMap={showAllVendorsMap}
-                                                        scheduleOverrideMap={scheduleOverrideMap}
-                                                        recommendTimeMap={recommendTimeMap}
-                                                        recommendTime={recommendTime}
-                                                        showAllVendors={showAllVendors}
-                                                        scheduleOverride={scheduleOverride}
-                                                        setSelectedDate={(date) => {
-                                                            if (date) {
-                                                                const [y, m, d] = date.split('-').map(Number);
-                                                                const newDate = new Date(y, m - 1, d);
-                                                                setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
+                                                    <>
+                                                        <OneDayCalendar
+                                                            selectedVendors={
+                                                                selectedVendor === 'all'
+                                                                    ? (
+                                                                        service.uuid
+                                                                            ? (() => {
+                                                                                // Issue 2: When Override is ON include non-service vendors too;
+                                                                                // Issue 1: For past dates, also include the previously-booked vendor
+                                                                                const normalVendors = [
+                                                                                    ...(filteredVendorsByService[service.uuid] ?? []),
+                                                                                    ...(scheduleOverride === 1 ? (overridableVendorsByService[service.uuid] ?? []) : []),
+                                                                                ];
+                                                                                const normalUUIDs = new Set(normalVendors.map(v => v.uuid));
+                                                                                const extraVendors = scheduleOverride === 1
+                                                                                    ? vendorsData.filter(v => v.uuid && !normalUUIDs.has(v.uuid))
+                                                                                    : [];
+                                                                                const bookedVendors = vendorsData.filter(v =>
+                                                                                    v.uuid &&
+                                                                                    !normalUUIDs.has(v.uuid) &&
+                                                                                    serviceSlots.some(s => (s.vendor?.uuid || s.vendor_id) === v.uuid)
+                                                                                );
+                                                                                return [...normalVendors, ...extraVendors, ...bookedVendors]
+                                                                                    .map((v) => v.uuid)
+                                                                                    .filter((uuid): uuid is string => typeof uuid === 'string');
+                                                                            })()
+                                                                            : []
+                                                                    )
+                                                                    : [selectedVendor].filter(
+                                                                        (uuid): uuid is string => typeof uuid === 'string'
+                                                                    )
                                                             }
-                                                        }}
-                                                        vendorDistances={vendorDistances}
-                                                        propertyTimezone={propertyLocation?.timeZoneId}
-                                                        masterDate={serviceDates[serviceKey] || masterDate}
-                                                        onVendorSelected={handleVendorChange}
-                                                        isCalculating={isCalculating}
-                                                        twilightData={twilightData}
-                                                    />
+                                                            service={service}
+                                                            calendarIdx={idx}
+                                                            serviceKey={serviceKey}
+                                                            showAllVendorsMap={showAllVendorsMap}
+                                                            scheduleOverrideMap={scheduleOverrideMap}
+                                                            recommendTimeMap={recommendTimeMap}
+                                                            recommendTime={recommendTime}
+                                                            showAllVendors={showAllVendors}
+                                                            scheduleOverride={scheduleOverride}
+                                                            setSelectedDate={(date) => {
+                                                                if (date) {
+                                                                    const [y, m, d] = date.split('-').map(Number);
+                                                                    const newDate = new Date(y, m - 1, d);
+                                                                    setServiceDates(prev => ({ ...prev, [serviceKey]: newDate }));
+                                                                }
+                                                            }}
+                                                            vendorDistances={vendorDistances}
+                                                            propertyTimezone={propertyLocation?.timeZoneId}
+                                                            masterDate={serviceDates[serviceKey] || masterDate}
+                                                            onVendorSelected={handleVendorChange}
+                                                            isCalculating={isCalculating}
+                                                            twilightData={twilightData}
+                                                            minRequiredDuration={isAgent ? minRequiredDuration : undefined}
+                                                        />
+                                                        {isUnderMinDuration && (
+                                                            <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                                                                <Info className="w-4 h-4 text-red-600 shrink-0" />
+                                                                <p className="text-[11px] text-red-700 leading-snug">
+                                                                    Selected time ({currentDuration} min) is shorter than the required {minRequiredDuration} min. Please select at least {minRequiredDuration} min to proceed.
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 );
                                             })()}
                                         </div>

@@ -22,6 +22,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getTagDescription } from "./AddTemplateDialog";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
@@ -156,6 +163,12 @@ const DEFAULT_DYNAMIC_TAGS = [
   "{{cancellation_reason}}",
   "{{cancellation_fee}}",
   "{{invoice_number}}",
+  "{{media_count}}",
+  "{{changes_summary}}",
+  "{{completed_by}}",
+  "{{expiry_date}}",
+  "{{floorplan_areas}}",
+  "{{floorplan_notes}}",
   "{{action_url}}",
   "{{portal_url}}",
 ];
@@ -780,24 +793,35 @@ export default function RuntimeEmailEditorModal({
                   </span>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 custom-scrollbar">
-                  {allTags.map((tag) => {
-                    const info = getTagInfo(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => handleTagClick(tag)}
-                        className="px-2.5 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded text-left font-mono text-[11px] transition-colors cursor-pointer"
-                        title={
-                          info.hasValue
-                            ? `Insert: "${info.value}"`
-                            : `Insert ${tag}`
-                        }
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
+                  <TooltipProvider delayDuration={150}>
+                    {allTags.map((tag) => {
+                      const info = getTagInfo(tag);
+                      return (
+                        <Tooltip key={tag}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => handleTagClick(tag)}
+                              className="px-2.5 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded text-left font-mono text-[11px] transition-colors cursor-pointer"
+                            >
+                              {tag}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="left"
+                            className="max-w-[240px] text-xs font-sans"
+                          >
+                            <p>{getTagDescription(tag)}</p>
+                            {info.hasValue && (
+                              <p className="mt-1 text-[10px] opacity-80">
+                                Value: &quot;{info.value}&quot;
+                              </p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </TooltipProvider>
                 </div>
               </div>
             </div>

@@ -79,6 +79,17 @@ const DUMMY_PREVIEW_VALUES: Record<string, string> = {
   custom_message:
     "High-resolution photos and Matterport scan are ready for download.",
   changes_summary: "Appointment rescheduled to Nov 5, 2026 at 2:00 PM",
+  floorplan_areas: "Garage, Covered Deck, Detached Studio",
+  floorplan_notes: "Please include exterior dimensions for the detached studio.",
+  floorplan_section:
+    "Requested Areas: Garage, Covered Deck, Detached Studio. Special Instructions: Please include exterior dimensions for the detached studio.",
+  scheduled_appointments:
+    "Matterport 3D Tour & 2D Floor Plan — November 3, 2026 at 10:00 AM - 11:30 AM (Alex Rivera)",
+  payer_name: "Sarah Jenkins",
+  organization_name: "BC Floor Plans",
+  email: "sarah.jenkins@realty.ca",
+  name: "Sarah Jenkins",
+  url: "https://teams.tojuco.com/dashboard",
   reset_link: "https://teams.tojuco.com/reset-password?token=sample",
   company_name: "BC Floor Plans",
   company_email: "mail@bcfloorplans.com",

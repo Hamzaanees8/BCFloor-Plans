@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, X } from 'lucide-react';
@@ -32,7 +32,7 @@ import { Agent } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
+import { getEffectiveServiceDuration, getMinRequiredDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 import { fetchServicesForBookNow, fetchVendorForBookNow } from '@/app/agent/book-now/book-now';
 
@@ -150,6 +150,25 @@ const OrderForm = () => {
     const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
 
     const isOrderUpdate = Boolean(userId) || isEdit || Boolean(currentUser);
+
+    const bookedServiceDurations = useMemo(() => {
+        const durations: Record<string, number> = {};
+        if (!currentUser?.slots?.length) return durations;
+        for (const slot of currentUser.slots) {
+            const matchedService = (currentUser.services || []).find(
+                (s: OrderService) => s.service?.id === slot.service_id
+            );
+            const mins = splitSlotInto15MinChunks(slot.start_time, slot.end_time).length * 15;
+            if (matchedService?.service?.uuid) {
+                durations[matchedService.service.uuid] = (durations[matchedService.service.uuid] || 0) + mins;
+            }
+            if (slot.service_id !== undefined && slot.service_id !== null) {
+                const sid = String(slot.service_id);
+                durations[sid] = (durations[sid] || 0) + mins;
+            }
+        }
+        return durations;
+    }, [currentUser]);
 
     const handleOpenSubmitModal = (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
@@ -486,15 +505,26 @@ const OrderForm = () => {
                 );
                 const currentDuration = serviceSlots.length * 15;
 
-                const isInvalid = (role === 'admin' || isEdit)
-                    ? serviceSlots.length === 0
-                    : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
+                const bookedDuration =
+                    bookedServiceDurations[serviceUuid] ??
+                    (service.id ? bookedServiceDurations[String(service.id)] : undefined) ??
+                    0;
+                const minRequiredDuration = getMinRequiredDuration({
+                    requiredDuration,
+                    bookedDuration,
+                    isEdit,
+                    isAdmin: role === 'admin',
+                });
+
+                const isInvalid = minRequiredDuration > 0
+                    ? currentDuration < minRequiredDuration
+                    : serviceSlots.length === 0;
 
                 if (isInvalid) {
                     newInvalidServices.push(serviceUuid);
                     if (!firstErrorToastShown) {
-                        const slotsNeeded = Math.ceil((requiredDuration - currentDuration) / 15);
-                        toast.error(`Please add ${slotsNeeded > 0 ? slotsNeeded : 1} more slot(s) for "${service.title}". Required: ${requiredDuration} min, Selected: ${currentDuration} min`);
+                        const slotsNeeded = Math.ceil((minRequiredDuration - currentDuration) / 15);
+                        toast.error(`Please add ${slotsNeeded > 0 ? slotsNeeded : 1} more slot(s) for "${service.title}". Required: ${minRequiredDuration} min, Selected: ${currentDuration} min`);
                         firstErrorToastShown = true;
                     }
                 }
@@ -545,10 +575,21 @@ const OrderForm = () => {
             );
             const currentDuration = serviceSlots.length * 15;
 
-            // In edit mode or for admin, if slots exist for the service, consider it valid
-            const isInvalid = (role === 'admin' || isEdit)
-                ? serviceSlots.length === 0
-                : (requiredDuration > 0 ? currentDuration < requiredDuration : serviceSlots.length === 0);
+            const bookedDuration =
+                bookedServiceDurations[serviceId] ??
+                (service.id ? bookedServiceDurations[String(service.id)] : undefined) ??
+                0;
+            const minRequiredDuration = getMinRequiredDuration({
+                requiredDuration,
+                bookedDuration,
+                isEdit,
+                isAdmin: role === 'admin',
+            });
+
+            // For admin, any selected slot is valid; for agent, enforce minRequiredDuration
+            const isInvalid = minRequiredDuration > 0
+                ? currentDuration < minRequiredDuration
+                : serviceSlots.length === 0;
 
             if (isInvalid) {
                 if (!invalidServiceIds.includes(serviceId)) {
@@ -758,7 +799,7 @@ const OrderForm = () => {
                 )}
                 {active === "schedule" && (
                     <div>
-                        <Schedule invalidServices={invalidServices} />
+                        <Schedule invalidServices={invalidServices} bookedServiceDurations={bookedServiceDurations} />
                     </div>
                 )}
                 {active === "contact" && (

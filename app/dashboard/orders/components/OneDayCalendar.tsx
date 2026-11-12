@@ -103,6 +103,7 @@ interface CalendarProps {
   currentOrderId?: number | string;
   squareFootage?: number | string;
   hideStatusBorder?: boolean;
+  minRequiredDuration?: number;
 }
 
 interface MinimalSlot {
@@ -1255,6 +1256,7 @@ export default function OneDayCalendar({
   className,
   squareFootage,
   hideStatusBorder,
+  minRequiredDuration,
 }: CalendarProps) {
   const {
     selectedSlots: contextSelectedSlots,
@@ -1338,13 +1340,22 @@ export default function OneDayCalendar({
     currentServiceForBorder,
     squareFootageForBorder,
   );
-  const requiredSlotsCountForBorder = Math.ceil(requiredDurationForBorder / 15);
-
-  const hasSelectedSlotsForBorder = selectedSlots.some(
-    (s) => s.service_id === service.uuid,
+  const effectiveRequiredDurationForBorder =
+    minRequiredDuration !== undefined
+      ? minRequiredDuration
+      : requiredDurationForBorder;
+  const requiredSlotsCountForBorder = Math.ceil(
+    effectiveRequiredDurationForBorder / 15,
   );
+
+  const isServiceSlotForBorder = (s: Slot) =>
+    s.service_id === service.uuid ||
+    String(s.service_id) === String(service.uuid) ||
+    (service.id ? String(s.service_id) === String(service.id) : false);
+
+  const hasSelectedSlotsForBorder = selectedSlots.some(isServiceSlotForBorder);
   const currentServiceSlotsCountForBorder = selectedSlots.filter(
-    (slot: Slot) => slot.service_id === service.uuid,
+    isServiceSlotForBorder,
   ).length;
   const isUnderScheduled =
     hasSelectedSlotsForBorder &&

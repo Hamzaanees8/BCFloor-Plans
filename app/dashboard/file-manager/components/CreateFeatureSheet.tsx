@@ -1141,6 +1141,7 @@ const CreateFeatureSheet = forwardRef<
   /**
    * Test Helper: Fill whole sheet's fields with appropriate text according to that property
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAutoFillTestData = () => {
     try {
       const prop = orderData?.property;
@@ -3280,7 +3281,7 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
-                        {/* Auto-Fill Test Data button */}
+                        {/* Auto-Fill Test Data button (hidden from UI)
                         <button
                           type="button"
                           onClick={handleAutoFillTestData}
@@ -3290,6 +3291,7 @@ const CreateFeatureSheet = forwardRef<
                           <span>⚡</span>
                           <span>Auto-Fill Test Data</span>
                         </button>
+                        */}
 
                         {/* Save Feature Sheet button */}
                         <button
