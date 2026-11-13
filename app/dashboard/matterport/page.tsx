@@ -203,7 +203,15 @@ const MatterportPage = () => {
 
 
 
+  useEffect(() => {
+    if (userType === "vendor") {
+      toast.error("You do not have permission to access 3D tours");
+      router.replace("/dashboard/calendar");
+    }
+  }, [userType, router]);
+
   const fetchData = useCallback(async () => {
+    if (userType === "vendor") return;
     setLoading(true);
     const token = localStorage.getItem("token") || "";
 
@@ -221,7 +229,7 @@ const MatterportPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userType]);
 
   useEffect(() => {
     fetchData();
@@ -599,6 +607,10 @@ const MatterportPage = () => {
 
     return cols;
   }, [isSuperAdmin, sendingReminderUuid, userType, handlePayServiceInvoice, handleOpenInvoiceModal]);
+
+  if (userType === "vendor") {
+    return null;
+  }
 
   if (isMobile) {
     return (

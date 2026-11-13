@@ -1572,9 +1572,10 @@ const CreateFeatureSheet = forwardRef<
           setUploadedPdfs(pdfSheets);
 
           // If the active sheet is in this order and finished processing any media, silently update resolved URLs
+          // Only update if an existing saved sheet is currently selected and loaded (never overwrite a fresh sheet)
           const activeSheet = selectedSheetUuid
             ? dataArray.find((s) => s.uuid === selectedSheetUuid)
-            : dataArray.find((s) => s.template_key === selectedTemplate);
+            : null;
 
           if (activeSheet && activeStandardRef.current?.importFromPayload) {
             // Update lastSavedPayloadRef with latest server state
@@ -2045,8 +2046,15 @@ const CreateFeatureSheet = forwardRef<
     }
   };
 
+  const pdfSectionWidth = isCurrentTabloid
+    ? previewMode === "preview"
+      ? showBleed ? "17.25in" : "17in"
+      : showBleed ? "calc(17.25in * 0.55)" : "calc(17in * 0.55)"
+    : showBleed ? "8.75in" : "8.5in";
+
   const pdfSectionStyle: React.CSSProperties = {
-    width: "8.5in",
+    width: "max-content",
+    minWidth: pdfSectionWidth,
     minHeight: `${numPdfPages * 11}in`,
     position: "relative",
     backgroundColor: "transparent",
@@ -3281,17 +3289,6 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
-                        {/* Auto-Fill Test Data button */}
-                        <button
-                          type="button"
-                          onClick={handleAutoFillTestData}
-                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] h-[32px] text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-[6px] font-semibold transition-colors shadow-2xs cursor-pointer"
-                          title="Fill all sheet fields with appropriate test data for this property"
-                        >
-                          <span>⚡</span>
-                          <span>Auto-Fill Test Data</span>
-                        </button>
-
                         {/* Save Feature Sheet button */}
                         <button
                           type="button"
@@ -3759,7 +3756,10 @@ const CreateFeatureSheet = forwardRef<
                           {isSaving && (
                             <div
                               data-html2canvas-ignore="true"
-                              className="absolute inset-0 z-[100] bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-xl pointer-events-auto cursor-wait"
+                              className="absolute inset-0 w-full h-full z-[100] bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-xl pointer-events-auto cursor-wait"
+                              style={{
+                                minWidth: pdfSectionWidth,
+                              }}
                             >
                               <div className="bg-white/95 px-5 py-3 rounded-xl shadow-xl border border-gray-200 flex items-center gap-3">
                                 <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />

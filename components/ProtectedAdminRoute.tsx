@@ -199,10 +199,15 @@ export default function ProtectedAdminRoute({ children }: { children: React.Reac
         pathname.startsWith("/dashboard/vendors") ||
         (pathname.startsWith("/dashboard/admin") && !pathname.includes("/print-requests")) ||
         pathname.startsWith("/dashboard/services") ||
+        pathname.startsWith("/dashboard/matterport") ||
+        pathname.startsWith("/dashboard/billing") ||
         pathname.startsWith("/dashboard/listings/create") ||
         (pathname.startsWith("/dashboard/vendor-billing") && pathname.replace(/\/$/, "") !== "/dashboard/vendor-billing")
       )
     ) {
+      if (pathname.startsWith("/dashboard/matterport")) {
+        toast.error("You do not have permission to access 3D tours");
+      }
       router.replace("/dashboard/calendar");
       setIsAllowed(false);
       return;

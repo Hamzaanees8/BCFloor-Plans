@@ -1044,7 +1044,7 @@ export default function StyledInput({
       return "GothicRegular, 'Gothic A1', Mulish, sans-serif";
     }
     if (f.includes("trajan-bold") || f.includes("trajanprobold") || (f.includes("trajan") && f.includes("bold")))
-      return "TrajanProBold, serif";
+      return "TrajanPro, TrajanProBold, serif";
     if (f.includes("trajan")) return "TrajanProRegular, serif";
     if (f.includes("arial-bold") || f.includes("arialbold") || (f.includes("arial") && f.includes("bold")))
       return "ArialBold, sans-serif";
@@ -1842,19 +1842,19 @@ export default function StyledInput({
 
                   {[
                     {
-                      label: "Sans Serif",
-                      value: "font-sans",
-                      css: "sans-serif",
-                    },
-                    {
                       label: "Alexandria",
                       value: "font-alexandria",
                       css: "var(--font-alexandria), Alexandria, sans-serif",
                     },
                     {
-                      label: "Raleway",
-                      value: "font-raleway",
-                      css: "Raleway, sans-serif",
+                      label: "Arial",
+                      value: "font-arial-regular",
+                      css: "Arial, sans-serif",
+                    },
+                    {
+                      label: "Arial Bold",
+                      value: "font-arial-bold",
+                      css: "ArialBold, sans-serif",
                     },
                     {
                       label: "Champagne & Limousines",
@@ -1881,7 +1881,23 @@ export default function StyledInput({
                       value: "font-gothic-italic",
                       css: "GothicItalic, sans-serif",
                     },
-                  ].map((ff) => (
+                    {
+                      label: "Raleway",
+                      value: "font-raleway",
+                      css: "Raleway, sans-serif",
+                    },
+                    {
+                      label: "Sans Serif",
+                      value: "font-sans",
+                      css: "sans-serif",
+                    },
+                  ]
+                    .sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        sensitivity: "base",
+                      }),
+                    )
+                    .map((ff) => (
                     <button
                       key={ff.value}
                       className={cn(

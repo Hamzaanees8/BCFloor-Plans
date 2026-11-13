@@ -656,9 +656,12 @@ const BcfpStandard15 = forwardRef<BcfpStandard15Ref, BcfpStandard15Props>(
         }
 
         if (state.images) {
-          const sProcessing = (state as any).processingSlots || {};
+          const sProcessing =
+            (state as any).processingSlots ||
+            (payload as any).processingSlots ||
+            {};
           const sDeleted =
-            (state as any).deletedImageSlots || deletedImageSlots;
+            (state as any).deletedImageSlots || deletedImageSlots || [];
           setProcessingSlots(sProcessing);
           setImages((prev) =>
             featureSheetService.mergeResolvedImages(

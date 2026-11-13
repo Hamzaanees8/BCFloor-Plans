@@ -88,22 +88,23 @@ const FONT_SIZE_OPTIONS = [
 // ─── Standard & Public Fonts List ─────────────────────────────────────────────
 
 const DEFAULT_FONT_OPTIONS: { label: string; value: string; css: string }[] = [
-  { label: "Sans Serif", value: "sans-serif", css: "sans-serif" },
   { label: "Alexandria", value: "Alexandria, sans-serif", css: "Alexandria, sans-serif" },
-  { label: "Raleway", value: "Raleway, sans-serif", css: "Raleway, sans-serif" },
+  { label: "Arial", value: "Arial, sans-serif", css: "Arial, sans-serif" },
+  { label: "Arial Bold", value: "ArialBold, sans-serif", css: "ArialBold, sans-serif" },
+  { label: "Bickham Script", value: "BickhamScript, cursive", css: "BickhamScript, cursive" },
+  { label: "Bickham Script Bold", value: "BickhamScriptBold, cursive", css: "BickhamScriptBold, cursive" },
+  { label: "Caslon Pro Bold", value: "ACaslonPro, serif", css: "ACaslonPro, serif" },
+  { label: "Caslon Pro Italic", value: "ACaslonProItalic, serif", css: "ACaslonProItalic, serif" },
+  { label: "Caslon Pro Regular", value: "ACaslonProRegular, serif", css: "ACaslonProRegular, serif" },
   { label: "Champagne & Limousines", value: "ChampagneLimousines, sans-serif", css: "ChampagneLimousines, sans-serif" },
   { label: "Champagne & Limousines Bold", value: "ChampagneLimousinesBold, sans-serif", css: "ChampagneLimousinesBold, sans-serif" },
   { label: "Gothic", value: "GothicRegular, sans-serif", css: "GothicRegular, sans-serif" },
   { label: "Gothic Bold", value: "GothicBold, sans-serif", css: "GothicBold, sans-serif" },
   { label: "Gothic Italic", value: "GothicItalic, sans-serif", css: "GothicItalic, sans-serif" },
-  { label: "Caslon Pro Bold", value: "ACaslonPro, serif", css: "ACaslonPro, serif" },
-  { label: "Caslon Pro Regular", value: "ACaslonProRegular, serif", css: "ACaslonProRegular, serif" },
-  { label: "Caslon Pro Italic", value: "ACaslonProItalic, serif", css: "ACaslonProItalic, serif" },
-  { label: "Bickham Script", value: "BickhamScript, cursive", css: "BickhamScript, cursive" },
-  { label: "Bickham Script Bold", value: "BickhamScriptBold, cursive", css: "BickhamScriptBold, cursive" },
+  { label: "Raleway", value: "Raleway, sans-serif", css: "Raleway, sans-serif" },
+  { label: "Sans Serif", value: "sans-serif", css: "sans-serif" },
   { label: "Trajan Pro", value: "TrajanProRegular, serif", css: "TrajanProRegular, serif" },
   { label: "Trajan Pro Bold", value: "TrajanPro, serif", css: "TrajanPro, serif" },
-  { label: "Arial Bold", value: "ArialBold, sans-serif", css: "ArialBold, sans-serif" },
 ];
 
 // ─── Section Wrapper ─────────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ export default function FieldSidePanel({
     ...DEFAULT_FONT_OPTIONS.filter(
       (df) => !customFontLabelSet.has(df.label.toLowerCase()),
     ),
-  ];
+  ].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const emit = (partial: Partial<TextStyle>) => {

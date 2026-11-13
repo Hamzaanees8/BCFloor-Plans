@@ -27,7 +27,6 @@ import { Order } from "../../orders/page";
 import { useAppContext } from "@/app/context/AppContext";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import { useS3Upload } from "@/hooks/useS3Upload";
 import { EditAgent } from "@/app/dashboard/agents/agents";
 import { useOptionalOrganization } from "@/app/context/OrganizationContext";
@@ -430,7 +429,7 @@ const TourSettings = ({
 
                                                 {fieldErrors.agent_id && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.agent_id[0]}</p>}
                                             </div> */}
-                          <div className="col-span-2 flex items-center gap-[16px]">
+                          {/* <div className="col-span-2 flex items-center gap-[16px]">
                             <Switch
                               checked={Boolean(tourActivated)}
                               onCheckedChange={async (checked: boolean) => {
@@ -471,7 +470,7 @@ const TourSettings = ({
                             <Label className="text-[14px] text-[#424242]">
                               Activate Tour
                             </Label>
-                          </div>
+                          </div> */}
                           <div className="col-span-2">
                             <label htmlFor="">Address</label>
                             <Input

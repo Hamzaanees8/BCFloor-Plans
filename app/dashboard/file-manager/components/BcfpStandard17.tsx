@@ -363,6 +363,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
     const [processingSlots, setProcessingSlots] = useState<
       Record<string, boolean>
     >({});
+    const [imageUuids, setImageUuids] = useState<Record<string, string>>({});
+    const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
+    const [deletedImageUuids, setDeletedImageUuids] = useState<string[]>([]);
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
@@ -894,10 +897,16 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             imageSettings,
             deletedStandardFieldIds,
             deletedDetailFields,
+            deletedImageSlots,
+            deletedImageUuids,
             _deletedStandardFieldIds: deletedStandardFieldIds,
             _deletedDetailFields: deletedDetailFields,
+            _deletedImageSlots: deletedImageSlots,
+            _deletedImageUuids: deletedImageUuids,
           },
           images,
+          deletedImageSlots,
+          deletedImageUuids,
           imageScales: scale,
           imagePositions: position,
           imageRotations: rotation,
@@ -906,11 +915,15 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
         });
         (payload as any).deletedStandardFieldIds = deletedStandardFieldIds;
         (payload as any).deletedDetailFields = deletedDetailFields;
+        (payload as any).deletedImageSlots = deletedImageSlots;
+        (payload as any).deletedImageUuids = deletedImageUuids;
         (payload as any).imageSettings = imageSettings;
         if (payload.content) {
           (payload.content as any).deletedStandardFieldIds =
             deletedStandardFieldIds;
           (payload.content as any).deletedDetailFields = deletedDetailFields;
+          (payload.content as any).deletedImageSlots = deletedImageSlots;
+          (payload.content as any).deletedImageUuids = deletedImageUuids;
           (payload.content as any).imageSettings = imageSettings;
         }
         return payload;
@@ -1332,14 +1345,34 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           }
         });
 
+        if ((state as any).imageUuids) {
+          setImageUuids((state as any).imageUuids);
+        }
+        if ((state as any).deletedImageSlots) {
+          setDeletedImageSlots((state as any).deletedImageSlots);
+        }
+        if ((state as any).deletedImageUuids) {
+          setDeletedImageUuids((state as any).deletedImageUuids);
+        }
+
         const sProcessing =
           (state as any).processingSlots ||
           (payload as any).processingSlots ||
           {};
+        const sDeleted =
+          (state as any).deletedImageSlots || deletedImageSlots || [];
         setProcessingSlots(sProcessing);
 
-        if (state.images)
-          setImages((prev) => ({ ...prev, ...(state.images as any) }));
+        if (state.images) {
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              state.images as any,
+              sProcessing,
+              sDeleted,
+            ),
+          );
+        }
         if (state.imageScales)
           setScale((prev) => ({ ...prev, ...(state.imageScales as any) }));
         if (state.imagePositions)
@@ -1377,6 +1410,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== key));
         setImages((prev) => ({ ...prev, [key]: url }));
       }
     };
@@ -1385,6 +1419,13 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
       key: string,
       ref: React.RefObject<HTMLInputElement | null>,
     ) => {
+      const existingUuid = imageUuids[key];
+      if (existingUuid) {
+        setDeletedImageUuids((prev) =>
+          Array.from(new Set([...prev, existingUuid])),
+        );
+      }
+      setDeletedImageSlots((prev) => Array.from(new Set([...prev, key])));
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
@@ -1444,6 +1485,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
+      setDeletedImageSlots((prev) =>
+        prev.filter((s) => s !== currentImageSlot),
+      );
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       setShowGallery(false);
       setCurrentImageSlot(null);

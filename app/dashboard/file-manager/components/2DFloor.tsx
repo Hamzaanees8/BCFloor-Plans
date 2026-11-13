@@ -1734,6 +1734,22 @@ const Service: React.FC<
               <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">
                 Total Files
               </span>
+              {(() => {
+                const complimentaryCount =
+                  currentServiceFiles?.filter(
+                    (f) => !f.is_deleted && f.is_complimentary,
+                  ).length || 0;
+                return (
+                  complimentaryCount > 0 && (
+                    <span
+                      className="text-[10px] md:text-[11px] text-[#6BAE41] font-medium mt-0.5 whitespace-nowrap"
+                      title={`${complimentaryCount} complimentary file${complimentaryCount !== 1 ? "s" : ""}`}
+                    >
+                      +{complimentaryCount} complimentary
+                    </span>
+                  )
+                );
+              })()}
             </div>
             {/* {userType !== 'vendor' && (
                             <Button

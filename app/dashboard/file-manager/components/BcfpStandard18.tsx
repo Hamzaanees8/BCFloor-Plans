@@ -624,6 +624,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const [processingSlots, setProcessingSlots] = useState<
       Record<string, boolean>
     >({});
+    const [imageUuids, setImageUuids] = useState<Record<string, string>>({});
+    const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
+    const [deletedImageUuids, setDeletedImageUuids] = useState<string[]>([]);
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
@@ -822,6 +825,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== key));
         setImages((prev) => ({ ...prev, [key]: url }));
       }
     };
@@ -830,6 +834,13 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       key: keyof typeof images,
       inputRef: React.RefObject<HTMLInputElement | null>,
     ) => {
+      const existingUuid = imageUuids[key];
+      if (existingUuid) {
+        setDeletedImageUuids((prev) =>
+          Array.from(new Set([...prev, existingUuid])),
+        );
+      }
+      setDeletedImageSlots((prev) => Array.from(new Set([...prev, key])));
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
@@ -889,6 +900,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (!currentImageSlot) return;
+      setDeletedImageSlots((prev) =>
+        prev.filter((s) => s !== currentImageSlot),
+      );
       setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       setShowGallery(false);
       setCurrentImageSlot(null);
@@ -1276,35 +1290,6 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       updateFormData,
     ]);
 
-    // ── 30s Background Media Polling Effect ─────────────────────────────
-    useEffect(() => {
-      if (!orderData?.uuid) return;
-
-      const intervalId = setInterval(async () => {
-        try {
-          const sheets = await featureSheetService.getFeatureSheetsByOrder(
-            orderData.uuid,
-          );
-          if (sheets && sheets.length > 0) {
-            const currentSheet = sheets[0];
-            if (currentSheet) {
-              const state =
-                featureSheetService.parsePayloadToState(currentSheet);
-              if (state.images) {
-                setImages((prev) => ({ ...prev, ...state.images }));
-              }
-            }
-          }
-        } catch (err) {
-          console.error(
-            "Silent background polling error for feature sheet media:",
-            err,
-          );
-        }
-      }, 30000);
-
-      return () => clearInterval(intervalId);
-    }, [orderData?.uuid]);
 
     // ── 8. Imperative Handle for Payload Export/Import ────────────────────────
     useImperativeHandle(ref, () => ({
@@ -1454,10 +1439,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             _lockedSections: lockedSections,
             _deletedDetailFields: deletedDetailFields,
             _deletedStandardFieldIds: deletedStandardFieldIds,
+            _deletedImageSlots: deletedImageSlots,
+            _deletedImageUuids: deletedImageUuids,
             deletedDetailFields,
             deletedStandardFieldIds,
+            deletedImageSlots,
+            deletedImageUuids,
           },
           images,
+          deletedImageSlots,
+          deletedImageUuids,
           imageScales: scale,
           imagePositions: position,
           imageRotations: rotation,
@@ -1468,12 +1459,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         payload.fieldStyles = fieldStyles;
         (payload as any).deletedStandardFieldIds = deletedStandardFieldIds;
         (payload as any).deletedDetailFields = deletedDetailFields;
+        (payload as any).deletedImageSlots = deletedImageSlots;
+        (payload as any).deletedImageUuids = deletedImageUuids;
         if (payload.content) {
           (payload.content as any).fieldStyles = fieldStyles;
           (payload.content as any).fieldPositions = fieldPositions;
           (payload.content as any).deletedStandardFieldIds =
             deletedStandardFieldIds;
           (payload.content as any).deletedDetailFields = deletedDetailFields;
+          (payload.content as any).deletedImageSlots = deletedImageSlots;
+          (payload.content as any).deletedImageUuids = deletedImageUuids;
         }
         return payload;
       },
@@ -1728,10 +1723,22 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           }
         });
 
+        if ((state as any).imageUuids) {
+          setImageUuids((state as any).imageUuids);
+        }
+        if ((state as any).deletedImageSlots) {
+          setDeletedImageSlots((state as any).deletedImageSlots);
+        }
+        if ((state as any).deletedImageUuids) {
+          setDeletedImageUuids((state as any).deletedImageUuids);
+        }
+
         const sProcessing =
           (state as any).processingSlots ||
           (payload as any).processingSlots ||
           {};
+        const sDeleted =
+          (state as any).deletedImageSlots || deletedImageSlots || [];
         setProcessingSlots(sProcessing);
 
         const savedDeletedStandard =
@@ -1753,7 +1760,14 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         }
 
         if (state.images) {
-          setImages((prev) => ({ ...prev, ...state.images }));
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              state.images as any,
+              sProcessing,
+              sDeleted,
+            ),
+          );
         }
         if (state.imageScales) {
           setScale((prev) => ({ ...prev, ...state.imageScales }));

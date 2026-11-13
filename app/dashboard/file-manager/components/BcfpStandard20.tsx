@@ -446,35 +446,6 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
       setCurrentImageSlot(null);
     };
 
-    // ── 10. Background Media 30s Polling ──────────────────────────────────────
-    useEffect(() => {
-      if (!orderData?.uuid) return;
-
-      const intervalId = setInterval(async () => {
-        try {
-          const sheets = await featureSheetService.getFeatureSheetsByOrder(
-            orderData.uuid,
-          );
-          if (sheets && sheets.length > 0) {
-            const currentSheet = sheets[0];
-            if (currentSheet) {
-              const state =
-                featureSheetService.parsePayloadToState(currentSheet);
-              if (state.images) {
-                setImages((prev) => ({ ...prev, ...(state.images as any) }));
-              }
-            }
-          }
-        } catch (err) {
-          console.error(
-            "Silent background polling error for feature sheet media:",
-            err,
-          );
-        }
-      }, 30000);
-
-      return () => clearInterval(intervalId);
-    }, [orderData?.uuid]);
 
     // ── 11. Initial Order Data Sync & Context Restoration ──────────────────────
     useEffect(() => {

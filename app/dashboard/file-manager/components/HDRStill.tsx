@@ -2566,11 +2566,19 @@ function FileTab1({
           </div>
 
           {/* Right: counters + upgrade */}
-          <div className="flex items-center gap-4 md:gap-8 flex-wrap w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-start gap-4 md:gap-8 flex-wrap w-full md:w-auto justify-between md:justify-end">
             {(() => {
               const selectedCount =
                 currentServiceFiles?.filter(
                   (f) => f.is_agent_approved && !f.is_complimentary,
+                ).length || 0;
+              const availableCount =
+                currentServiceFiles?.filter(
+                  (f) => !f.is_deleted && !f.is_complimentary,
+                ).length || 0;
+              const complimentaryCount =
+                currentServiceFiles?.filter(
+                  (f) => !f.is_deleted && f.is_complimentary,
                 ).length || 0;
               const baseLimit = bookingToUse?.option?.quantity || 0;
 
@@ -2694,13 +2702,19 @@ function FileTab1({
                   </div>
                   <div className="flex flex-col items-center">
                     <span className="text-[20px] md:text-[26px] font-medium text-[#666666] leading-none">
-                      {currentServiceFiles?.filter(
-                        (f) => !f.is_deleted && !f.is_complimentary,
-                      ).length || 0}
+                      {availableCount}
                     </span>
                     <span className="text-[11px] md:text-[12px] text-[#666666] mt-1">
                       Available
                     </span>
+                    {complimentaryCount > 0 && (
+                      <span
+                        className="text-[10px] md:text-[11px] text-[#6BAE41] font-medium mt-0.5 whitespace-nowrap"
+                        title={`${complimentaryCount} complimentary image${complimentaryCount !== 1 ? "s" : ""}`}
+                      >
+                        +{complimentaryCount} complimentary
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col items-end">
                     {!(
@@ -2825,6 +2839,22 @@ function FileTab1({
               <span className="text-[11px] md:text-[12px] text-[#7D7D7D] mt-1">
                 Uploaded
               </span>
+              {(() => {
+                const complimentaryCount =
+                  currentServiceFiles?.filter(
+                    (f) => !f.is_deleted && f.is_complimentary,
+                  ).length || 0;
+                return (
+                  complimentaryCount > 0 && (
+                    <span
+                      className="text-[10px] md:text-[11px] text-[#6BAE41] font-medium mt-0.5 whitespace-nowrap"
+                      title={`${complimentaryCount} complimentary image${complimentaryCount !== 1 ? "s" : ""}`}
+                    >
+                      +{complimentaryCount} complimentary
+                    </span>
+                  )
+                );
+              })()}
             </div>
             {userType !== "vendor" && (
               isPackageUpgrading ? (

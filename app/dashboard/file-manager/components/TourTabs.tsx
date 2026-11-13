@@ -28,6 +28,7 @@ interface TourProps {
   onRefresh?: () => Promise<void>;
   isScrolled?: boolean;
   isListing?: boolean;
+  vendorHasFloorPlan?: boolean;
 }
 
 export default function TourTabs({
@@ -36,9 +37,11 @@ export default function TourTabs({
   onRefresh,
   isScrolled = false,
   isListing = false,
+  vendorHasFloorPlan,
 }: TourProps) {
-  const [activeTab, setActiveTab] = useState("Settings");
   const { userType } = useAppContext();
+  const isVendor = userType?.toLowerCase() === "vendor";
+  const [activeTab, setActiveTab] = useState(isVendor ? "Floor plans" : "Settings");
   const { startUpload } = useGlobalFileUpload();
   const {
     droppedMarkers,
@@ -188,30 +191,110 @@ export default function TourTabs({
         cName.includes("matterport")
       );
     });
-  const hasFloorPlans = orderData?.services?.some((s) =>
-    s?.service?.name?.toLowerCase().includes("floor plan"),
-  );
+  const hasFloorPlans = orderData?.services?.some((s: any) => {
+    const sName = (s?.service?.name || s?.title || "").toLowerCase();
+    const cName = (s?.service?.category?.name || "").toLowerCase();
+    return (
+      cName.includes("floor") ||
+      sName.includes("floor plan") ||
+      sName.includes("floorplan") ||
+      sName.includes("2d floor") ||
+      sName.includes("3d floor")
+    );
+  });
 
-  const isVendor = userType?.toLowerCase() === "vendor";
+  // Check if vendor has the floor plan service
+  const hasVendorFloorPlan = useMemo(() => {
+    if (!isVendor) return true;
+    if (vendorHasFloorPlan !== undefined) return vendorHasFloorPlan;
+    if (typeof window === "undefined") return false;
+    try {
+      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const currentVendorUUID = userInfo?.uuid || userInfo?.data?.uuid;
+      const currentVendorId = userInfo?.id || userInfo?.data?.id;
+
+      return (orderData?.services || []).some((srv: any) => {
+        const sName = (srv?.service?.name || srv?.title || "").toLowerCase();
+        const cName = (srv?.service?.category?.name || "").toLowerCase();
+        const isFloor =
+          cName.includes("floor") ||
+          sName.includes("floor plan") ||
+          sName.includes("floorplan") ||
+          sName.includes("2d floor") ||
+          sName.includes("3d floor");
+        if (!isFloor) return false;
+
+        // Check slot assignment
+        const hasSlot = (orderData?.slots || []).some((slot: any) => {
+          const slotVendorUuid =
+            slot.vendor?.uuid ||
+            (typeof slot.vendor_id === "string" ? slot.vendor_id : undefined);
+          const slotVendorId =
+            (slot.vendor as any)?.id ||
+            (typeof slot.vendor_id === "number" ? slot.vendor_id : undefined);
+          const isSlotForVendor =
+            (slotVendorUuid && currentVendorUUID && slotVendorUuid === currentVendorUUID) ||
+            (currentVendorId &&
+              (String(slotVendorId) === String(currentVendorId) ||
+                String(slot.vendor_id) === String(currentVendorId))) ||
+            (slot.vendor_id && currentVendorUUID && String(slot.vendor_id) === String(currentVendorUUID));
+          if (!isSlotForVendor) return false;
+          return (
+            slot.service_id === srv.service_id ||
+            String(slot.service_id) === String(srv.service_id) ||
+            (srv.service?.id != null && String(slot.service_id) === String(srv.service.id)) ||
+            (srv.service?.uuid && String(slot.service_id) === String(srv.service.uuid))
+          );
+        });
+        if (hasSlot) return true;
+
+        // Check direct service assignment
+        const srvVendorUuid =
+          srv.vendor?.uuid ||
+          srv.vendor_uuid ||
+          (typeof srv.vendor_id === "string" ? srv.vendor_id : undefined);
+        const srvVendorId =
+          srv.vendor?.id ||
+          (typeof srv.vendor_id === "number" ? srv.vendor_id : undefined);
+        return Boolean(
+          (srvVendorUuid && currentVendorUUID && srvVendorUuid === currentVendorUUID) ||
+          (currentVendorId &&
+            (String(srvVendorId) === String(currentVendorId) ||
+              String(srv.vendor_id) === String(currentVendorId))) ||
+          (srv.vendor_id && currentVendorUUID && String(srv.vendor_id) === String(currentVendorUUID))
+        );
+      });
+    } catch {
+      return false;
+    }
+  }, [isVendor, vendorHasFloorPlan, orderData]);
 
   const visibleTabs = useMemo(() => {
-    const tabs: string[] = [];
-    if (!isVendor) {
-      tabs.push("Settings");
+    if (isVendor) {
+      const tabs: string[] = [];
+      if (hasVendorFloorPlan) {
+        tabs.push("Floor plans");
+      }
+      return tabs;
     }
+
+    const tabs: string[] = [];
+    tabs.push("Settings");
     if (hasPhotos) tabs.push("Photos");
     if (hasMatterport) tabs.push("Matterport");
     if (hasVideos) tabs.push("Videos");
     if (hasFloorPlans) tabs.push("Floor plans");
     tabs.push("Confirm");
     return tabs;
-  }, [isVendor, hasPhotos, hasMatterport, hasVideos, hasFloorPlans]);
+  }, [isVendor, hasVendorFloorPlan, hasPhotos, hasMatterport, hasVideos, hasFloorPlans]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
-      setActiveTab(visibleTabs[0] || (isVendor ? "Photos" : "Settings"));
+      if (visibleTabs.length > 0) {
+        setActiveTab(visibleTabs[0]);
+      }
     }
-  }, [visibleTabs, activeTab, isVendor]);
+  }, [visibleTabs, activeTab]);
 
   return (
     <div className="w-full font-alexandria">
@@ -305,9 +388,11 @@ export default function TourTabs({
             <TourMatterport orderData={orderData} />
           </div>
         )}
-        <div style={{ display: activeTab === "Confirm" ? undefined : "none" }}>
-          <TourConfirm orderData={orderData} />
-        </div>
+        {visibleTabs.includes("Confirm") && (
+          <div style={{ display: activeTab === "Confirm" ? undefined : "none" }}>
+            <TourConfirm orderData={orderData} />
+          </div>
+        )}
       </div>
 
       {/* Unsaved Snapshot Changes Warning Modal */}

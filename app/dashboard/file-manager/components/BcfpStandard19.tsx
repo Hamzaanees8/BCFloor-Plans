@@ -158,28 +158,24 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
     // ── 2. Text Fields State ──────────────────────────────────────────────────
     const [byLawRestrictions, setByLawRestrictions] = useState(
-      formData.byLawRestrictions || "Pets Allowed w/Rest., Rentals Allowed",
+      formData.byLawRestrictions || "",
     );
     const [maintFees, setMaintFees] = useState(
-      formData.maintenanceFees || "$000.00",
+      formData.maintenanceFees || "",
     );
     const [maintFeesInclude, setMaintFeesInclude] = useState(
-      formData.maintenanceFeesInclude ||
-        "Gardening, Garbage Pickup, Gas, Hot Water, Management, Caretaker",
+      formData.maintenanceFeesInclude || "",
     );
     const [featuresIncluded, setFeaturesIncluded] = useState(
-      formData.featuresIncluded ||
-        "Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings",
+      formData.featuresIncluded || "",
     );
     const [siteInfluences, setSiteInfluences] = useState(
-      formData.siteInfluences ||
-        "Central Location, Golf Course Nearby, Shopping Nearby",
+      formData.siteInfluences || "",
     );
     const [amenities, setAmenities] = useState(
-      formData.amenities ||
-        "Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room",
+      formData.amenities || "",
     );
-    const [view, setView] = useState(formData.view || "South & SW - Van Isl.");
+    const [view, setView] = useState(formData.view || "");
     const [description, setDescription] = useState(formData.description || "");
     const [headline, setHeadline] = useState(
       formData.headline ||
@@ -190,7 +186,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
     const [propertyName, setPropertyName] = useState(
       formData.propertyName || "Macdonald Realty",
     );
-    const [amount, setAmount] = useState(formData.amount || "$000,000");
+    const [amount, setAmount] = useState(formData.amount || "");
     const [number, setNumber] = useState(formData.number || "604.000.0000");
     const [addressCode, setAddressCode] = useState(
       formData.addressCode ||
@@ -269,9 +265,99 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
       propShowGuide !== undefined ? propShowGuide : showGuideState;
 
     // ── 4. Styles, Positions & Locks ──────────────────────────────────────────
-    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
-      formData.fieldStyles || {},
-    );
+    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({
+      amount: {
+        fontSize: "32px",
+        fontWeight: "400",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      byLawRestrictionsLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      maintFeesLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      maintFeesIncludeLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      featuresIncludedLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      siteInfluencesLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      amenitiesLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      viewLabel: {
+        fontSize: "13px",
+        fontWeight: "100",
+        fontFamily: "TrajanPro, serif",
+        textAlign: "left",
+      },
+      byLawRestrictions: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      maintFees: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      maintFeesInclude: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      featuresIncluded: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      siteInfluences: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      amenities: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      view: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontFamily: "sans-serif",
+        textAlign: "left",
+      },
+      ...(formData.fieldStyles || {}),
+    });
     const updateFieldStyle = (field: string, style: TextStyle) =>
       setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
@@ -431,6 +517,18 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
             rawAddress = suiteMatch[2].trim();
           }
 
+          // MLS Number -> addressCode
+          const mlsVal =
+            orderData.property.mls_number ||
+            orderData.property.mls_property ||
+            (orderData.property as any).mls ||
+            (orderData as any).mls_number ||
+            (orderData as any).mls_id ||
+            "";
+          if (mlsVal) {
+            setAddressCode(mlsVal.toString());
+          }
+
           // 2. Separate Code, Street Number, and Street Name from rawAddress
           const twoNumMatch = rawAddress.match(
             /^(\d+[A-Za-z]?)\s+(\d+(?:st|nd|rd|th|[A-Za-z])?)\s+(.+)$/i,
@@ -438,7 +536,9 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           const oneNumMatch = rawAddress.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
 
           if (twoNumMatch) {
-            setAddressCode(twoNumMatch[1]);
+            if (!mlsVal) {
+              setAddressCode(twoNumMatch[1]);
+            }
             setRoadLabelBefore(twoNumMatch[2]);
             setRoadLabelAfter(twoNumMatch[3]);
           } else if (oneNumMatch) {
@@ -468,22 +568,36 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                 id !== "roadName" &&
                 id !== "page2RoadName" &&
                 id !== "roadLabelAfter" &&
-                id !== "page2RoadLabelAfter",
+                id !== "page2RoadLabelAfter" &&
+                id !== "cityLine" &&
+                id !== "page2CityLine",
             ),
           );
 
-          // Clean city line
-          const cityParts: string[] = [];
-          if (orderData.property.city)
-            cityParts.push(orderData.property.city.trim());
-          if (orderData.property.province)
-            cityParts.push(orderData.property.province.trim());
-          if (orderData.property.postal_code)
-            cityParts.push(orderData.property.postal_code.trim());
+          // 3. Construct Clean Location Sub-line (Sub-area/Neighborhood, City, Province, Postal Code, Country)
+          const IGNORED_COUNTRY = /^(CA|Canada)$/i;
+          const subArea = ((orderData.property as any).sub_area || "").trim();
+          const neighborhood = subArea;
+          const city = (orderData.property.city || "").trim();
+          const province = (orderData.property.province || "").trim();
+          const postalCode = (orderData.property.postal_code || "").trim();
+          const country = ((orderData.property as any).country || "").trim();
 
-          let cleanCity = cityParts.join(", ");
-          cleanCity = cleanCity.replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ").replace(/,\s*,+/g, ", ").trim();
-          if (cleanCity) setCityLine(cleanCity);
+          const locationParts: string[] = [];
+          if (neighborhood) locationParts.push(neighborhood);
+          if (city) locationParts.push(city);
+
+          let provincePostal = "";
+          const provinceClean = IGNORED_COUNTRY.test(province) ? "" : province;
+          if (provinceClean && postalCode)
+            provincePostal = `${provinceClean} ${postalCode}`;
+          else if (provinceClean) provincePostal = provinceClean;
+          else if (postalCode) provincePostal = postalCode;
+
+          if (provincePostal) locationParts.push(provincePostal);
+          if (country && !IGNORED_COUNTRY.test(country))
+            locationParts.push(country);
+          if (locationParts.length > 0) setCityLine(locationParts.join(", "));
         }
 
         if (orderData.agent) {
@@ -706,7 +820,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
             value: amount,
             style: {
               ...fieldStyles.amount,
-              fontSize: fieldStyles.amount?.fontSize || "30px",
+              fontSize: fieldStyles.amount?.fontSize || "32px",
             },
           },
           realtorName: {
@@ -837,7 +951,9 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           if (s)
             updateFieldStyle(
               "amount",
-              s.fontSize === "36px" ? { ...s, fontSize: "30px" } : s,
+              s.fontSize === "36px" || s.fontSize === "30px"
+                ? { ...s, fontSize: "32px" }
+                : s,
             );
         }
         if (state.realtorName) {
@@ -1128,7 +1244,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                 : "bg-white border border-gray-200 shadow-md"
               : isFloorplan
                 ? "bg-transparent shadow-none border-none"
-                : "shadow-[4px_4px_6px_rgba(0,0,0,0.4)]"
+                : ""
           } ${containerClass}`}
           onMouseEnter={() => setHoveredSlot(slotKey)}
           onMouseLeave={() => setHoveredSlot(null)}
@@ -1592,41 +1708,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
                   <div className="flex flex-col items-center justify-center w-full">
                     <div className="flex items-center justify-center gap-2 w-full text-white text-[28px] font-light leading-none whitespace-nowrap">
-                      {!isFieldDeleted("roadName") && (
-                        <DraggableBox
-                          id="roadName"
-                          position={fieldPositions.roadName}
-                          onPositionChange={updateFieldPosition}
-                          label="Suite #"
-                          zoom={0.85}
-                          disabled={lockedSections.address}
-                          containerClassName="w-auto inline-flex items-center shrink-0"
-                          className="w-auto inline-flex items-center"
-                          onDelete={() =>
-                            removeStandardField(
-                              "roadName",
-                              "Suite #",
-                              roadName,
-                              "Page 1 - Address",
-                              fieldStyles.roadName,
-                            )
-                          }
-                          deleteTitle="Remove Suite #"
-                        >
-                          <StyledInput
-                            value={roadName}
-                            onChange={(e) => setRoadName(e.target.value)}
-                            inputStyle={fieldStyles["roadName"]}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("roadName", s)
-                            }
-                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 whitespace-nowrap min-w-[1ch]"
-                            placeholder="0"
-                            wrapperClassName="w-auto shrink-0"
-                          />
-                        </DraggableBox>
-                      )}
-
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
@@ -1657,6 +1738,41 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                             }
                             className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="0000-0000"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("roadName") && (
+                        <DraggableBox
+                          id="roadName"
+                          position={fieldPositions.roadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Suite #"
+                          zoom={0.85}
+                          disabled={lockedSections.address}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadName",
+                              "Suite #",
+                              roadName,
+                              "Page 1 - Address",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Suite #"
+                        >
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            inputStyle={fieldStyles["roadName"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 whitespace-nowrap min-w-[1ch]"
+                            placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
                         </DraggableBox>
@@ -2222,7 +2338,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                         onChange={(e) => setAmount(e.target.value)}
                         inputStyle={fieldStyles.amount}
                         onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                        className="font-serif italic font-medium text-[30px] text-[#B39A72] text-left bg-transparent w-full whitespace-nowrap"
+                        className="font-trajan-bold font-normal text-[32px] text-[#B39A72] text-left bg-transparent w-full whitespace-nowrap"
                         placeholder="$000,000"
                       />
                     </DraggableBox>
@@ -2300,7 +2416,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("byLawRestrictionsLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="BY-LAW RESTRICTIONS:"
                         />
                         <StyledInput
@@ -2311,7 +2427,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("byLawRestrictions", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
                           placeholder="Pets Allowed w/Rest., Rentals Allowed"
                         />
                       </div>
@@ -2347,7 +2463,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("maintFeesLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="MAINT. FEES:"
                         />
                         <StyledInput
@@ -2358,7 +2474,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("maintFees", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
                           placeholder="$000.00"
                         />
                       </div>
@@ -2396,7 +2512,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("maintFeesIncludeLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="MAINT. FEES INCLUDE:"
                         />
                         <StyledInput
@@ -2408,8 +2524,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("maintFeesInclude", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
-                          placeholder="Gardening, Garbage Pickup, Gas..."
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Caretaker"
                         />
                       </div>
                     </DraggableBox>
@@ -2446,7 +2562,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("featuresIncludedLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="FEATURES INCLUDED:"
                         />
                         <StyledInput
@@ -2458,8 +2574,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("featuresIncluded", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
-                          placeholder="Clothes Washer/Dryer/Fridge/Stove/DW..."
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                         />
                       </div>
                     </DraggableBox>
@@ -2496,7 +2612,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("siteInfluencesLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="SITE INFLUENCES:"
                         />
                         <StyledInput
@@ -2508,8 +2624,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("siteInfluences", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
-                          placeholder="Central Location, Golf Course Nearby..."
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          placeholder="Central Location, Golf Course Nearby, Shopping Nearby"
                         />
                       </div>
                     </DraggableBox>
@@ -2544,7 +2660,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("amenitiesLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="AMENITIES:"
                         />
                         <StyledInput
@@ -2556,8 +2672,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("amenities", s)
                           }
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
-                          placeholder="Exercise Centre, Garden, In Suite Laundry..."
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                         />
                       </div>
                     </DraggableBox>
@@ -2592,7 +2708,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("viewLabel", s)
                           }
-                          className="text-[#B39A72] text-left font-semibold tracking-wider text-[12px] uppercase block mb-0.5 whitespace-nowrap"
+                          className="font-trajan-bold font-thin text-[#B39A72] text-left tracking-wider text-[13px] uppercase block mb-0.5 whitespace-nowrap"
                           placeholder="VIEW:"
                         />
                         <StyledInput
@@ -2601,7 +2717,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           inputStyle={fieldStyles.view}
                           defaultStyle={{ textAlign: "left" }}
                           onChangeStyle={(s) => updateFieldStyle("view", s)}
-                          className="text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
+                          className="font-sans font-normal text-gray-700 text-left text-[12px] leading-snug bg-transparent w-full"
                           placeholder="South & SW - Van Isl."
                         />
                       </div>
@@ -2885,41 +3001,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
                 <div className="flex flex-col relative w-full">
                   <div className="text-[28px] font-light leading-none mt-0 text-white flex items-center gap-2 whitespace-nowrap">
-                    {!isFieldDeleted("page2RoadName") && (
-                      <DraggableBox
-                        id="page2RoadName"
-                        position={fieldPositions.page2RoadName}
-                        onPositionChange={updateFieldPosition}
-                        label="Suite # (Page 2)"
-                        zoom={0.85}
-                        disabled={lockedSections.page2Header}
-                        containerClassName="w-auto inline-flex items-center shrink-0"
-                        className="w-auto inline-flex items-center"
-                        onDelete={() =>
-                          removeStandardField(
-                            "page2RoadName",
-                            "Suite # (Page 2)",
-                            roadName,
-                            "Page 2 - Address",
-                            fieldStyles.roadName,
-                          )
-                        }
-                        deleteTitle="Remove Suite #"
-                      >
-                        <StyledInput
-                          value={roadName}
-                          onChange={(e) => setRoadName(e.target.value)}
-                          inputStyle={fieldStyles["roadName"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("roadName", s)
-                          }
-                          className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 whitespace-nowrap min-w-[1ch]"
-                          placeholder="0"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                      </DraggableBox>
-                    )}
-
                     {!isFieldDeleted("page2AddressCode") && (
                       <DraggableBox
                         id="page2AddressCode"
@@ -2950,6 +3031,41 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                           }
                           className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                           placeholder="0000-0000"
+                          wrapperClassName="w-auto shrink-0"
+                        />
+                      </DraggableBox>
+                    )}
+
+                    {!isFieldDeleted("page2RoadName") && (
+                      <DraggableBox
+                        id="page2RoadName"
+                        position={fieldPositions.page2RoadName}
+                        onPositionChange={updateFieldPosition}
+                        label="Suite # (Page 2)"
+                        zoom={0.85}
+                        disabled={lockedSections.page2Header}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "page2RoadName",
+                            "Suite # (Page 2)",
+                            roadName,
+                            "Page 2 - Address",
+                            fieldStyles.roadName,
+                          )
+                        }
+                        deleteTitle="Remove Suite #"
+                      >
+                        <StyledInput
+                          value={roadName}
+                          onChange={(e) => setRoadName(e.target.value)}
+                          inputStyle={fieldStyles["roadName"]}
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("roadName", s)
+                          }
+                          className="font-light text-[28px] h-[30px] leading-none bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 whitespace-nowrap min-w-[1ch]"
+                          placeholder="0"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </DraggableBox>
@@ -3030,14 +3146,35 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
                     )}
                   </div>
                   <div className="text-white text-[10px]">
-                    <StyledInput
-                      value={cityLine}
-                      onChange={(e) => setCityLine(e.target.value)}
-                      inputStyle={fieldStyles.cityLine}
-                      onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                      className="text-white text-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300"
-                      placeholder="BURNABY, BC V5C 2J4"
-                    />
+                    {!isFieldDeleted("page2CityLine") && (
+                      <DraggableBox
+                        id="page2CityLine"
+                        position={fieldPositions.page2CityLine}
+                        onPositionChange={updateFieldPosition}
+                        label="City Line (Page 2)"
+                        zoom={0.85}
+                        disabled={lockedSections.page2Header}
+                        onDelete={() =>
+                          removeStandardField(
+                            "page2CityLine",
+                            "City Line (Page 2)",
+                            cityLine,
+                            "Page 2 - Address",
+                            fieldStyles.cityLine,
+                          )
+                        }
+                        deleteTitle="Remove City Line"
+                      >
+                        <StyledInput
+                          value={cityLine}
+                          onChange={(e) => setCityLine(e.target.value)}
+                          inputStyle={fieldStyles.cityLine}
+                          onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
+                          className="text-white text-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-gray-300"
+                          placeholder="BURNABY, BC V5C 2J4"
+                        />
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
               </div>

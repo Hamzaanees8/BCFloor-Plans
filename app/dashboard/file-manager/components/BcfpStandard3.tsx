@@ -96,6 +96,7 @@ const STANDARD_FIELD_IDS = new Set([
   "email",
   "phone",
   "mlsNumber",
+  "mlsHash",
   "addressCode",
   "roadName",
   "cityLine",
@@ -456,6 +457,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
       image13: null as string | null,
       image14: null as string | null,
     });
+    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
 
     const [scale, setScale] = useState({
       image1: 1,
@@ -610,6 +612,49 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
 
           const fullAddress = addressParts.join(", ");
           if (fullAddress) setPropertyName(fullAddress);
+
+          // Auto-fill property photos into empty image slots on default
+          const propPhotos: string[] = (
+            (prop as any).property_photos ||
+            (prop as any).photos ||
+            (orderData as any).property_photos ||
+            []
+          )
+            .map(
+              (p: any) =>
+                p.variant_urls?.print ||
+                p.variant_urls?.landing ||
+                p.url ||
+                p.storage_path,
+            )
+            .filter(Boolean);
+
+          if (propPhotos.length > 0) {
+            setImages((prev) => {
+              const next = { ...prev };
+              let idx = 0;
+              const photoSlots = [
+                "image1",
+                "image4",
+                "image5",
+                "image6",
+                "image7",
+                "image8",
+                "image9",
+                "image10",
+                "image11",
+                "image12",
+                "image13",
+                "image14",
+              ] as const;
+              photoSlots.forEach((slotKey) => {
+                if (!next[slotKey] && idx < propPhotos.length) {
+                  next[slotKey] = propPhotos[idx++];
+                }
+              });
+              return next;
+            });
+          }
         }
 
         if (agent) {
@@ -754,6 +799,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
         roadName,
         amount,
         mlsNumber,
+        mlsHash,
         bedroom,
         bathroom,
         sqft,
@@ -779,6 +825,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
         imagePositions: position,
         imageRotations: rotation,
         fieldPositions,
+        fieldStyles,
       });
     }, [
       fullName,
@@ -787,6 +834,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
       roadName,
       amount,
       mlsNumber,
+      mlsHash,
       bedroom,
       bathroom,
       sqft,
@@ -812,6 +860,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
       position,
       rotation,
       fieldPositions,
+      fieldStyles,
       imageSettings,
       updateFormData,
     ]);
@@ -1154,6 +1203,20 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
               value: printedByText,
               style: fieldStyles.printedByText || ({} as TextStyle),
             },
+            mlsHash: {
+              value: mlsHash,
+              style: fieldStyles.mlsHash || ({} as TextStyle),
+            },
+            addressCode: {
+              value: mlsNumber,
+              style: fieldStyles.addressCode || fieldStyles.mlsNumber || ({} as TextStyle),
+            },
+            cityLine: {
+              value: propertyName,
+              style: fieldStyles.cityLine || fieldStyles.propertyName || ({} as TextStyle),
+            },
+            _fieldStyles: fieldStyles,
+            _fieldPositions: fieldPositions,
             fieldPositions,
             _lockedSections: lockedSections,
             _leftDetailFields: leftDetailFields,
@@ -1330,6 +1393,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
           if (details.sqft) setSqft(s(details.sqft));
           if (details.builtYear) setBuiltYear(s(details.builtYear));
           if (details.mlsNumber) setMlsNumber(s(details.mlsNumber));
+          if (details.addressCode) setMlsNumber(s(details.addressCode));
+          if (details.cityLine) setPropertyName(s(details.cityLine));
           if (details.realtorLabel) setRealtorLabel(s(details.realtorLabel));
           if (details.propertyLabel) setPropertyLabel(s(details.propertyLabel));
           if (details.priceLabel) setPriceLabel(s(details.priceLabel));
@@ -1361,9 +1426,11 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
         }
 
         // Restore styles with font-size normalization
-        const styles: Record<string, TextStyle> = {};
         const c = payload.content;
         const st = (f: any) => (f as StyledTextField)?.style;
+        const styles: Record<string, TextStyle> = {
+          ...(rawOtherDetails._fieldStyles || rawOtherDetails.fieldStyles || (c as any)?.fieldStyles || {}),
+        };
 
         if (st(c.offeredAtPrice)) {
           const sObj = st(c.offeredAtPrice);
@@ -1396,6 +1463,9 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
 
         const od = (c.otherDetails as Record<string, any>) || {};
         if (od.mlsNumber?.style) styles.mlsNumber = od.mlsNumber.style;
+        if (od.addressCode?.style) styles.addressCode = od.addressCode.style;
+        if (od.cityLine?.style) styles.cityLine = od.cityLine.style;
+        if (od.mlsHash?.style) styles.mlsHash = od.mlsHash.style;
         if (od.bedroom?.style) styles.bedroom = od.bedroom.style;
         if (od.bathroom?.style) styles.bathroom = od.bathroom.style;
         if (od.sqft?.style) styles.sqft = od.sqft.style;
@@ -1418,13 +1488,24 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
         if (od.disclaimerText?.style)
           styles.disclaimerText = od.disclaimerText.style;
 
+        if (styles.mlsNumber) styles.addressCode = styles.mlsNumber;
+        if (styles.addressCode) styles.mlsNumber = styles.addressCode;
+        if (styles.propertyName) styles.cityLine = styles.propertyName;
+        if (styles.cityLine) styles.propertyName = styles.cityLine;
+
         setFieldStyles(styles);
 
-        if (state.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as unknown as typeof images),
-          }));
+        if (state.images) {
+          const sProcessing = (state as any).processingSlots || {};
+          setProcessingSlots(sProcessing);
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              state.images as any,
+              sProcessing,
+            ),
+          );
+        }
         if (state.imageScales)
           setScale((prev) => ({
             ...prev,
@@ -1440,7 +1521,14 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
             ...prev,
             ...(state.imageRotations as unknown as typeof rotation),
           }));
-        if (rawOtherDetails.fieldPositions) {
+        if (rawOtherDetails._fieldPositions) {
+          setFieldPositions(
+            rawOtherDetails._fieldPositions as Record<
+              string,
+              { x: number; y: number }
+            >,
+          );
+        } else if (rawOtherDetails.fieldPositions) {
           setFieldPositions(
             rawOtherDetails.fieldPositions as Record<
               string,
@@ -1546,7 +1634,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                         scale={scale.image4}
                         position={position.image4}
                         rotation={rotation.image4}
-                                objectFit="cover"
+                        objectFit="cover"
+                        isProcessing={processingSlots.image4}
                       />
                     </div>
 
@@ -1755,6 +1844,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image1}
                                 rotation={rotation.image1}
                                 objectFit="cover"
+                                isProcessing={processingSlots.image1}
                               />
                             </div>
 
@@ -1871,7 +1961,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image2}
                               position={position.image2}
                               rotation={rotation.image2}
-                                objectFit="contain"
+                              objectFit="contain"
+                              isProcessing={processingSlots.image2}
                             />
                           </div>
 
@@ -2552,6 +2643,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image3}
                                 rotation={rotation.image3}
                                 objectFit="contain"
+                                isProcessing={processingSlots.image3}
                               />
                             </div>
 
@@ -2932,7 +3024,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image13}
                               position={position.image13}
                               rotation={rotation.image13}
-                                objectFit="cover"
+                              objectFit="cover"
+                              isProcessing={processingSlots.image13}
                             />
                           </div>
 
@@ -3040,6 +3133,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image5}
                                 rotation={rotation.image5}
                                 objectFit="cover"
+                                isProcessing={processingSlots.image5}
                               />
                             </div>
 
@@ -3416,6 +3510,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image6}
                                 rotation={rotation.image6}
                                 objectFit="cover"
+                                isProcessing={processingSlots.image6}
                               />
                             </div>
 
@@ -3521,6 +3616,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image7}
                                 rotation={rotation.image7}
                                 objectFit="cover"
+                                isProcessing={processingSlots.image7}
                               />
                             </div>
 
@@ -3686,7 +3782,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image8}
                               position={position.image8}
                               rotation={rotation.image8}
-                                objectFit="cover"
+                              objectFit="cover"
+                              isProcessing={processingSlots.image8}
                             />
                           </div>
 
@@ -3794,6 +3891,7 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                 position={position.image9}
                                 rotation={rotation.image9}
                                 objectFit="cover"
+                                isProcessing={processingSlots.image9}
                               />
                             </div>
 
@@ -3902,7 +4000,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image10}
                                   position={position.image10}
                                   rotation={rotation.image10}
-                                objectFit="cover"
+                                  objectFit="cover"
+                                  isProcessing={processingSlots.image10}
                                 />
                               </div>
 
@@ -4013,7 +4112,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image11}
                                   position={position.image11}
                                   rotation={rotation.image11}
-                                objectFit="cover"
+                                  objectFit="cover"
+                                  isProcessing={processingSlots.image11}
                                 />
                               </div>
 
@@ -4126,7 +4226,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                                   scale={scale.image12}
                                   position={position.image12}
                                   rotation={rotation.image12}
-                                objectFit="cover"
+                                  objectFit="cover"
+                                  isProcessing={processingSlots.image12}
                                 />
                               </div>
 
@@ -4237,7 +4338,8 @@ const BcfpStandard3 = forwardRef<BcfpStandard3Ref, BcfpStandard3Props>(
                               scale={scale.image14}
                               position={position.image14}
                               rotation={rotation.image14}
-                                objectFit="cover"
+                              objectFit="cover"
+                              isProcessing={processingSlots.image14}
                             />
                           </div>
 

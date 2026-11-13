@@ -1438,11 +1438,53 @@ const FileManager = () => {
       .catch((err) => console.log(err.message));
   }, [orderId]);
 
+  const vendorHasFloorPlan = React.useMemo(() => {
+    if (userType !== "vendor") return true;
+    return services.some((srv: any) => {
+      const fullService =
+        servicesData?.find(
+          (s) =>
+            (s.uuid && s.uuid === srv.service?.uuid) ||
+            (s.id != null && s.id === srv.service?.id) ||
+            (s.id != null && s.id === srv.service_id),
+        ) || srv.service;
+      const catName = (
+        (fullService as any)?.category?.name ||
+        (srv.service as any)?.category?.name ||
+        ""
+      ).toLowerCase();
+      const sName = (
+        (fullService as any)?.name ||
+        (srv.service as any)?.name ||
+        srv.title ||
+        ""
+      ).toLowerCase();
+      return (
+        catName.includes("floor") ||
+        sName.includes("floor plan") ||
+        sName.includes("floorplan") ||
+        sName.includes("2d floor") ||
+        sName.includes("3d floor")
+      );
+    });
+  }, [userType, services, servicesData]);
+
   // Redirect unauthorized service tabs for vendor
   useEffect(() => {
     if (!orderData || userType !== "vendor") return;
 
-    if (activeTab === "tour") return;
+    if (activeTab === "tour") {
+      if (!vendorHasFloorPlan && services.length > 0) {
+        const firstServiceUuid = Array.from(groupedServices.keys())[0];
+        if (firstServiceUuid) {
+          setActiveTab(firstServiceUuid);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("serviceId", firstServiceUuid);
+          router.replace(`?${params.toString()}`);
+        }
+      }
+      return;
+    }
 
     const isUnauthorizedService =
       services.length > 0 &&
@@ -1459,7 +1501,7 @@ const FileManager = () => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("serviceId", firstServiceUuid);
         router.replace(`?${params.toString()}`);
-      } else {
+      } else if (vendorHasFloorPlan) {
         setActiveTab("tour");
         const params = new URLSearchParams(searchParams.toString());
         params.delete("serviceId");
@@ -1478,6 +1520,7 @@ const FileManager = () => {
     userType,
     searchParams,
     router,
+    vendorHasFloorPlan,
   ]);
 
   const activeService = servicesData?.find((srv) => srv.uuid === activeTab);
@@ -1919,6 +1962,7 @@ const FileManager = () => {
           onRefresh={fetchOrder}
           isScrolled={isScrolled}
           isListing={isListing}
+          vendorHasFloorPlan={vendorHasFloorPlan}
         />
       );
     }
@@ -4276,25 +4320,27 @@ const FileManager = () => {
                   },
                 )}
 
-                <div
-                  key="tour"
-                  onClick={() => handleTabChange("tour")}
-                  className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
-                    isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
-                  } ${
-                    activeTab === "tour"
-                      ? `${userType}-bg text-white ${userType}-border`
-                      : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
-                  }`}
-                  style={{
-                    backgroundColor:
+                {(userType !== "vendor" || vendorHasFloorPlan) && (
+                  <div
+                    key="tour"
+                    onClick={() => handleTabChange("tour")}
+                    className={`cursor-pointer flex items-center justify-center font-medium text-[8px] md:text-[9px] w-[75px] md:w-[95px] shrink-0 border px-1 text-center rounded-[4px] transition-all duration-300 break-words whitespace-normal overflow-hidden ${
+                      isScrolled ? "h-[32px] md:h-[36px]" : "h-[45px] md:h-[60px]"
+                    } ${
                       activeTab === "tour"
-                        ? undefined
-                        : `var(--${userType}-page-bg, #F2F2F2)`,
-                  }}
-                >
-                  Tour
-                </div>
+                        ? `${userType}-bg text-white ${userType}-border`
+                        : `${userType}-text ${userType}-border hover-${userType}-bg hover:!text-white`
+                    }`}
+                    style={{
+                      backgroundColor:
+                        activeTab === "tour"
+                          ? undefined
+                          : `var(--${userType}-page-bg, #F2F2F2)`,
+                    }}
+                  >
+                    Tour
+                  </div>
+                )}
                 {userType !== "vendor" &&
                   (() => {
                     const featureSheetBookings = (

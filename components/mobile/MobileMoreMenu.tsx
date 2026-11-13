@@ -149,6 +149,7 @@ function getFilteredNav(userType: string, allowPrintRequest: boolean): NavGroup[
               '/dashboard/admin',
               '/dashboard/vendors',
               '/dashboard/services',
+              '/dashboard/matterport',
             ];
             if (restricted.includes(item.url)) return false;
           }

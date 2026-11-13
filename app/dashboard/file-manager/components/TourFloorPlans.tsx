@@ -21,7 +21,6 @@ interface TourFloorPlansProps {
 
 function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   const { userType } = useAppContext();
-  const isVendor = userType === "vendor";
   const { startUpload } = useGlobalFileUpload();
   const [isMobile, setIsMobile] = React.useState(false);
   React.useEffect(() => {
@@ -236,7 +235,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
 
   const handleImageDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
-    if (type === "confirm" || isVendor || !imgRef.current || !selectedImageId) return;
+    if (type === "confirm" || !imgRef.current || !selectedImageId) return;
 
     const img = imgRef.current;
     const imgRect = img.getBoundingClientRect();
@@ -501,7 +500,6 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (isVendor) return;
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile || !selectedImageId) return;
 
@@ -780,7 +778,6 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   };
 
   const handlePhotoClick = async (file: any) => {
-    if (isVendor) return;
     // Only handle replacement if a snapshot is currently selected for editing
     if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) return;
 
@@ -814,7 +811,6 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handleSnapshotImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (isVendor) return;
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile) return;
 
@@ -1148,7 +1144,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     posX: number,
     posY: number,
   ) => {
-    if (type === "confirm" || userType === "vendor" || e.button !== 0) return;
+    if (type === "confirm" || e.button !== 0) return;
     e.stopPropagation();
 
     const targetEl = e.currentTarget;
@@ -1394,7 +1390,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       <div
         className={`w-full h-auto bg-gray-100 py-6 ${type !== "confirm" ? "pl-6" : "pl-0 mt-[75px] pt-0"}`}
       >
-        {type !== "confirm" && !isVendor && (
+        {type !== "confirm" && (
           <div className="mb-6 mr-6 bg-[#E3F2FD] border-l-4 border-[#1E88E5] text-[#1565C0] p-4 rounded-r-lg shadow-sm flex items-start gap-3">
             <svg
               className="w-5 h-5 mt-0.5 text-[#1E88E5] shrink-0"
@@ -1424,10 +1420,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           </div>
         )}
         <div
-          className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" || isVendor ? "bg-white" : ""} `}
+          className={`w-full h-auto md:h-[550px] flex flex-col md:flex-row gap-[30px] ${type === "confirm" ? "bg-white" : ""} `}
         >
           <div
-            className={`relative w-full ${type === "confirm" || isVendor ? "md:w-full" : "md:w-[70%]"} border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" || isVendor ? "m-auto" : ""}`}
+            className={`relative w-full ${type === "confirm" ? "md:w-full" : "md:w-[70%]"} border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" ? "m-auto" : ""}`}
           >
               {selectedFile &&
               "uuid" in selectedFile &&
@@ -1513,8 +1509,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                       height={1200}
                       draggable={false}
                       ref={imgRef as any}
-                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${isVendor ? "cursor-default" : "cursor-pointer"}`}
-                      onDoubleClick={isVendor ? undefined : handleImageDoubleClick}
+                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
+                      onDoubleClick={type === "confirm" ? undefined : handleImageDoubleClick}
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1534,8 +1530,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           : ""
                       }
                       alt="Selected Floor"
-                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${isVendor ? "cursor-default" : "cursor-pointer"}`}
-                      onDoubleClick={isVendor ? undefined : handleImageDoubleClick}
+                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
+                      onDoubleClick={type === "confirm" ? undefined : handleImageDoubleClick}
                     />
                   )}
                   {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
@@ -1564,7 +1560,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                       <div
                         key={idx}
                         className={`absolute select-none z-10 ${
-                          type === "confirm" || isVendor
+                          type === "confirm"
                             ? "cursor-pointer hover:scale-110 transition-all duration-150"
                             : isDraggingThis
                               ? "cursor-grabbing scale-125 z-30 transition-none drop-shadow-[0_0_12px_rgba(66,144,233,1)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
@@ -1595,7 +1591,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (justDraggedRef.current) return;
-                          if (type === "confirm" || isVendor) {
+                          if (type === "confirm") {
                             openFullscreenSnapshot(marker, idx);
                             return;
                           }
@@ -1637,7 +1633,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           }
                         }}
                         onMouseEnter={() => {
-                          if (type !== "confirm" && !isVendor) return;
+                          if (type !== "confirm") return;
                           if (hoverTimeoutRef.current) {
                             clearTimeout(hoverTimeoutRef.current);
                           }
@@ -1659,7 +1655,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                           }
                         }}
                         onMouseLeave={() => {
-                          if (type !== "confirm" && !isVendor) return;
+                          if (type !== "confirm") return;
                           hoverTimeoutRef.current = setTimeout(() => {
                             setPreviewMarker(null);
                           }, 300);
@@ -1672,7 +1668,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     );
                   })}
 
-                  {previewMarker && (type === "confirm" || isVendor) && (
+                  {previewMarker && type === "confirm" && (
                     <div
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1755,7 +1751,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
               )}
             </div>
 
-            {type !== "confirm" && !isVendor && (
+            {type !== "confirm" && (
               <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
                 <div className="flex items-center justify-between mb-[20px]">
                   <p className="text-[24px]">SnapShot</p>
@@ -1867,7 +1863,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           </div>
           <div className="w-full h-auto my-[20px] px-4 md:px-0">
             <div
-              className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" || isVendor ? "w-full" : "w-full md:w-[70%]"}`}
+              className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" ? "w-full" : "w-full md:w-[70%]"}`}
             >
               {filteredFloorFiles?.map((file, idx) => {
                 const isFilePDF = isPDF(file);
@@ -1989,7 +1985,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                     </div>
 
                     {/* Checkbox controls for Branded & Unbranded */}
-                    {type !== "confirm" && userType !== "vendor" && (
+                    {type !== "confirm" && (
                       <div className="flex items-center justify-between gap-1 w-[220px] px-1 py-0.5 text-[11px]">
                         <label
                           className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
@@ -2039,7 +2035,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             </div>
           </div>
 
-          {type !== "confirm" && !isVendor && (
+          {type !== "confirm" && (
             <div className="mt-8">
               <p className="text-[#666666] text-[24px] px-3">Photos</p>
 

@@ -258,6 +258,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return false;
           }
 
+          // 3D / Matterport (Hidden from vendors)
+          if (
+            item.url === "/dashboard/matterport" &&
+            userType === "vendor"
+          ) {
+            return false;
+          }
+
           // Permission based filtering for Admins
           if (userType === "admin") {
             if (
@@ -423,7 +431,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           // Restricted sections for vendors
           if (userType === "vendor") {
-            const restrictedUrls = ["/dashboard/admin", "/dashboard/vendors", "/dashboard/services", "/dashboard/billing"];
+            const restrictedUrls = [
+              "/dashboard/admin",
+              "/dashboard/vendors",
+              "/dashboard/services",
+              "/dashboard/billing",
+              "/dashboard/matterport",
+            ];
             if (restrictedUrls.includes(item.url)) {
               return false;
             }

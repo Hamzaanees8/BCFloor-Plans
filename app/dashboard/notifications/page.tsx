@@ -21,6 +21,38 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import MobileNotificationsList from "@/components/mobile/notifications/MobileNotificationsList";
 import { CheckCheck, Loader2, Printer } from "lucide-react";
 
+const getNotificationCreatorType = (
+  notification: NotificationData | null | undefined
+): "admin" | "client" | null => {
+  if (!notification) return null;
+
+  const rawCreatorType = (notification as any).created_by_type || notification.meta_data?.created_by_type;
+  if (rawCreatorType) {
+    const t = String(rawCreatorType).toLowerCase().trim();
+    if (t === "admin" || t === "client") return t;
+  }
+
+  const name = (notification.created_by_name || "").toLowerCase().trim();
+  const agentName = notification.order?.agent
+    ? `${notification.order.agent.first_name || ""} ${notification.order.agent.last_name || ""}`.toLowerCase().trim()
+    : ((notification.meta_data as any)?.agent_name || "").toLowerCase().trim();
+
+  if (agentName && name && (name === agentName || agentName.includes(name) || name.includes(agentName))) {
+    return "client";
+  }
+  if (name.includes("admin") || name === "system") {
+    return "admin";
+  }
+  if (name.includes("agent") || name.includes("client")) {
+    return "client";
+  }
+  if (notification.order?.agent && notification.agent_uuid) {
+    return "client";
+  }
+
+  return "admin";
+};
+
 const Page = () => {
   const isMobile = useIsMobile();
   const { organization } = useOrganization();
@@ -322,6 +354,9 @@ const Page = () => {
       "assistant",
     ].includes((userType || "").toLowerCase());
 
+    const isVendor = (userType || "").toLowerCase() === "vendor";
+    const creatorType = isVendor ? getNotificationCreatorType(notification) : null;
+
     const displayName = isAgent
       ? companyName
       : (notification.created_by_name?.trim() || companyName);
@@ -330,7 +365,8 @@ const Page = () => {
       nameSearch === "" ||
       displayName.toLowerCase().includes(nameSearch) ||
       (notification.created_by_name?.toLowerCase().includes(nameSearch) ?? false) ||
-      companyName.toLowerCase().includes(nameSearch);
+      companyName.toLowerCase().includes(nameSearch) ||
+      (creatorType?.toLowerCase().includes(nameSearch) ?? false);
 
     const matchesReadStatus =
       filterReadStatus === "all" ||
@@ -357,16 +393,33 @@ const Page = () => {
           "assistant",
         ].includes((userType || "").toLowerCase());
 
+        const isVendor = (userType || "").toLowerCase() === "vendor";
+
         const displayName = isAgent
           ? companyName
           : (row.original.created_by_name?.trim() || companyName);
 
+        const creatorType = isVendor ? getNotificationCreatorType(row.original) : null;
+
         return (
-          <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
-            {!row.original.is_read && (
-              <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
+          <div className="flex flex-col items-start gap-0.5 justify-center py-0.5">
+            <div className={`relative flex items-center text-[15px] font-[400] ${userType}-text`}>
+              {!row.original.is_read && (
+                <span className={`absolute -left-3 w-2 h-2 rounded-full ${userType}-bg`} />
+              )}
+              <span>{displayName}</span>
+            </div>
+            {isVendor && creatorType && (
+              <span
+                className={`text-[10px] leading-tight font-[500] capitalize px-1.5 py-[1px] rounded-full inline-flex items-center ${
+                  creatorType.toLowerCase() === "admin"
+                    ? "text-[#1D4ED8] bg-blue-50 border border-blue-200"
+                    : "text-[#790163] bg-[#790163]/10 border border-[#790163]/25"
+                }`}
+              >
+                {creatorType}
+              </span>
             )}
-            <span>{displayName}</span>
           </div>
         );
       },

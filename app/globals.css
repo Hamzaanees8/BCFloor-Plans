@@ -1030,6 +1030,38 @@ textarea::placeholder {
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Arial';
+  src: url('/fonts/arial.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Arial';
+  src: url('/fonts/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialRegular';
+  src: url('/fonts/arial.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ArialBold';
+  src: url('/fonts/arialbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ==========================================================================
    BcfpStandard6 Custom Fonts
    Font files live in /public/fonts/BcfpStandard6/
@@ -1078,7 +1110,15 @@ textarea::placeholder {
 @font-face {
   font-family: 'TrajanPro';
   src: url('/fonts/BcfpStandard6/TrajanPro-Bold.otf') format('opentype');
-  font-weight: 700;
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TrajanProBold';
+  src: url('/fonts/BcfpStandard6/TrajanPro-Bold.otf') format('opentype');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
