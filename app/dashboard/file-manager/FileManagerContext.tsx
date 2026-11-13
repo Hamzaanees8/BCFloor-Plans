@@ -262,6 +262,7 @@ type FormData = {
   roadLabelAfter?: string;
   addressHash?: string;
   page2AddressHash?: string;
+  mlsHash?: string;
   mlsLabel?: string;
   disclaimerText?: string;
   printedByText?: string;
