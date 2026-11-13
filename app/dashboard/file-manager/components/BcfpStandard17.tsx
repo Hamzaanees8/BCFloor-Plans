@@ -7,6 +7,9 @@ import {
   RotateCw,
   Lock,
   Unlock,
+  Square,
+  Layers,
+  Sun,
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -41,6 +44,12 @@ interface BcfpStandard17Props {
   orderData: Order | null;
   showBleed?: boolean;
   showGuide?: boolean;
+}
+
+interface ImageSettingOptions {
+  showBorder?: boolean;
+  showShadow?: boolean;
+  showWhiteBg?: boolean;
 }
 
 // ─── BoxIndicator ─────────────────────────────────────────────────────────────
@@ -351,7 +360,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
     });
 
     // ── 7. Modal & Slot States ────────────────────────────────────────────────
-    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
+    const [processingSlots, setProcessingSlots] = useState<
+      Record<string, boolean>
+    >({});
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
@@ -364,6 +375,37 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
       hoveredSlot === key ||
       activeSlot === key ||
       Boolean(dragging[key as keyof typeof dragging]);
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >({
+      image6: {
+        showBorder: true,
+        showShadow: true,
+        showWhiteBg: true,
+      },
+      ...((formData as any)?.imageSettings || {}),
+    });
+
+    const toggleImageSetting = (
+      key: string,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || {
+          showBorder: true,
+          showShadow: true,
+          showWhiteBg: true,
+        };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
+    };
 
     useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
@@ -383,7 +425,6 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
     const fileInputRef5 = useRef<HTMLInputElement | null>(null);
     const fileInputRef6 = useRef<HTMLInputElement | null>(null);
     const fileInputRef8 = useRef<HTMLInputElement | null>(null);
-
 
     // Initial sync from context & orderData
     useEffect(() => {
@@ -473,7 +514,10 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             cityParts.push(orderData.property.postal_code.trim());
 
           let cleanCity = cityParts.join(", ");
-          cleanCity = cleanCity.replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ").replace(/,\s*,+/g, ", ").trim();
+          cleanCity = cleanCity
+            .replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ")
+            .replace(/,\s*,+/g, ", ")
+            .trim();
           if (cleanCity) setCityLine(cleanCity);
         }
         if (orderData.agent) {
@@ -485,6 +529,20 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           if (agent.email) setEmail(agent.email);
           if (agent.primary_phone) setNumber(agent.primary_phone);
           if (agent.company_name) setPropertyName(agent.company_name);
+
+          const agentLogo =
+            (agent as any)?.company_logo_url ||
+            (agent as any)?.logo_url ||
+            (agent as any)?.logo ||
+            (orderData as any)?.property?.realtor_logo ||
+            (agent as any)?.avatar_url ||
+            null;
+          if (agentLogo) {
+            setImages((prev) => ({
+              ...prev,
+              image6: prev.image6 || agentLogo,
+            }));
+          }
         }
       }
       if (formData) {
@@ -531,11 +589,66 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             ...prev,
             ...formData.fieldPositions,
           }));
-        if (formData.fieldStyles)
-          setFieldStyles((prev) => ({ ...prev, ...formData.fieldStyles }));
+        if (formData.fieldStyles) {
+          const fs = { ...formData.fieldStyles };
+          if (
+            fs.amount?.color === "#5C481E" ||
+            fs.amount?.color?.toLowerCase() === "#5c481e"
+          ) {
+            fs.amount = { ...fs.amount, color: "#B3B394" };
+          }
+          if (
+            fs.number?.fontSize === "11px" ||
+            fs.number?.fontSize === "20px"
+          ) {
+            fs.number = { ...fs.number, fontSize: "12px" };
+          }
+          if (fs.email?.fontSize === "11px" || fs.email?.fontSize === "20px") {
+            fs.email = { ...fs.email, fontSize: "12px" };
+          }
+          if (fs.contactLabel?.fontSize === "10px") {
+            fs.contactLabel = { ...fs.contactLabel, fontSize: "14px" };
+          }
+          if (
+            fs.fullName?.fontSize === "15px" ||
+            fs.fullName?.fontSize === "20px"
+          ) {
+            fs.fullName = { ...fs.fullName, fontSize: "16px" };
+          }
+          setFieldStyles((prev) => ({ ...prev, ...fs }));
+        }
+        if ((formData as any)?.imageSettings) {
+          setImageSettings((prev) => ({
+            ...prev,
+            ...((formData as any).imageSettings as Record<
+              string,
+              ImageSettingOptions
+            >),
+          }));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Auto-fetch agent company logo into image6 if available
+    useEffect(() => {
+      if (orderData?.agent) {
+        const agent = orderData.agent;
+        const agentLogo =
+          (agent as any)?.company_logo_url ||
+          (agent as any)?.logo_url ||
+          (agent as any)?.logo ||
+          (orderData as any)?.property?.realtor_logo ||
+          (agent as any)?.avatar_url ||
+          null;
+        if (agentLogo) {
+          setImages((prev) => ({
+            ...prev,
+            image6: prev.image6 || agentLogo,
+          }));
+        }
+      }
+    }, [orderData]);
 
     // Sync formData
     useEffect(() => {
@@ -587,6 +700,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
         imageRotations: rotation,
         fieldPositions,
         fieldStyles,
+        imageSettings,
       });
     }, [
       deletedStandardFieldIds,
@@ -636,6 +750,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
       rotation,
       fieldPositions,
       fieldStyles,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -653,6 +768,15 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             style: {
               ...fieldStyles.amount,
               fontSize: fieldStyles.amount?.fontSize || "36px",
+              fontFamily:
+                fieldStyles.amount?.fontFamily ||
+                "TrajanProRegularBcfp17, serif",
+              fontWeight: fieldStyles.amount?.fontWeight || "500",
+              color:
+                fieldStyles.amount?.color &&
+                fieldStyles.amount.color.toLowerCase() !== "#5c481e"
+                  ? fieldStyles.amount.color
+                  : "#B3B394",
             },
           },
           realtorName: {
@@ -666,7 +790,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             value: email,
             style: {
               ...fieldStyles.email,
-              fontSize: fieldStyles.email?.fontSize || "11px",
+              fontSize: fieldStyles.email?.fontSize || "12px",
             },
           },
           companyName: {
@@ -680,14 +804,19 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             value: roadName,
             style: {
               ...fieldStyles.roadName,
-              fontSize: fieldStyles.roadName?.fontSize || "28px",
+              fontSize: fieldStyles.roadName?.fontSize || "24px",
             },
           },
           propertyNotesDescription: {
             value: description,
             style: {
               ...fieldStyles.description,
-              fontSize: fieldStyles.description?.fontSize || "14px",
+              fontSize: fieldStyles.description?.fontSize || "12px",
+              fontFamily:
+                fieldStyles.description?.fontFamily ||
+                "GothicBold, 'Gothic A1', Mulish, sans-serif",
+              fontWeight: fieldStyles.description?.fontWeight || "400",
+              fontStyle: fieldStyles.description?.fontStyle || "normal",
             },
           },
           expandedDetail1Title: "By-law Restrictions",
@@ -696,6 +825,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             style: {
               ...fieldStyles.byLawRestrictions,
               fontSize: fieldStyles.byLawRestrictions?.fontSize || "12px",
+              lineHeight: fieldStyles.byLawRestrictions?.lineHeight || "1.4",
             },
           },
           expandedDetail2Title: "Maint. Fees",
@@ -704,6 +834,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             style: {
               ...fieldStyles.maintenanceFees,
               fontSize: fieldStyles.maintenanceFees?.fontSize || "12px",
+              lineHeight: fieldStyles.maintenanceFees?.lineHeight || "1.4",
             },
           },
           expandedDetail3Title: "Maint. Fees Include",
@@ -712,6 +843,8 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             style: {
               ...fieldStyles.maintenanceFeesInclude,
               fontSize: fieldStyles.maintenanceFeesInclude?.fontSize || "12px",
+              lineHeight:
+                fieldStyles.maintenanceFeesInclude?.lineHeight || "1.4",
             },
           },
           expandedDetail4Title: "Features Included",
@@ -720,6 +853,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             style: {
               ...fieldStyles.featuresIncluded,
               fontSize: fieldStyles.featuresIncluded?.fontSize || "12px",
+              lineHeight: fieldStyles.featuresIncluded?.lineHeight || "1.4",
             },
           },
           keyHighlightLabel: "Site Influences",
@@ -757,6 +891,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             viewLabel,
             roadLabelBefore,
             roadLabelAfter,
+            imageSettings,
             deletedStandardFieldIds,
             deletedDetailFields,
             _deletedStandardFieldIds: deletedStandardFieldIds,
@@ -771,9 +906,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
         });
         (payload as any).deletedStandardFieldIds = deletedStandardFieldIds;
         (payload as any).deletedDetailFields = deletedDetailFields;
+        (payload as any).imageSettings = imageSettings;
         if (payload.content) {
-          (payload.content as any).deletedStandardFieldIds = deletedStandardFieldIds;
+          (payload.content as any).deletedStandardFieldIds =
+            deletedStandardFieldIds;
           (payload.content as any).deletedDetailFields = deletedDetailFields;
+          (payload.content as any).imageSettings = imageSettings;
         }
         return payload;
       },
@@ -831,7 +969,10 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
         }
         if (st(state.emailLink)) {
           const s = st(state.emailLink)!;
-          styles.email = s.fontSize === "20px" ? { ...s, fontSize: "11px" } : s;
+          styles.email =
+            s.fontSize === "20px" || s.fontSize === "11px"
+              ? { ...s, fontSize: "12px" }
+              : s;
         }
         if (st(state.companyName)) {
           const s = st(state.companyName)!;
@@ -904,6 +1045,29 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           if (Array.isArray(savedDeletedDetails)) {
             setDeletedDetailFields(savedDeletedDetails);
           }
+
+          if (details.imageSettings) {
+            setImageSettings((prev) => ({
+              ...prev,
+              ...(details.imageSettings as Record<string, ImageSettingOptions>),
+            }));
+          } else if ((payload as any).imageSettings) {
+            setImageSettings((prev) => ({
+              ...prev,
+              ...((payload as any).imageSettings as Record<
+                string,
+                ImageSettingOptions
+              >),
+            }));
+          } else if (rawOtherDetails.imageSettings) {
+            setImageSettings((prev) => ({
+              ...prev,
+              ...(rawOtherDetails.imageSettings as Record<
+                string,
+                ImageSettingOptions
+              >),
+            }));
+          }
         }
 
         const c17 = (payload?.content as Record<string, any>) || {};
@@ -916,21 +1080,262 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
           ...styles,
         };
 
-        // Reset any legacy 20px defaults that leaked into contact fields back to original template sizes
+        // Reset any legacy defaults back to template specification sizes
+        if (incomingStyles17.amount) {
+          if (
+            !incomingStyles17.amount.fontSize ||
+            incomingStyles17.amount.fontSize === "20px"
+          ) {
+            incomingStyles17.amount = {
+              ...incomingStyles17.amount,
+              fontSize: "36px",
+            };
+          }
+          if (
+            incomingStyles17.amount?.color === "#5C481E" ||
+            incomingStyles17.amount?.color?.toLowerCase() === "#5c481e"
+          ) {
+            incomingStyles17.amount = {
+              ...incomingStyles17.amount,
+              color: "#B3B394",
+            };
+          }
+        }
         if (incomingStyles17.fullName?.fontSize === "20px") {
-          incomingStyles17.fullName = { ...incomingStyles17.fullName, fontSize: "16px" };
+          incomingStyles17.fullName = {
+            ...incomingStyles17.fullName,
+            fontSize: "16px",
+          };
         }
         if (incomingStyles17.propertyName?.fontSize === "20px") {
-          incomingStyles17.propertyName = { ...incomingStyles17.propertyName, fontSize: "12px" };
+          incomingStyles17.propertyName = {
+            ...incomingStyles17.propertyName,
+            fontSize: "12px",
+          };
         }
-        if (incomingStyles17.number?.fontSize === "20px") {
-          incomingStyles17.number = { ...incomingStyles17.number, fontSize: "11px" };
+        if (
+          incomingStyles17.number?.fontSize === "20px" ||
+          incomingStyles17.number?.fontSize === "11px"
+        ) {
+          incomingStyles17.number = {
+            ...incomingStyles17.number,
+            fontSize: "12px",
+          };
         }
-        if (incomingStyles17.email?.fontSize === "20px") {
-          incomingStyles17.email = { ...incomingStyles17.email, fontSize: "11px" };
+        if (
+          incomingStyles17.email?.fontSize === "20px" ||
+          incomingStyles17.email?.fontSize === "11px"
+        ) {
+          incomingStyles17.email = {
+            ...incomingStyles17.email,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.description) {
+          if (
+            incomingStyles17.description.fontSize === "14px" ||
+            incomingStyles17.description.fontSize === "20px" ||
+            incomingStyles17.description.fontStyle === "italic" ||
+            !incomingStyles17.description.fontFamily
+          ) {
+            incomingStyles17.description = {
+              ...incomingStyles17.description,
+              fontSize: "12px",
+              fontFamily: "GothicBold, 'Gothic A1', Mulish, sans-serif",
+              fontWeight: "400",
+              fontStyle: "normal",
+            };
+          }
+        }
+        if (incomingStyles17.roadName?.fontSize === "28px") {
+          incomingStyles17.roadName = {
+            ...incomingStyles17.roadName,
+            fontSize: "24px",
+          };
+        }
+        if (incomingStyles17.addressCode?.fontSize === "28px") {
+          incomingStyles17.addressCode = {
+            ...incomingStyles17.addressCode,
+            fontSize: "24px",
+          };
+        }
+        if (incomingStyles17.roadLabelBefore?.fontSize === "28px") {
+          incomingStyles17.roadLabelBefore = {
+            ...incomingStyles17.roadLabelBefore,
+            fontSize: "24px",
+          };
+        }
+        if (incomingStyles17.roadLabelAfter?.fontSize === "28px") {
+          incomingStyles17.roadLabelAfter = {
+            ...incomingStyles17.roadLabelAfter,
+            fontSize: "24px",
+          };
+        }
+        if (incomingStyles17.cityLine?.fontSize === "18px") {
+          incomingStyles17.cityLine = {
+            ...incomingStyles17.cityLine,
+            fontSize: "16px",
+          };
+        }
+        if (incomingStyles17.bedroom?.fontSize === "13px") {
+          incomingStyles17.bedroom = {
+            ...incomingStyles17.bedroom,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.bedroomLabel?.fontSize === "14px") {
+          incomingStyles17.bedroomLabel = {
+            ...incomingStyles17.bedroomLabel,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.bathroom?.fontSize === "13px") {
+          incomingStyles17.bathroom = {
+            ...incomingStyles17.bathroom,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.bathroomLabel?.fontSize === "14px") {
+          incomingStyles17.bathroomLabel = {
+            ...incomingStyles17.bathroomLabel,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.sqft?.fontSize === "13px") {
+          incomingStyles17.sqft = {
+            ...incomingStyles17.sqft,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.sqftLabel?.fontSize === "14px") {
+          incomingStyles17.sqftLabel = {
+            ...incomingStyles17.sqftLabel,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.builtYear?.fontSize === "13px") {
+          incomingStyles17.builtYear = {
+            ...incomingStyles17.builtYear,
+            fontSize: "12px",
+          };
+        }
+        if (incomingStyles17.builtYearLabel?.fontSize === "14px") {
+          incomingStyles17.builtYearLabel = {
+            ...incomingStyles17.builtYearLabel,
+            fontSize: "12px",
+          };
         }
 
-        const sProcessing = (state as any).processingSlots || (payload as any).processingSlots || {};
+        const specFields = [
+          "bedroom",
+          "bedroomLabel",
+          "bathroom",
+          "bathroomLabel",
+          "sqft",
+          "sqftLabel",
+          "builtYear",
+          "builtYearLabel",
+        ];
+        specFields.forEach((key) => {
+          if (
+            incomingStyles17[key]?.fontFamily
+              ?.toLowerCase()
+              .includes("raleway") ||
+            incomingStyles17[key]?.fontWeight === "bold" ||
+            incomingStyles17[key]?.fontWeight === "700"
+          ) {
+            incomingStyles17[key] = {
+              ...incomingStyles17[key],
+              fontFamily: "ArialBoldBcfp17, sans-serif",
+              fontWeight: "400",
+            };
+          }
+        });
+        if (
+          incomingStyles17.cityLine?.fontFamily
+            ?.toLowerCase()
+            .includes("raleway") ||
+          incomingStyles17.cityLine?.fontWeight === "bold" ||
+          incomingStyles17.cityLine?.fontWeight === "700"
+        ) {
+          incomingStyles17.cityLine = {
+            ...incomingStyles17.cityLine,
+            fontFamily: "ArialBoldBcfp17, sans-serif",
+            fontWeight: "400",
+          };
+        }
+        if (incomingStyles17.headlineText) {
+          if (
+            !incomingStyles17.headlineText.fontFamily ||
+            incomingStyles17.headlineText.fontFamily.includes("sans-serif") ||
+            incomingStyles17.headlineText.fontWeight === "500" ||
+            incomingStyles17.headlineText.fontWeight === "bold"
+          ) {
+            incomingStyles17.headlineText = {
+              ...incomingStyles17.headlineText,
+              fontFamily: "TrajanProRegularBcfp17, serif",
+              fontWeight: "400",
+              fontSize: "16px",
+              letterSpacing: "0.06em",
+              wordSpacing: "0.2em",
+            };
+          }
+        }
+
+        const detailLabels = [
+          "byLawLabel",
+          "maintFeesLabel",
+          "maintFeesIncludeLabel",
+          "featuresIncludedLabel",
+          "siteInfluencesLabel",
+          "amenitiesLabel",
+          "viewLabel",
+        ];
+        detailLabels.forEach((key) => {
+          if (
+            incomingStyles17[key]?.fontSize === "10px" ||
+            incomingStyles17[key]?.fontSize === "20px" ||
+            incomingStyles17[key]?.fontWeight === "bold"
+          ) {
+            incomingStyles17[key] = {
+              ...incomingStyles17[key],
+              fontSize: "14px",
+              fontFamily: "TrajanProRegularBcfp17, serif",
+              fontWeight: "400",
+            };
+          }
+        });
+
+        const detailValues = [
+          "byLawRestrictions",
+          "maintenanceFees",
+          "maintenanceFeesInclude",
+          "featuresIncluded",
+          "siteInfluences",
+          "amenities",
+          "view",
+        ];
+        detailValues.forEach((key) => {
+          if (
+            incomingStyles17[key]?.fontSize === "20px" ||
+            incomingStyles17[key]?.fontFamily
+              ?.toLowerCase()
+              .includes("raleway") ||
+            incomingStyles17[key]?.fontWeight === "500"
+          ) {
+            incomingStyles17[key] = {
+              ...incomingStyles17[key],
+              fontSize: "12px",
+              fontFamily: "GothicBold, 'Gothic A1', Mulish, sans-serif",
+              fontWeight: "400",
+            };
+          }
+        });
+
+        const sProcessing =
+          (state as any).processingSlots ||
+          (payload as any).processingSlots ||
+          {};
         setProcessingSlots(sProcessing);
 
         if (state.images)
@@ -1055,7 +1460,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 setCurrentImageSlot(null);
               }}
               onImageSelect={handleGalleryImageSelect}
-          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
+              usedImageUrls={Object.values(images).filter(
+                (url): url is string => Boolean(url),
+              )}
             />
           )}
 
@@ -1123,42 +1530,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   </button>
 
                   <div className="flex flex-col items-center">
-                    <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-1.5 shrink-0 whitespace-nowrap">
-                      {!isFieldDeleted("roadName") && (
-                        <DraggableBox
-                          id="roadName"
-                          position={fieldPositions.roadName}
-                          onPositionChange={updateFieldPosition}
-                          label="Suite #"
-                          zoom={0.85}
-                          disabled={lockedSections.header}
-                          containerClassName="w-auto inline-flex items-center shrink-0"
-                          className="w-auto inline-flex items-center"
-                          onDelete={() =>
-                            removeStandardField(
-                              "roadName",
-                              "Suite #",
-                              roadName,
-                              "Header",
-                              fieldStyles.roadName,
-                            )
-                          }
-                          deleteTitle="Remove Suite #"
-                        >
-                          <StyledInput
-                            value={roadName}
-                            onChange={(e) => setRoadName(e.target.value)}
-                            inputStyle={fieldStyles.roadName}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("roadName", s)
-                            }
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
-                            placeholder="0"
-                            wrapperClassName="w-auto shrink-0"
-                          />
-                        </DraggableBox>
-                      )}
-
+                    <div className="text-[24px] font-normal font-trajan leading-none mt-0 text-white flex justify-center items-center gap-1.5 shrink-0 whitespace-nowrap">
                       {!isFieldDeleted("addressCode") && (
                         <DraggableBox
                           id="addressCode"
@@ -1187,8 +1559,43 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("addressCode", s)
                             }
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
+                            className="font-normal font-trajan text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
                             placeholder="0000-0000"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("roadName") && (
+                        <DraggableBox
+                          id="roadName"
+                          position={fieldPositions.roadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Suite #"
+                          zoom={0.85}
+                          disabled={lockedSections.header}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "roadName",
+                              "Suite #",
+                              roadName,
+                              "Header",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Suite #"
+                        >
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            inputStyle={fieldStyles.roadName}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            className="font-normal font-trajan text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
+                            placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
                         </DraggableBox>
@@ -1217,14 +1624,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         >
                           <StyledInput
                             value={roadLabelBefore}
-                            onChange={(e) =>
-                              setRoadLabelBefore(e.target.value)
-                            }
+                            onChange={(e) => setRoadLabelBefore(e.target.value)}
                             inputStyle={fieldStyles.roadLabelBefore}
                             onChangeStyle={(s) =>
                               updateFieldStyle("roadLabelBefore", s)
                             }
-                            className="text-white text-[28px] h-[30px] leading-none uppercase bg-transparent text-right focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-trajan text-white text-[24px] h-[28px] leading-none uppercase bg-transparent text-right focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="Number"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1254,14 +1659,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         >
                           <StyledInput
                             value={roadLabelAfter}
-                            onChange={(e) =>
-                              setRoadLabelAfter(e.target.value)
-                            }
+                            onChange={(e) => setRoadLabelAfter(e.target.value)}
                             inputStyle={fieldStyles.roadLabelAfter}
                             onChangeStyle={(s) =>
                               updateFieldStyle("roadLabelAfter", s)
                             }
-                            className="text-white text-[28px] h-[30px] leading-none uppercase bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-trajan text-white text-[24px] h-[28px] leading-none uppercase bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="Road"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1295,7 +1698,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                           onChange={(e) => setCityLine(e.target.value)}
                           inputStyle={fieldStyles.cityLine}
                           onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                          className="text-white text-[16px] h-[20px] bg-transparent text-right w-[350px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
+                          className="font-normal font-arial-bold text-white text-[16px] h-[20px] bg-transparent text-right w-[350px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                           placeholder="BRIGHOUSE SOUTH, RICHMOND"
                         />
                       </DraggableBox>
@@ -1303,7 +1706,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   </div>
 
                   {/* Specs Bar */}
-                  <div className="font-bold items-center text-[14px] text-[#B3B394] flex flex-wrap gap-2 mt-2">
+                  <div className="font-normal font-arial-bold items-center text-[12px] text-[#B3B394] flex flex-wrap gap-2 mt-2">
                     {!isFieldDeleted("specBedroom") && (
                       <DraggableBox
                         id="specBedroom"
@@ -1331,7 +1734,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("bedroom", s)
                             }
-                            className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                             placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1342,7 +1745,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("bedroomLabel", s)
                             }
-                            className="font-bold text-[14px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="BEDROOM |"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1377,7 +1780,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("bathroom", s)
                             }
-                            className="font-semibold text-[13px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] bg-transparent text-left w-[20px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                             placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1388,7 +1791,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("bathroomLabel", s)
                             }
-                            className="font-bold text-[14px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="BATHROOM |"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1421,7 +1824,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChange={(e) => setSqft(e.target.value)}
                             inputStyle={fieldStyles.sqft}
                             onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                            className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                             placeholder="000"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1432,7 +1835,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("sqftLabel", s)
                             }
-                            className="font-bold text-[14px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="SQ FT |"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1467,7 +1870,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("builtYearLabel", s)
                             }
-                            className="font-bold text-[14px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] text-[#B3B394] bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="BUILT IN"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1478,7 +1881,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("builtYear", s)
                             }
-                            className="font-semibold text-[13px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[500] whitespace-nowrap"
+                            className="font-normal font-arial-bold text-[12px] bg-transparent text-left w-[45px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                             placeholder="0000"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -1491,7 +1894,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 {/* ── IMAGE 1 (TOP HERO SLOT) ── */}
                 <div
                   data-image-slot="true"
-                  className="relative overflow-hidden group cursor-pointer shadow-[4px_4px_6px_rgba(0,0,0,0.85)] border-[#fff] shrink-0"
+                  className="relative overflow-hidden group cursor-pointer border-2 border-[#fff] shrink-0"
                   style={{
                     marginTop: showBleed ? "-0.375in" : "-0.25in",
                     marginLeft: showBleed ? "-0.375in" : "-0.25in",
@@ -1536,11 +1939,17 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         </div>
 
                         {/* Zoom Controls */}
-                        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                        <div
+                          className={`absolute bottom-[60px] right-3 flex gap-2 z-30 transition-opacity ${
+                            isSlotActive("image1")
+                              ? "opacity-100 pointer-events-auto"
+                              : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                          }`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleZoom("image1", "in")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100 cursor-pointer"
                             title="Zoom In"
                           >
                             <ZoomIn className="w-4 h-4 text-gray-700" />
@@ -1548,7 +1957,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                           <button
                             type="button"
                             onClick={() => handleZoom("image1", "out")}
-                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                            className="bg-white p-2 rounded-full shadow hover:bg-gray-100 cursor-pointer"
                             title="Zoom Out"
                           >
                             <ZoomOut className="w-4 h-4 text-gray-700" />
@@ -1650,7 +2059,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     />
                                   </div>
 
-                                  <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                                  <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                     <button
                                       type="button"
                                       onClick={() => handleZoom("image2", "in")}
@@ -1674,7 +2083,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                   <button
                                     type="button"
                                     onClick={() => handleRotate("image2")}
-                                    className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                    className="absolute top-2 left-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                     title="Rotate image"
                                   >
                                     <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1684,7 +2093,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     onClick={(e) =>
                                       openImageSourceModal("image2", e)
                                     }
-                                    className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                    className="absolute top-2 left-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                     title="Edit image"
                                   >
                                     <Pencil className="w-4 h-4 text-gray-700" />
@@ -1694,7 +2103,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     onClick={() =>
                                       handleDelete("image2", fileInputRef2)
                                     }
-                                    className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                    className="absolute top-2 left-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                     title="Delete image"
                                   >
                                     <Trash className="w-4 h-4 text-red-500" />
@@ -1866,7 +2275,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     />
                                   </div>
 
-                                  <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                                  <div className="absolute bottom-2 left-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                                     <button
                                       type="button"
                                       onClick={() => handleZoom("image4", "in")}
@@ -1890,7 +2299,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                   <button
                                     type="button"
                                     onClick={() => handleRotate("image4")}
-                                    className="absolute top-2 right-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                                    className="absolute top-2 left-[72px] z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
                                     title="Rotate image"
                                   >
                                     <RotateCw className="w-4 h-4 text-gray-700" />
@@ -1900,7 +2309,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     onClick={(e) =>
                                       openImageSourceModal("image4", e)
                                     }
-                                    className="absolute top-2 right-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                    className="absolute top-2 left-10 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                     title="Edit image"
                                   >
                                     <Pencil className="w-4 h-4 text-gray-700" />
@@ -1910,7 +2319,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                     onClick={() =>
                                       handleDelete("image4", fileInputRef4)
                                     }
-                                    className="absolute top-2 right-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                                    className="absolute top-2 left-2 z-20 bg-white p-1 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                                     title="Delete image"
                                   >
                                     <Trash className="w-4 h-4 text-red-500" />
@@ -2046,11 +2455,26 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                           </div>
                         </div>
 
-                        {/* IMAGE 6 SLOT (OVERLAPPING CENTER IMAGE) */}
+                        {/* IMAGE 6 SLOT (OVERLAPPING CENTER LOGO/IMAGE) */}
                         <div className="absolute group z-10 top-1/2 -translate-y-1/2">
                           <div
                             data-image-slot="true"
-                            className={`w-[160px] h-[100px] relative border-2 border-[#fff] ${images.image6 ? "bg-transparent" : "bg-white"} shadow-[4px_4px_6px_rgba(0,0,0,0.6)] group overflow-hidden cursor-pointer`}
+                            id="agentLogo_image6"
+                            data-slot-type="logo"
+                            data-logo-slot="true"
+                            className={`w-[160px] h-[100px] relative group overflow-hidden cursor-pointer transition-all ${
+                              (imageSettings.image6?.showWhiteBg ?? true)
+                                ? "bg-white"
+                                : "bg-transparent"
+                            } ${
+                              (imageSettings.image6?.showBorder ?? true)
+                                ? "border-2 border-[#fff]"
+                                : "border-0 border-transparent"
+                            } ${
+                              (imageSettings.image6?.showShadow ?? true)
+                                ? "shadow-[4px_4px_6px_rgba(0,0,0,0.6)]"
+                                : "shadow-none"
+                            }`}
                             onMouseEnter={() => setHoveredSlot("image6")}
                             onMouseLeave={() => setHoveredSlot(null)}
                             onClick={(e) => {
@@ -2060,6 +2484,77 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             }}
                           >
                             <BoxIndicator isVisible={isSlotActive("image6")} />
+
+                            {/* Top-Left Border, Shadow, White Background Toggles */}
+                            <div
+                              data-html2canvas-ignore="true"
+                              className={`absolute top-1.5 left-1.5 z-30 flex gap-1 ${
+                                isSlotActive("image6")
+                                  ? "opacity-100 pointer-events-auto"
+                                  : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                              } print:hidden`}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image6", "showBorder");
+                                }}
+                                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                                  (imageSettings.image6?.showBorder ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image6?.showBorder ?? true)
+                                    ? "Hide Border"
+                                    : "Show Border"
+                                }
+                              >
+                                <Square className="w-3 h-3" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image6", "showShadow");
+                                }}
+                                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                                  (imageSettings.image6?.showShadow ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image6?.showShadow ?? true)
+                                    ? "Hide Shadow"
+                                    : "Show Shadow"
+                                }
+                              >
+                                <Layers className="w-3 h-3" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleImageSetting("image6", "showWhiteBg");
+                                }}
+                                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                                  (imageSettings.image6?.showWhiteBg ?? true)
+                                    ? "bg-[#8B3DFF] text-white"
+                                    : "bg-white text-gray-700 hover:bg-gray-100"
+                                }`}
+                                title={
+                                  (imageSettings.image6?.showWhiteBg ?? true)
+                                    ? "Hide Background (Make Transparent)"
+                                    : "Show Background"
+                                }
+                              >
+                                <Sun className="w-3 h-3" />
+                              </button>
+                            </div>
+
                             <div
                               className="w-full h-full relative overflow-hidden flex items-center justify-center"
                               onMouseMove={(e) => handleMouseMove("image6", e)}
@@ -2069,7 +2564,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               {images.image6 ? (
                                 <>
                                   <div
-                                    className="w-full h-full cursor-grab active:cursor-grabbing"
+                                    className="w-full h-full cursor-grab active:cursor-grabbing flex items-center justify-center p-1"
                                     onMouseDown={(e) =>
                                       handleMouseDown("image6", e)
                                     }
@@ -2079,7 +2574,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                       scale={scale.image6}
                                       position={position.image6}
                                       rotation={rotation.image6}
-                                      objectFit="cover"
+                                      objectFit="contain"
                                       isProcessing={processingSlots.image6}
                                     />
                                   </div>
@@ -2142,7 +2637,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                   }
                                   className="w-full h-full bg-white text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 font-medium text-[10px] hover:bg-gray-100"
                                 >
-                                  Select Image
+                                  Select Logo
                                 </div>
                               )}
                               <input
@@ -2160,7 +2655,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                       {/* Headline, Description & Disclaimer Container */}
                       <div
                         data-safezone-container="true"
-                        className={`text-[10px] justify-self-center mt-3 w-full flex flex-col justify-between h-[290px] max-h-[290px] font-normal text-[#ffffff] italic relative z-10 leading-[1.6] border-[3.5px] border-solid border-transparent rounded-lg px-2 pt-2 pb-3 overflow-hidden transition-all duration-150 group/sec ${
+                        className={`text-[10px] justify-self-center mt-3 w-full flex flex-col justify-between h-[290px] max-h-[290px] font-normal text-[#ffffff] relative z-10 leading-[1.6] border-[3.5px] border-solid border-transparent rounded-lg px-2 pt-2 pb-3 overflow-hidden transition-all duration-150 group/sec ${
                           lockedSections.description
                             ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                             : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -2225,7 +2720,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("headlineText", s)
                               }
-                              className="text-[16px] px-0 text-center tracking-[-1px] leading-snug font-bold text-[#B3B394] w-full bg-transparent focus:outline-none border-none placeholder-[#B3B394]"
+                              className="font-normal font-trajan text-[16px] px-0 text-center tracking-[0.06em] [word-spacing:0.2em] leading-snug text-[#B3B394] w-full bg-transparent focus:outline-none border-none placeholder-[#B3B394]"
                               placeholder="ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING."
                             />
                           </DraggableBox>
@@ -2262,8 +2757,8 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               }
                               rows={6}
                               wrapperClassName="h-full max-h-full w-full overflow-hidden"
-                              className="font-normal text-[14px] w-full h-full max-h-full z-20 text-[#ffffff] leading-[1.4] italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[500] overflow-y-auto resize-none"
-                              placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible..."
+                              className="font-normal font-gothic-bold text-[12px] w-full h-full max-h-full z-20 text-[#ffffff] leading-[1.4] not-italic bg-transparent text-left focus:outline-none border-none placeholder-[#ffffff] placeholder:font-[400] overflow-y-auto resize-none"
+                              placeholder="This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open ‘den/nook’ area perfect for the home office. Huge private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground.With parking, and storage locker and balance of the the 5–10 warranty, this home provides nothing out exceptional value. Call today to set up your viewing. MLS # 0000000"
                             />
                           </DraggableBox>
                         )}
@@ -2293,7 +2788,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               <span className="flex flex-col mt-0.5 shrink-0">
                                 <House className="w-4 h-4" />
                               </span>
-                              <p className="text-[8px] leading-tight text-[#B3B394] select-none pointer-events-none">
+                              <p className="text-[8px] leading-tight text-[#abab83] select-none pointer-events-none">
                                 {disclaimerText ||
                                   "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless."}
                               </p>
@@ -2308,13 +2803,21 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   <div className="w-[27%] flex flex-col gap-2 relative">
                     {/* Price Section - Overlaying bottom-right of main hero image */}
                     {!isFieldDeleted("priceAmount") && (
-                      <div className="mt-[-65px] mb-1 relative z-20 px-1">
+                      <div className="absolute -top-[52px] left-0 right-0 z-20 px-1">
                         <StyledInput
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           inputStyle={fieldStyles.amount}
                           onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                          className="font-bold text-[36px] h-[40px] w-full leading-none mt-0 bg-transparent text-[#B3B394] text-left focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[200] whitespace-nowrap"
+                          style={{
+                            color:
+                              fieldStyles.amount?.color &&
+                              fieldStyles.amount.color.toLowerCase() !==
+                                "#5c481e"
+                                ? fieldStyles.amount.color
+                                : "#B3B394",
+                          }}
+                          className="font-medium opacity-100 font-trajan text-[36px] h-[40px] w-full leading-none mt-0 bg-transparent text-[#bebe67] text-left focus:outline-none border-none placeholder-[#bebe67] whitespace-nowrap"
                           placeholder="$000,000"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -2324,7 +2827,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                     {/* Details List Section */}
                     <div
                       data-safezone-container="true"
-                      className={`space-y-1 text-[8px] relative border-[3.5px] border-solid border-transparent flex-1 rounded-lg p-0.5 transition-all duration-150 group/sec ${
+                      className={`space-y-1 text-[8px] relative mt-1 border-[3.5px] border-solid border-transparent flex-1 rounded-lg p-0.5 transition-all duration-150 group/sec ${
                         lockedSections.details
                           ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                           : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -2389,7 +2892,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("byLawLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="BY-LAW RESTRICTIONS:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2402,8 +2905,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("byLawRestrictions", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Pets Allowed w/Rest., Rentals Allowed"
+                              rows={2}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="Pets Allowed w/Rest., Rentals Allowed (Min 30 Days)"
                             />
                           </div>
                         </DraggableBox>
@@ -2439,7 +2943,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("maintFeesLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="MAINT. FEES:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2452,8 +2956,8 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("maintenanceFees", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full h-[20px] focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="$000.00"
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="$485.00"
                             />
                           </div>
                         </DraggableBox>
@@ -2489,7 +2993,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("maintFeesIncludeLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="MAINT. FEES INCLUDE:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2502,8 +3006,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("maintenanceFeesInclude", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Gardening, Garbage Pickup, Gas..."
+                              rows={3}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="Caretaker, Gardening, Garbage Pickup, Management."
                             />
                           </div>
                         </DraggableBox>
@@ -2539,7 +3044,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("featuresIncludedLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="FEATURES INCLUDED:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2552,8 +3057,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("featuresIncluded", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Clothes Washer/Dryer/Fridge..."
+                              rows={3}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="Air Conditioning, ClthWsh/Dryr/Frdg/Stve/DW."
                             />
                           </div>
                         </DraggableBox>
@@ -2589,7 +3095,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("siteInfluencesLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="SITE INFLUENCES:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2602,8 +3108,11 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("siteInfluences", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Central Location, Golf Course..."
+                              rows={6}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder={
+                                "Central Location\nGolf Course Nearby"
+                              }
                             />
                           </div>
                         </DraggableBox>
@@ -2639,7 +3148,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("amenitiesLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="AMENITIES:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2650,8 +3159,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("amenities", s)
                               }
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="Exercise Centre, Garden..."
+                              rows={3}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="Clubhouse, Exercise Centre, In Suite Laundry"
                             />
                           </div>
                         </DraggableBox>
@@ -2685,7 +3195,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("viewLabel", s)
                               }
-                              className="font-bold text-[#B3B394] text-[10px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
+                              className="font-normal font-trajan text-[#B3B394] text-[14px] whitespace-nowrap bg-transparent focus:outline-none border-none uppercase"
                               placeholder="VIEW:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2694,8 +3204,9 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChange={(e) => setView(e.target.value)}
                               inputStyle={fieldStyles.view}
                               onChangeStyle={(s) => updateFieldStyle("view", s)}
-                              className="font-normal text-white text-[12px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[500]"
-                              placeholder="South & SW - Van Isl."
+                              rows={2}
+                              className="font-normal font-gothic-bold text-white text-[12px] leading-[1.4] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#FFFFFF] placeholder:font-[400]"
+                              placeholder="Panoramic City, Water & North Shore Mountain Views"
                             />
                           </div>
                         </DraggableBox>
@@ -2762,7 +3273,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                           }
                           deleteTitle="Remove Agent Name"
                         >
-                          <div className="font-bold text-[10px] mb-0.5 flex flex-col gap-0.5 whitespace-nowrap">
+                          <div className="mb-0.5 flex flex-col gap-0.5 whitespace-nowrap">
                             <StyledInput
                               value={contactLabel}
                               onChange={(e) => setContactLabel(e.target.value)}
@@ -2770,7 +3281,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("contactLabel", s)
                               }
-                              className="font-normal text-[10px] text-[#B3B394] uppercase bg-transparent focus:outline-none border-none"
+                              className="font-normal font-trajan text-left text-[14px] text-[#B3B394] uppercase bg-transparent focus:outline-none border-none"
                               placeholder="CONTACT:"
                               wrapperClassName="w-auto shrink-0"
                             />
@@ -2782,7 +3293,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                 updateFieldStyle("fullName", s)
                               }
                               rows={1}
-                              className="text-[15px] text-[#B3B394] h-[22px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[500]"
+                              className="font-normal font-trajan text-[16px] text-[#B3B394] h-[24px] bg-transparent text-left w-full focus:outline-none border-none placeholder-[#B3B394] placeholder:font-[400]"
                               placeholder="FIRSTNAME LASTNAME"
                             />
                           </div>
@@ -2817,13 +3328,13 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("propertyName", s)
                             }
-                            className="text-[12px] font-thin h-[18px] bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[200]"
+                            className="font-normal font-arial-regular text-[12px] h-[20px] bg-transparent text-left text-white w-full focus:outline-none border-none placeholder-white placeholder:font-[400]"
                             placeholder="MACDONALD Realty"
                           />
                         </DraggableBox>
                       )}
 
-                      <div className="w-full mt-0.5">
+                      <div className="w-full mt-0.5 flex flex-col gap-[3px]">
                         {/* Phone Number */}
                         {!isFieldDeleted("contactPhone") && (
                           <DraggableBox
@@ -2852,7 +3363,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                 onChangeStyle={(s) =>
                                   updateFieldStyle("phoneLabel", s)
                                 }
-                                className="text-white text-[12px] bg-transparent focus:outline-none border-none uppercase"
+                                className="font-normal font-arial-regular text-white text-[12px] bg-transparent focus:outline-none border-none uppercase"
                                 placeholder="PHONE:"
                                 wrapperClassName="w-auto shrink-0"
                               />
@@ -2864,7 +3375,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                   updateFieldStyle("number", s)
                                 }
                                 rows={1}
-                                className="font-thin text-[12px] h-[18px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                                className="font-normal font-arial-regular text-white text-[12px] h-[20px] bg-transparent text-left w-[180px] focus:outline-none border-none placeholder-white placeholder:font-[400]"
                                 placeholder="604.000.0000"
                               />
                             </div>
@@ -2891,7 +3402,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             }
                             deleteTitle="Remove Email"
                           >
-                            <div className="flex gap-1 text-white text-[11px] items-center whitespace-nowrap">
+                            <div className="flex gap-1 text-white text-[12px] items-center whitespace-nowrap">
                               <StyledInput
                                 value={emailLabel}
                                 onChange={(e) => setEmailLabel(e.target.value)}
@@ -2899,7 +3410,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                 onChangeStyle={(s) =>
                                   updateFieldStyle("emailLabel", s)
                                 }
-                                className="text-white text-[11px] bg-transparent focus:outline-none border-none uppercase"
+                                className="font-normal font-arial-regular text-white text-[12px] bg-transparent focus:outline-none border-none uppercase"
                                 placeholder="EMAIL:"
                                 wrapperClassName="w-auto shrink-0"
                               />
@@ -2911,7 +3422,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                                   updateFieldStyle("email", s)
                                 }
                                 rows={1}
-                                className="font-thin text-[11px] h-[18px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[500]"
+                                className="font-normal font-arial-regular text-white text-[12px] h-[20px] bg-transparent text-left w-full focus:outline-none border-none placeholder-white placeholder:font-[400]"
                                 placeholder="FIRST@LAST.COM"
                               />
                             </div>
@@ -2946,7 +3457,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
             }}
           >
             <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
-              <div className="relative bg-[#2B612A] w-full flex-1 h-full flex flex-col py-3 font-['ArialBoldBcfp17'] font-bold">
+              <div className="relative bg-[#2B612A] w-full flex-1 h-full flex flex-col pt-3 pb-1 font-['ArialBoldBcfp17'] font-bold">
                 {/* PAGE 2 HEADER */}
                 <div
                   data-safezone-container="true"
@@ -2988,42 +3499,7 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                   </button>
 
                   <div className="flex flex-col items-center">
-                    <div className="text-[28px] font-light leading-none mt-0 text-white flex justify-center items-center gap-1.5 shrink-0 whitespace-nowrap">
-                      {!isFieldDeleted("page2RoadName") && (
-                        <DraggableBox
-                          id="page2RoadName"
-                          position={fieldPositions.page2RoadName}
-                          onPositionChange={updateFieldPosition}
-                          label="Suite # (Page 2)"
-                          zoom={0.85}
-                          disabled={lockedSections.page2Header}
-                          containerClassName="w-auto inline-flex items-center shrink-0"
-                          className="w-auto inline-flex items-center"
-                          onDelete={() =>
-                            removeStandardField(
-                              "page2RoadName",
-                              "Suite # (Page 2)",
-                              roadName,
-                              "Page 2 Header",
-                              fieldStyles.roadName,
-                            )
-                          }
-                          deleteTitle="Remove Suite #"
-                        >
-                          <StyledInput
-                            value={roadName}
-                            onChange={(e) => setRoadName(e.target.value)}
-                            inputStyle={fieldStyles.roadName}
-                            onChangeStyle={(s) =>
-                              updateFieldStyle("roadName", s)
-                            }
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
-                            placeholder="0"
-                            wrapperClassName="w-auto shrink-0"
-                          />
-                        </DraggableBox>
-                      )}
-
+                    <div className="text-[24px] font-normal font-trajan leading-none mt-0 text-white flex justify-center items-center gap-1.5 shrink-0 whitespace-nowrap">
                       {!isFieldDeleted("page2AddressCode") && (
                         <DraggableBox
                           id="page2AddressCode"
@@ -3052,8 +3528,43 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("addressCode", s)
                             }
-                            className="font-light text-[28px] h-[30px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
+                            className="font-normal font-trajan text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-left focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
                             placeholder="0000-0000"
+                            wrapperClassName="w-auto shrink-0"
+                          />
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("page2RoadName") && (
+                        <DraggableBox
+                          id="page2RoadName"
+                          position={fieldPositions.page2RoadName}
+                          onPositionChange={updateFieldPosition}
+                          label="Suite # (Page 2)"
+                          zoom={0.85}
+                          disabled={lockedSections.page2Header}
+                          containerClassName="w-auto inline-flex items-center shrink-0"
+                          className="w-auto inline-flex items-center"
+                          onDelete={() =>
+                            removeStandardField(
+                              "page2RoadName",
+                              "Suite # (Page 2)",
+                              roadName,
+                              "Page 2 Header",
+                              fieldStyles.roadName,
+                            )
+                          }
+                          deleteTitle="Remove Suite #"
+                        >
+                          <StyledInput
+                            value={roadName}
+                            onChange={(e) => setRoadName(e.target.value)}
+                            inputStyle={fieldStyles.roadName}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("roadName", s)
+                            }
+                            className="font-normal font-trajan text-[24px] h-[28px] leading-none mt-0 bg-transparent text-white text-center focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap min-w-[1ch]"
+                            placeholder="0"
                             wrapperClassName="w-auto shrink-0"
                           />
                         </DraggableBox>
@@ -3082,14 +3593,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         >
                           <StyledInput
                             value={roadLabelBefore}
-                            onChange={(e) =>
-                              setRoadLabelBefore(e.target.value)
-                            }
+                            onChange={(e) => setRoadLabelBefore(e.target.value)}
                             inputStyle={fieldStyles.roadLabelBefore}
                             onChangeStyle={(s) =>
                               updateFieldStyle("roadLabelBefore", s)
                             }
-                            className="text-white text-[28px] h-[30px] leading-none uppercase bg-transparent text-right focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-trajan text-white text-[24px] h-[28px] leading-none uppercase bg-transparent text-right focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="Number"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -3119,14 +3628,12 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                         >
                           <StyledInput
                             value={roadLabelAfter}
-                            onChange={(e) =>
-                              setRoadLabelAfter(e.target.value)
-                            }
+                            onChange={(e) => setRoadLabelAfter(e.target.value)}
                             inputStyle={fieldStyles.roadLabelAfter}
                             onChangeStyle={(s) =>
                               updateFieldStyle("roadLabelAfter", s)
                             }
-                            className="text-white text-[28px] h-[30px] leading-none uppercase bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
+                            className="font-normal font-trajan text-white text-[24px] h-[28px] leading-none uppercase bg-transparent text-left focus:outline-none border-none placeholder-gray-300 whitespace-nowrap"
                             placeholder="Road"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -3141,14 +3648,14 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                       onChange={(e) => setCityLine(e.target.value)}
                       inputStyle={fieldStyles.cityLine}
                       onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                      className="text-white text-[18px] bg-transparent text-right w-[500px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[200] whitespace-nowrap"
+                      className="font-normal font-arial-bold text-white text-[16px] bg-transparent text-right w-[500px] focus:outline-none border-none placeholder-gray-300 placeholder:font-[400] whitespace-nowrap"
                       placeholder="BRIGHOUSE SOUTH, RICHMOND"
                     />
                   </div>
                 </div>
 
                 {/* PAGE 2 IMAGE SLOT (IMAGE 8) */}
-                <div className="relative flex-1 mt-4 w-full h-full min-h-0 self-center">
+                <div className="relative flex-1 mt-2.5 w-full h-full min-h-0 self-center">
                   <div
                     data-image-slot="true"
                     className="w-full h-full overflow-hidden flex justify-center items-center transition-all duration-200 group relative cursor-pointer"
@@ -3252,13 +3759,13 @@ const BcfpStandard17 = forwardRef<BcfpStandard17Ref, BcfpStandard17Props>(
                 </div>
 
                 {/* PAGE 2 FOOTER */}
-                <div className="text-left text-white text-[10px] mt-6 flex mb-2">
+                <div className="text-left text-white text-[10px] mt-1.5 flex shrink-0 mb-0">
                   <StyledInput
                     value={footerText}
                     onChange={(e) => setFooterText(e.target.value)}
                     inputStyle={fieldStyles.footerText}
                     onChangeStyle={(s) => updateFieldStyle("footerText", s)}
-                    className="text-left text-white text-[10px] bg-transparent focus:outline-none border-none placeholder-white uppercase"
+                    className="text-left text-white text-[10px] leading-tight bg-transparent focus:outline-none border-none placeholder-white uppercase"
                     placeholder="DESIGNED AND PRINTED BY BC FLOOR PLANS"
                   />
                 </div>

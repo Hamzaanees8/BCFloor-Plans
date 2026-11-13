@@ -7,6 +7,7 @@ export interface DraggableBoxContextValue {
   label?: string;
   position: { x: number; y: number };
   onPositionChange: (id: string, pos: { x: number; y: number }) => void;
+  onNudge?: (dx: number, dy: number) => void;
   onDelete?: () => void;
 }
 
@@ -53,16 +54,6 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
   const posX = position?.x || 0;
   const posY = position?.y || 0;
 
-  const boxContextValue = useMemo<DraggableBoxContextValue>(
-    () => ({
-      id,
-      label,
-      position: { x: posX, y: posY },
-      onPositionChange,
-      onDelete,
-    }),
-    [id, label, posX, posY, onPositionChange, onDelete],
-  );
   const [isHovered, setIsHovered] = useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -162,6 +153,57 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       maxY: Math.max(minY, maxY),
     };
   }, [zoom, boundaryLimits]);
+
+  // Nudge movement strictly clamped within drag container boundaries
+  const handleNudge = useCallback(
+    (dx: number, dy: number) => {
+      if (disabled) return;
+      const b = calculateBounds();
+      const currentX = currentPosRef.current.x || 0;
+      const currentY = currentPosRef.current.y || 0;
+      const rawX = currentX + dx;
+      const rawY = currentY + dy;
+      const nextX = Math.round(Math.max(b.minX, Math.min(b.maxX, rawX)));
+      const nextY = Math.round(Math.max(b.minY, Math.min(b.maxY, rawY)));
+
+      if (nextX !== currentX || nextY !== currentY) {
+        currentPosRef.current = { x: nextX, y: nextY };
+        if (boxRef.current) {
+          boxRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+        }
+        onPositionChange(id, { x: nextX, y: nextY });
+      }
+    },
+    [disabled, calculateBounds, id, onPositionChange],
+  );
+
+  // Position change strictly clamped within drag container boundaries
+  const handleBoundedPositionChange = useCallback(
+    (targetId: string, pos: { x: number; y: number }) => {
+      if (disabled) return;
+      const b = calculateBounds();
+      const nextX = Math.round(Math.max(b.minX, Math.min(b.maxX, pos.x)));
+      const nextY = Math.round(Math.max(b.minY, Math.min(b.maxY, pos.y)));
+      currentPosRef.current = { x: nextX, y: nextY };
+      if (boxRef.current) {
+        boxRef.current.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+      }
+      onPositionChange(targetId, { x: nextX, y: nextY });
+    },
+    [disabled, calculateBounds, onPositionChange],
+  );
+
+  const boxContextValue = useMemo<DraggableBoxContextValue>(
+    () => ({
+      id,
+      label,
+      position: { x: posX, y: posY },
+      onPositionChange: handleBoundedPositionChange,
+      onNudge: handleNudge,
+      onDelete,
+    }),
+    [id, label, posX, posY, handleBoundedPositionChange, handleNudge, onDelete],
+  );
 
 
 
@@ -319,10 +361,10 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
       {showBorder && (
         <div
           data-html2canvas-ignore="true"
-          className="absolute inset-0 rounded border-2 border-[#00B9F2] pointer-events-none z-30 transition-all duration-75 select-none"
+          className="absolute -top-1 -bottom-1 -left-1.5 -right-1.5 rounded border-2 border-[#00B9F2] pointer-events-none z-30 transition-all duration-75 select-none"
           style={{
             boxShadow:
-              "inset 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 8px rgba(0, 185, 242, 0.6)",
+              "0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 8px rgba(0, 185, 242, 0.5)",
           }}
         />
       )}
@@ -336,7 +378,7 @@ export const DraggableBox: React.FC<DraggableBoxProps> = ({
             setIsToolbarHovered(true);
           }}
           onMouseLeave={() => setIsToolbarHovered(false)}
-          className="absolute -top-[22px] left-0 right-0 h-[22px] flex items-center justify-between pointer-events-none z-40 select-none px-0.5"
+          className="absolute -top-[27px] -left-1.5 -right-1.5 h-[22px] flex items-center justify-between pointer-events-none z-40 select-none px-0.5"
         >
           {/* Move Handle Badge (Icon only - no text title overlaying the field) */}
           <div

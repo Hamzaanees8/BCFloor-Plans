@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@100;200;300;400;500;600;700;800;900&family=Mulish:ital,wght@0,200..900;1,200..900&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -960,6 +962,75 @@ textarea::placeholder {
 } */
 
 /* ==========================================================================
+   Public Root Custom Fonts
+   Font files live directly in /public/fonts/
+   ========================================================================== */
+
+@font-face {
+  font-family: 'ChampagneLimousines';
+  src: url('/fonts/Champagne_Limousines.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChampagneLimousines';
+  src: url('/fonts/Champagne_LimousinesBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChampagneLimousinesBold';
+  src: url('/fonts/Champagne_LimousinesBold.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChampagneLimousinesBold';
+  src: url('/fonts/Champagne_LimousinesBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Champagne & Limousines';
+  src: url('/fonts/Champagne_Limousines.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Champagne & Limousines';
+  src: url('/fonts/Champagne_LimousinesBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicItalic';
+  src: url('/fonts/GOTHICI.TTF') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicItalic';
+  src: url('/fonts/GOTHICI.TTF') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ==========================================================================
    BcfpStandard6 Custom Fonts
    Font files live in /public/fonts/BcfpStandard6/
    ========================================================================== */
@@ -983,7 +1054,15 @@ textarea::placeholder {
 @font-face {
   font-family: 'GothicRegular';
   src: url('/fonts/BcfpStandard6/GOTHIC.TTF') format('truetype');
-  font-weight: 400;
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicRegular';
+  src: url('/fonts/BcfpStandard6/GOTHICB.TTF') format('truetype');
+  font-weight: 600 900;
   font-style: normal;
   font-display: swap;
 }
@@ -1118,7 +1197,15 @@ textarea::placeholder {
 @font-face {
   font-family: 'GothicRegularBcfp3';
   src: url('/fonts/BcfpStandard3/GOTHIC.TTF') format('truetype');
-  font-weight: 400;
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicRegularBcfp3';
+  src: url('/fonts/BcfpStandard3/GOTHICB.TTF') format('truetype');
+  font-weight: 600 900;
   font-style: normal;
   font-display: swap;
 }
@@ -1147,7 +1234,15 @@ textarea::placeholder {
 @font-face {
   font-family: 'GothicRegularBcfp8';
   src: url('/fonts/BcfpStandard8/GOTHIC.TTF') format('truetype');
-  font-weight: 400;
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicRegularBcfp8';
+  src: url('/fonts/BcfpStandard8/GOTHICB.TTF') format('truetype');
+  font-weight: 600 900;
   font-style: normal;
   font-display: swap;
 }
@@ -1192,7 +1287,15 @@ textarea::placeholder {
 @font-face {
   font-family: 'GothicRegularBcfp15';
   src: url('/fonts/BcfpStandard15/GOTHIC.TTF') format('truetype');
-  font-weight: 400;
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GothicRegularBcfp15';
+  src: url('/fonts/BcfpStandard15/GOTHICB.TTF') format('truetype');
+  font-weight: 600 900;
   font-style: normal;
   font-display: swap;
 }
@@ -1251,6 +1354,14 @@ textarea::placeholder {
 }
 
 @font-face {
+  font-family: 'TrajanProRegularBcfp17';
+  src: url('/fonts/BcfpStandard17/TrajanPro-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'ArialRegularBcfp17';
   src: url('/fonts/BcfpStandard17/arial.ttf') format('truetype');
   font-weight: 400;
@@ -1261,7 +1372,7 @@ textarea::placeholder {
 @font-face {
   font-family: 'ArialBoldBcfp17';
   src: url('/fonts/BcfpStandard17/arialbd.ttf') format('truetype');
-  font-weight: 700;
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }

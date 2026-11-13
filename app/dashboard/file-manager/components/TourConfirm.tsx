@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,6 +19,7 @@ import {
   ImageIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Play,
   Pause,
   Maximize,
@@ -887,8 +889,8 @@ const TourConfirm = ({
             className={hideAccordion || isFullscreenPreview ? "border-none" : ""}
           >
             {!hideAccordion && !isFullscreenPreview && (
-              <AccordionTrigger
-                className="px-[14px] py-[19px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-semibold uppercase [&>svg]:text-current [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-2"
+              <AccordionPrimitive.Header
+                className="flex items-center justify-between px-[14px] border-t border-b border-[#BBBBBB] h-[60px] bg-[#E4E4E4] text-[18px] font-semibold uppercase"
                 style={{
                   color: roleSettings.pageTabColor,
                   backgroundColor: `var(--${role}-page-bg, #E4E4E4)`,
@@ -899,7 +901,6 @@ const TourConfirm = ({
                   <select
                     className="bg-white border border-[#BBBBBB] text-[#333] text-sm rounded-md px-2 py-1 outline-none font-normal"
                     value={previewTourType}
-                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) =>
                       setPreviewTourType(
                         e.target.value as "branded" | "unbranded",
@@ -911,10 +912,7 @@ const TourConfirm = ({
                   </select>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsFullscreenPreview(true);
-                    }}
+                    onClick={() => setIsFullscreenPreview(true)}
                     className="flex items-center gap-1.5 px-3 py-1 bg-white border border-[#BBBBBB] hover:bg-gray-100 text-[#333] text-sm rounded-md transition-colors shadow-xs normal-case font-normal cursor-pointer"
                     title="Full Screen Preview"
                   >
@@ -922,7 +920,13 @@ const TourConfirm = ({
                     <span>Full Screen</span>
                   </button>
                 </div>
-              </AccordionTrigger>
+                <AccordionPrimitive.Trigger
+                  className="flex items-center p-2 text-current hover:opacity-80 transition-opacity [&[data-state=open]>svg]:rotate-180"
+                  aria-label="Toggle Preview Accordion"
+                >
+                  <ChevronDown className="w-6 h-6 stroke-2 transition-transform duration-200" />
+                </AccordionPrimitive.Trigger>
+              </AccordionPrimitive.Header>
             )}
             <AccordionContent
               className={`${hideAccordion || isFullscreenPreview ? "border-none" : ""} ${activeTab === "Home" ? "!pb-0 !pt-0" : ""}`}

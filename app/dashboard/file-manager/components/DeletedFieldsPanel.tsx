@@ -228,9 +228,17 @@ export const DeletedFieldsPanel: React.FC<DeletedFieldsPanelProps> = ({
             </div>
           ) : (
             filteredFields.map((field) => {
+              const extractStr = (val: any): string => {
+                if (val === null || val === undefined) return "";
+                if (typeof val === "string") return val;
+                if (typeof val === "object" && "value" in val) return extractStr(val.value);
+                if (Array.isArray(val)) return val.map(extractStr).join("\n");
+                return String(val);
+              };
+
               const displayTitle =
-                (field?.title ?? "").toString().trim() || "UNTITLED FIELD";
-              const displayValue = (field?.value ?? "").toString().trim();
+                extractStr(field?.title).trim() || "UNTITLED FIELD";
+              const displayValue = extractStr(field?.value).trim();
 
               return (
                 <div

@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils"
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
   React.ComponentProps<"textarea">
->(({ className, ...props }, ref) => {
+>(({ className, value, ...props }, ref) => {
+  const resolvedValue =
+    value === null
+      ? ""
+      : props.onChange !== undefined && value === undefined
+      ? ""
+      : value;
   return (
     <textarea
       className={cn(
@@ -13,6 +19,7 @@ const Textarea = React.forwardRef<
         className
       )}
       ref={ref}
+      value={resolvedValue}
       {...props}
     />
   )

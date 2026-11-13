@@ -3281,7 +3281,7 @@ const CreateFeatureSheet = forwardRef<
                           </button>
                         )}
 
-                        {/* Auto-Fill Test Data button (hidden from UI)
+                        {/* Auto-Fill Test Data button */}
                         <button
                           type="button"
                           onClick={handleAutoFillTestData}
@@ -3291,7 +3291,6 @@ const CreateFeatureSheet = forwardRef<
                           <span>⚡</span>
                           <span>Auto-Fill Test Data</span>
                         </button>
-                        */}
 
                         {/* Save Feature Sheet button */}
                         <button

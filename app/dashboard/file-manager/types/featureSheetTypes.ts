@@ -9,6 +9,7 @@ export interface TextStyle {
     alignContent?: "start" | "center" | "end" | "space-between";
     lineHeight?: string;
     letterSpacing?: string;
+    wordSpacing?: string;
     fontStyle?: "normal" | "italic";
     textDecoration?: "none" | "underline";
 }

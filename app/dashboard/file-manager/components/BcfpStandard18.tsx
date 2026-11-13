@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React, {
   forwardRef,
   useImperativeHandle,
@@ -7,7 +8,6 @@ import React, {
   useCallback,
 } from "react";
 import {
-  House,
   Pencil,
   Trash,
   ZoomIn,
@@ -16,6 +16,9 @@ import {
   Lock,
   Unlock,
   Loader2,
+  Square,
+  Layers,
+  Sun,
 } from "lucide-react";
 import ImageEditor from "./ImageEditor";
 import { Order } from "../../orders/page";
@@ -42,6 +45,12 @@ interface BcfpStandard18Props {
   orderData: Order | null;
   showBleed?: boolean;
   showGuide?: boolean;
+}
+
+interface ImageSettingOptions {
+  showBorder?: boolean;
+  showShadow?: boolean;
+  showWhiteBg?: boolean;
 }
 
 // ─── BoxIndicator ─────────────────────────────────────────────────────────────
@@ -85,18 +94,25 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
     const removeStandardField = (
       id: string,
-      title: string,
-      value: string,
+      title: any,
+      value: any,
       section: string,
       style?: TextStyle,
     ) => {
       setDeletedStandardFieldIds((prevStandard) => {
         if (prevStandard.includes(id)) return prevStandard;
         const newDeletedStandard = [...prevStandard, id];
+        const extractStr = (v: any): string => {
+          if (v === null || v === undefined) return "";
+          if (typeof v === "string") return v;
+          if (typeof v === "object" && "value" in v) return extractStr(v.value);
+          if (Array.isArray(v)) return v.map(extractStr).join("\n");
+          return String(v);
+        };
         const deletedItem: DeletedDetailFieldItem = {
           id,
-          title,
-          value: value || "",
+          title: extractStr(title) || id,
+          value: extractStr(value),
           section,
           style,
           deletedAt: Date.now(),
@@ -158,41 +174,29 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     ]);
 
     // ── 2. Text Fields & Labels ────────────────────────────────────────────────
-    const [fullName, setFullName] = useState("FIRSTNAME LASTNAME");
-    const [email, setEmail] = useState("FIRSTNAME@LASTNAME.COM");
-    const [propertyName, setPropertyName] = useState("MACDONALD REALTY");
-    const [number, setNumber] = useState("604.000.0000");
-    const [amount, setAmount] = useState("$000,000");
-    const [byLawRestrictions, setByLawRestrictions] = useState(
-      "Pets Allowed w/Rest., Rentals Allowed",
-    );
-    const [maintenanceFees, setMaintenanceFees] = useState("$000.00");
-    const [maintenanceFeesInclude, setMaintenanceFeesInclude] = useState(
-      "Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker",
-    );
-    const [featuresIncluded, setFeaturesIncluded] = useState(
-      "Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings",
-    );
-    const [siteInfluences, setSiteInfluences] = useState(
-      "Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby",
-    );
-    const [amenities, setAmenities] = useState(
-      "Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room",
-    );
-    const [mlsNumber, setMlsNumber] = useState("0000000");
-    const [view, setView] = useState("South & SW - Van Isl.");
-    const [bedroom, setBedroom] = useState("0");
-    const [bathroom, setBathroom] = useState("0");
-    const [sqft, setSqft] = useState("000");
-    const [builtYear, setBuiltYear] = useState("0000");
-    const [description, setDescription] = useState(
-      "On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your viewing.",
-    );
-    const [addressCode, setAddressCode] = useState("0000-0000");
-    const [roadName, setRoadName] = useState("0 Road");
-    const [cityLine, setCityLine] = useState("Brighouse South, Richmond");
-    const [patioSqft, setPatioSqft] = useState("00");
-    const [ceilingHeight, setCeilingHeight] = useState("0' 0\"");
+    const [fullName, setFullName] = useState("");
+    const [email, setEmail] = useState("");
+    const [propertyName, setPropertyName] = useState("");
+    const [number, setNumber] = useState("");
+    const [amount, setAmount] = useState("");
+    const [byLawRestrictions, setByLawRestrictions] = useState("");
+    const [maintenanceFees, setMaintenanceFees] = useState("");
+    const [maintenanceFeesInclude, setMaintenanceFeesInclude] = useState("");
+    const [featuresIncluded, setFeaturesIncluded] = useState("");
+    const [siteInfluences, setSiteInfluences] = useState("");
+    const [amenities, setAmenities] = useState("");
+    const [mlsNumber, setMlsNumber] = useState("");
+    const [view, setView] = useState("");
+    const [bedroom, setBedroom] = useState("");
+    const [bathroom, setBathroom] = useState("");
+    const [sqft, setSqft] = useState("");
+    const [builtYear, setBuiltYear] = useState("");
+    const [description, setDescription] = useState("");
+    const [addressCode, setAddressCode] = useState("");
+    const [roadName, setRoadName] = useState("");
+    const [cityLine, setCityLine] = useState("");
+    const [patioSqft, setPatioSqft] = useState("");
+    const [ceilingHeight, setCeilingHeight] = useState("");
 
     // Editable Labels
     const [contactLabel, setContactLabel] = useState("CONTACT:");
@@ -202,8 +206,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     const [bathroomLabel, setBathroomLabel] = useState("BATHROOM");
     const [sqftLabel, setSqftLabel] = useState("SQ FT");
     const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
-    const [numberLabel, setNumberLabel] = useState("Number");
-    const [roadLabel, setRoadLabel] = useState("ROAD");
+    const [numberLabel, setNumberLabel] = useState("");
+    const [roadLabel, setRoadLabel] = useState("");
     const [byLawLabel, setByLawLabel] = useState("BY-LAW RESTRICTIONS:");
     const [maintFeesLabel, setMaintFeesLabel] = useState("MAINT. FEES:");
     const [maintFeesIncludeLabel, setMaintFeesIncludeLabel] = useState(
@@ -235,11 +239,235 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       propShowGuide !== undefined ? propShowGuide : showGuideState;
 
     // ── 4. Styles, Positions & Locks ──────────────────────────────────────────
-    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>(
-      {},
-    );
+    const [fieldStyles, setFieldStyles] = useState<Record<string, TextStyle>>({
+      addressCode: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#4A4A4A",
+      },
+      roadName: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#4A4A4A",
+      },
+      numberLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#4A4A4A",
+      },
+      roadLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#4A4A4A",
+      },
+      cityLine: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#4A4A4A",
+      },
+      bedroom: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      bedroomLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      bathroom: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      bathroomLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      sqft: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      sqftLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      builtYearLabel: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      builtYear: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      amount: {
+        fontSize: "18px",
+        fontFamily: "sans-serif",
+        fontWeight: "400",
+        color: "#444444",
+      },
+      byLawLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      byLawRestrictions: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      maintFeesLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      maintenanceFees: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      maintFeesIncludeLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      maintenanceFeesInclude: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      featuresIncludedLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      featuresIncluded: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      siteInfluencesLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      siteInfluences: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      amenitiesLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      amenities: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      viewLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      view: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      mlsLabel: {
+        fontSize: "14px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      mlsNumber: {
+        fontSize: "12px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "300",
+      },
+      contactLabel: {
+        fontSize: "16px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      fullName: {
+        fontSize: "16px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      propertyName: {
+        fontSize: "13px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      phoneLabel: {
+        fontSize: "13px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      number: {
+        fontSize: "13px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      emailLabel: {
+        fontSize: "13px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      email: {
+        fontSize: "13px",
+        fontFamily: "GothicRegular, sans-serif",
+        fontWeight: "400",
+        color: "#111827",
+      },
+      description: {
+        fontSize: "12px",
+        fontWeight: "400",
+        fontStyle: "normal",
+        color: "#ffffff",
+      },
+      disclaimerText: {
+        fontSize: "7.5px",
+        fontWeight: "700",
+        color: "#000000",
+      },
+      footerCredit: {
+        fontSize: "12px",
+        fontWeight: "700",
+        color: "#3E3E3E",
+      },
+    });
     const updateFieldStyle = (field: string, style: TextStyle) =>
-      setFieldStyles((prev) => ({ ...prev, [field]: style }));
+      setFieldStyles((prev) => ({
+        ...prev,
+        [field]: { ...prev[field], ...style },
+      }));
 
     const [fieldPositions, setFieldPositions] = useState<
       Record<string, { x: number; y: number }>
@@ -263,6 +491,36 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     });
     const toggleSectionLock = (section: string) => {
       setLockedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const [imageSettings, setImageSettings] = useState<
+      Record<string, ImageSettingOptions>
+    >({
+      image7: {
+        showBorder: true,
+        showShadow: true,
+        showWhiteBg: true,
+      },
+    });
+
+    const toggleImageSetting = (
+      key: string,
+      setting: keyof ImageSettingOptions,
+    ) => {
+      setImageSettings((prev) => {
+        const current = prev[key] || {
+          showBorder: true,
+          showShadow: true,
+          showWhiteBg: true,
+        };
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            [setting]: !current[setting],
+          },
+        };
+      });
     };
 
     // ── 5. Image States ───────────────────────────────────────────────────────
@@ -363,7 +621,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
     });
 
     // ── 6. Modal & Slot States ────────────────────────────────────────────────
-    const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
+    const [processingSlots, setProcessingSlots] = useState<
+      Record<string, boolean>
+    >({});
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
@@ -522,7 +782,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             cityParts.push(orderData.property.postal_code.trim());
 
           let cleanCity = cityParts.join(", ");
-          cleanCity = cleanCity.replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ").replace(/,\s*,+/g, ", ").trim();
+          cleanCity = cleanCity
+            .replace(/,\s*(?:CA|Canada)\s*,?/gi, ", ")
+            .replace(/,\s*,+/g, ", ")
+            .trim();
           if (cleanCity) setCityLine(cleanCity);
         }
         if (orderData.agent) {
@@ -637,13 +900,21 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       containerClassName: string,
       placeholderText = "Select Image",
       isLogoSlot = false,
+      style?: React.CSSProperties,
     ) => {
       const inputRef = getFileInputRef(key);
       const hasImage = !!images[key];
+      const isTopPhoto =
+        key === "image1" ||
+        key === "image2" ||
+        key === "image3" ||
+        key === "image4";
 
       return (
         <div
           data-image-slot="true"
+          style={style}
+          {...(isTopPhoto ? { "data-no-shadow": "true" } : {})}
           {...(isLogoSlot
             ? {
                 id: `agentLogo_${key}`,
@@ -652,7 +923,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               }
             : {})}
           className={`relative overflow-hidden group cursor-pointer ${containerClassName} ${
-            isLogoSlot || key === "image6"
+            isLogoSlot || key === "image6" || isTopPhoto
               ? ""
               : hasImage
                 ? "bg-transparent shadow-[4px_4px_6px_rgba(0,0,0,0.85)]"
@@ -667,6 +938,81 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           }}
         >
           <BoxIndicator isVisible={isSlotActive(key)} />
+
+          {/* Top-Left Image Controls Toolbar for Logo: Border, Shadow, Background */}
+          {isLogoSlot && (
+            <div
+              data-html2canvas-ignore="true"
+              className={`absolute top-1.5 left-1.5 z-30 flex gap-1 ${
+                isSlotActive(key)
+                  ? "opacity-100 pointer-events-auto"
+                  : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+              } print:hidden`}
+            >
+              {/* Button 1: Border Toggle */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleImageSetting(key, "showBorder");
+                }}
+                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                  (imageSettings[key]?.showBorder ?? true)
+                    ? "bg-[#8B3DFF] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
+                title={
+                  (imageSettings[key]?.showBorder ?? true)
+                    ? "Hide Border"
+                    : "Show Border"
+                }
+              >
+                <Square className="w-3 h-3" />
+              </button>
+
+              {/* Button 2: Shadow Toggle */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleImageSetting(key, "showShadow");
+                }}
+                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                  (imageSettings[key]?.showShadow ?? true)
+                    ? "bg-[#8B3DFF] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
+                title={
+                  (imageSettings[key]?.showShadow ?? true)
+                    ? "Hide Shadow"
+                    : "Show Shadow"
+                }
+              >
+                <Layers className="w-3 h-3" />
+              </button>
+
+              {/* Button 3: Background Toggle */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleImageSetting(key, "showWhiteBg");
+                }}
+                className={`p-1 rounded-full shadow text-xs transition-colors cursor-pointer ${
+                  (imageSettings[key]?.showWhiteBg ?? true)
+                    ? "bg-[#8B3DFF] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
+                title={
+                  (imageSettings[key]?.showWhiteBg ?? true)
+                    ? "Hide Background (Make Transparent)"
+                    : "Show Background"
+                }
+              >
+                <Sun className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
           <div
             className="w-full h-full relative overflow-hidden flex items-center justify-center"
@@ -706,14 +1052,26 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   </div>
 
                   {/* Zoom Controls */}
-                  <div className="absolute bottom-12 left-1 flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
+                  <div
+                    className={`absolute ${
+                      key === "image6"
+                        ? "bottom-[120px] left-3"
+                        : key === "image5"
+                          ? "bottom-[52px] left-3"
+                          : "bottom-2 left-2"
+                    } flex gap-1.5 ${
+                      isSlotActive(key)
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    } z-30`}
+                  >
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleZoom(key, "in");
                       }}
-                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100 cursor-pointer"
                       title="Zoom In"
                     >
                       <ZoomIn className="w-3.5 h-3.5 text-gray-700" />
@@ -724,7 +1082,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                         e.stopPropagation();
                         handleZoom(key, "out");
                       }}
-                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100 cursor-pointer"
                       title="Zoom Out"
                     >
                       <ZoomOut className="w-3.5 h-3.5 text-gray-700" />
@@ -738,7 +1096,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       e.stopPropagation();
                       handleRotate(key);
                     }}
-                    className="absolute top-2 right-[70px] z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                    className={`absolute ${key === "image5" ? "top-[48px]" : "top-2"} right-[70px] z-40 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 ${
+                      isSlotActive(key)
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    } print:hidden`}
                     title="Rotate image"
                   >
                     <RotateCw className="w-3.5 h-3.5 text-gray-700" />
@@ -748,7 +1110,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   <button
                     type="button"
                     onClick={(e) => openImageSourceModal(key, e)}
-                    className="absolute top-2 right-9 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    className={`absolute ${key === "image5" ? "top-[48px]" : "top-2"} right-9 z-40 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 ${
+                      isSlotActive(key)
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    }`}
                     title="Edit image"
                   >
                     <Pencil className="w-3.5 h-3.5 text-gray-700" />
@@ -761,7 +1127,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                       e.stopPropagation();
                       handleDelete(key, inputRef);
                     }}
-                    className="absolute top-2 right-2 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    className={`absolute ${key === "image5" ? "top-[48px]" : "top-2"} right-2 z-40 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 ${
+                      isSlotActive(key)
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    }`}
                     title="Delete image"
                   >
                     <Trash className="w-3.5 h-3.5 text-red-500" />
@@ -772,7 +1142,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               <div
                 data-html2canvas-ignore="true"
                 onClick={(e) => openImageSourceModal(key, e)}
-                className="w-full h-full bg-gray-200 text-gray-600 flex items-center justify-center cursor-pointer border border-dashed border-gray-400 font-medium text-xs hover:bg-gray-300 transition-colors p-2 text-center"
+                className={`w-full h-full flex items-center justify-center cursor-pointer border border-dashed transition-colors p-2 text-center ${
+                  key === "image6"
+                    ? "bg-white text-gray-500 border-gray-300 hover:bg-gray-50 font-medium text-sm rounded shadow-sm"
+                    : "bg-gray-200 text-gray-600 border-gray-400 font-medium text-xs hover:bg-gray-300"
+                }`}
               >
                 {placeholderText}
               </div>
@@ -844,6 +1218,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         imageRotations: rotation,
         fieldPositions,
         fieldStyles,
+        imageSettings,
       } as any);
     }, [
       deletedStandardFieldIds,
@@ -897,6 +1272,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       rotation,
       fieldPositions,
       fieldStyles,
+      imageSettings,
       updateFormData,
     ]);
 
@@ -971,7 +1347,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             value: roadName,
             style: {
               ...fieldStyles.roadName,
-              fontSize: fieldStyles.roadName?.fontSize || "17px",
+              fontSize: fieldStyles.roadName?.fontSize || "18px",
+              fontFamily: fieldStyles.roadName?.fontFamily || "sans-serif",
+              fontWeight: fieldStyles.roadName?.fontWeight || "500",
             },
           },
           propertyNotesDescription: {
@@ -1070,6 +1448,14 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             disclaimerText,
             floorPlanDisclaimerText,
             footerCredit,
+            imageSettings,
+            fieldStyles,
+            fieldPositions,
+            _lockedSections: lockedSections,
+            _deletedDetailFields: deletedDetailFields,
+            _deletedStandardFieldIds: deletedStandardFieldIds,
+            deletedDetailFields,
+            deletedStandardFieldIds,
           },
           images,
           imageScales: scale,
@@ -1078,6 +1464,17 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           fieldPositions,
           fieldStyles,
         });
+        payload.fieldPositions = fieldPositions;
+        payload.fieldStyles = fieldStyles;
+        (payload as any).deletedStandardFieldIds = deletedStandardFieldIds;
+        (payload as any).deletedDetailFields = deletedDetailFields;
+        if (payload.content) {
+          (payload.content as any).fieldStyles = fieldStyles;
+          (payload.content as any).fieldPositions = fieldPositions;
+          (payload.content as any).deletedStandardFieldIds =
+            deletedStandardFieldIds;
+          (payload.content as any).deletedDetailFields = deletedDetailFields;
+        }
         return payload;
       },
       importFromPayload: (payload: FeatureSheetResponse) => {
@@ -1087,9 +1484,11 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         const st = (field: any) => field?.style;
 
         const getValString = (val: any): string => {
-          if (!val) return "";
+          if (val === null || val === undefined) return "";
           if (typeof val === "string") return val;
-          if (Array.isArray(val)) return val.join("\n");
+          if (typeof val === "object" && "value" in val)
+            return getValString(val.value);
+          if (Array.isArray(val)) return val.map(getValString).join("\n");
           return String(val);
         };
 
@@ -1160,68 +1559,82 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           if (c.otherDetails) {
             const details = c.otherDetails as Record<string, any>;
             if (details.maintenanceFees !== undefined)
-              setMaintenanceFees(details.maintenanceFees);
+              setMaintenanceFees(getValString(details.maintenanceFees));
             if (details.maintenanceFeesInclude !== undefined)
-              setMaintenanceFeesInclude(details.maintenanceFeesInclude);
+              setMaintenanceFeesInclude(
+                getValString(details.maintenanceFeesInclude),
+              );
             if (details.amenities !== undefined)
-              setAmenities(details.amenities);
-            if (details.view !== undefined) setView(details.view);
-            if (details.bedroom !== undefined) setBedroom(details.bedroom);
-            if (details.bathroom !== undefined) setBathroom(details.bathroom);
-            if (details.sqft !== undefined) setSqft(details.sqft);
+              setAmenities(getValString(details.amenities));
+            if (details.view !== undefined) setView(getValString(details.view));
+            if (details.bedroom !== undefined)
+              setBedroom(getValString(details.bedroom));
+            if (details.bathroom !== undefined)
+              setBathroom(getValString(details.bathroom));
+            if (details.sqft !== undefined) setSqft(getValString(details.sqft));
             if (details.builtYear !== undefined)
-              setBuiltYear(details.builtYear);
-            if (details.number !== undefined) setNumber(details.number);
+              setBuiltYear(getValString(details.builtYear));
+            if (details.number !== undefined)
+              setNumber(getValString(details.number));
             if (details.addressCode !== undefined)
-              setAddressCode(details.addressCode);
-            if (details.roadName !== undefined) setRoadName(details.roadName);
-            if (details.cityLine !== undefined) setCityLine(details.cityLine);
+              setAddressCode(getValString(details.addressCode));
+            if (details.roadName !== undefined)
+              setRoadName(getValString(details.roadName));
+            if (details.cityLine !== undefined)
+              setCityLine(getValString(details.cityLine));
             if (details.mlsNumber !== undefined)
-              setMlsNumber(details.mlsNumber);
+              setMlsNumber(getValString(details.mlsNumber));
             if (details.patioSqft !== undefined)
-              setPatioSqft(details.patioSqft);
+              setPatioSqft(getValString(details.patioSqft));
             if (details.ceilingHeight !== undefined)
-              setCeilingHeight(details.ceilingHeight);
+              setCeilingHeight(getValString(details.ceilingHeight));
 
             if (details.contactLabel !== undefined)
-              setContactLabel(details.contactLabel);
+              setContactLabel(getValString(details.contactLabel));
             if (details.phoneLabel !== undefined)
-              setPhoneLabel(details.phoneLabel);
+              setPhoneLabel(getValString(details.phoneLabel));
             if (details.emailLabel !== undefined)
-              setEmailLabel(details.emailLabel);
+              setEmailLabel(getValString(details.emailLabel));
             if (details.bedroomLabel !== undefined)
-              setBedroomLabel(details.bedroomLabel);
+              setBedroomLabel(getValString(details.bedroomLabel));
             if (details.bathroomLabel !== undefined)
-              setBathroomLabel(details.bathroomLabel);
+              setBathroomLabel(getValString(details.bathroomLabel));
             if (details.sqftLabel !== undefined)
-              setSqftLabel(details.sqftLabel);
+              setSqftLabel(getValString(details.sqftLabel));
             if (details.builtYearLabel !== undefined)
-              setBuiltYearLabel(details.builtYearLabel);
+              setBuiltYearLabel(getValString(details.builtYearLabel));
             if (details.numberLabel !== undefined)
-              setNumberLabel(details.numberLabel);
+              setNumberLabel(getValString(details.numberLabel));
             if (details.roadLabel !== undefined)
-              setRoadLabel(details.roadLabel);
+              setRoadLabel(getValString(details.roadLabel));
             if (details.byLawLabel !== undefined)
-              setByLawLabel(details.byLawLabel);
+              setByLawLabel(getValString(details.byLawLabel));
             if (details.maintFeesLabel !== undefined)
-              setMaintFeesLabel(details.maintFeesLabel);
+              setMaintFeesLabel(getValString(details.maintFeesLabel));
             if (details.maintFeesIncludeLabel !== undefined)
-              setMaintFeesIncludeLabel(details.maintFeesIncludeLabel);
+              setMaintFeesIncludeLabel(
+                getValString(details.maintFeesIncludeLabel),
+              );
             if (details.featuresIncludedLabel !== undefined)
-              setFeaturesIncludedLabel(details.featuresIncludedLabel);
+              setFeaturesIncludedLabel(
+                getValString(details.featuresIncludedLabel),
+              );
             if (details.siteInfluencesLabel !== undefined)
-              setSiteInfluencesLabel(details.siteInfluencesLabel);
+              setSiteInfluencesLabel(getValString(details.siteInfluencesLabel));
             if (details.amenitiesLabel !== undefined)
-              setAmenitiesLabel(details.amenitiesLabel);
+              setAmenitiesLabel(getValString(details.amenitiesLabel));
             if (details.viewLabel !== undefined)
-              setViewLabel(details.viewLabel);
-            if (details.mlsLabel !== undefined) setMlsLabel(details.mlsLabel);
+              setViewLabel(getValString(details.viewLabel));
+            if (details.mlsLabel !== undefined)
+              setMlsLabel(getValString(details.mlsLabel));
             if (details.disclaimerText !== undefined)
-              setDisclaimerText(details.disclaimerText);
+              setDisclaimerText(getValString(details.disclaimerText));
             if (details.floorPlanDisclaimerText !== undefined)
-              setFloorPlanDisclaimerText(details.floorPlanDisclaimerText);
+              setFloorPlanDisclaimerText(
+                getValString(details.floorPlanDisclaimerText),
+              );
             if (details.footerCredit !== undefined)
-              setFooterCredit(details.footerCredit);
+              setFooterCredit(getValString(details.footerCredit));
           }
         }
 
@@ -1239,19 +1652,86 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         };
 
         if (incomingStyles18.fullName?.fontSize === "20px") {
-          incomingStyles18.fullName = { ...incomingStyles18.fullName, fontSize: "13px" };
+          incomingStyles18.fullName = {
+            ...incomingStyles18.fullName,
+            fontSize: "13px",
+          };
         }
         if (incomingStyles18.propertyName?.fontSize === "20px") {
-          incomingStyles18.propertyName = { ...incomingStyles18.propertyName, fontSize: "11px" };
+          incomingStyles18.propertyName = {
+            ...incomingStyles18.propertyName,
+            fontSize: "11px",
+          };
         }
         if (incomingStyles18.number?.fontSize === "20px") {
-          incomingStyles18.number = { ...incomingStyles18.number, fontSize: "11px" };
+          incomingStyles18.number = {
+            ...incomingStyles18.number,
+            fontSize: "11px",
+          };
         }
         if (incomingStyles18.email?.fontSize === "20px") {
-          incomingStyles18.email = { ...incomingStyles18.email, fontSize: "10px" };
+          incomingStyles18.email = {
+            ...incomingStyles18.email,
+            fontSize: "10px",
+          };
         }
+        const barFieldKeys = [
+          "addressCode",
+          "roadName",
+          "numberLabel",
+          "roadLabel",
+          "cityLine",
+          "bedroom",
+          "bedroomLabel",
+          "bathroom",
+          "bathroomLabel",
+          "sqft",
+          "sqftLabel",
+          "builtYearLabel",
+          "builtYear",
+          "amount",
+        ];
+        barFieldKeys.forEach((fKey) => {
+          if (!incomingStyles18[fKey]) {
+            incomingStyles18[fKey] = {
+              fontSize: "18px",
+              fontFamily: "sans-serif",
+              fontWeight: "400",
+              color:
+                fKey.includes("bedroom") ||
+                fKey.includes("bathroom") ||
+                fKey.includes("sqft") ||
+                fKey.includes("builtYear") ||
+                fKey === "amount"
+                  ? "#444444"
+                  : "#4A4A4A",
+            };
+          } else {
+            if (!incomingStyles18[fKey].fontSize) {
+              incomingStyles18[fKey].fontSize = "18px";
+            }
+            if (
+              incomingStyles18[fKey].fontFamily?.includes("Raleway") ||
+              incomingStyles18[fKey].fontFamily?.includes("Gothic")
+            ) {
+              incomingStyles18[fKey].fontFamily = "sans-serif";
+            }
+            if (
+              incomingStyles18[fKey].fontWeight === "500" ||
+              incomingStyles18[fKey].fontWeight === "300" ||
+              incomingStyles18[fKey].fontWeight === "100" ||
+              incomingStyles18[fKey].fontWeight === "thin" ||
+              incomingStyles18[fKey].fontWeight === "light"
+            ) {
+              incomingStyles18[fKey].fontWeight = "400";
+            }
+          }
+        });
 
-        const sProcessing = (state as any).processingSlots || (payload as any).processingSlots || {};
+        const sProcessing =
+          (state as any).processingSlots ||
+          (payload as any).processingSlots ||
+          {};
         setProcessingSlots(sProcessing);
 
         const savedDeletedStandard =
@@ -1292,6 +1772,15 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
         } else if (Object.keys(styles).length > 0) {
           setFieldStyles((prev) => ({ ...prev, ...styles }));
         }
+
+        const savedImageSettings =
+          (state as any).imageSettings ||
+          (payload as any).imageSettings ||
+          od18.imageSettings ||
+          (c?.otherDetails as any)?.imageSettings;
+        if (savedImageSettings) {
+          setImageSettings((prev) => ({ ...prev, ...savedImageSettings }));
+        }
       },
     }));
 
@@ -1306,7 +1795,6 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
       marginRight: showBleed ? "-0.375in" : "-0.25in",
       marginTop: showBleed ? "-0.375in" : "-0.25in",
       width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
-      height: showBleed ? "calc(180px + 0.375in)" : "calc(180px + 0.25in)",
     };
 
     const bottomBleedStyle = {
@@ -1326,7 +1814,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               setCurrentImageSlot(null);
             }}
             onImageSelect={handleGalleryImageSelect}
-          usedImageUrls={Object.values(images).filter((url): url is string => Boolean(url))}
+            usedImageUrls={Object.values(images).filter((url): url is string =>
+              Boolean(url),
+            )}
           />
         )}
 
@@ -1353,45 +1843,88 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
               data-safezone-container="true"
               className="relative w-full h-full flex flex-col justify-between z-10 select-none"
             >
-              {/* Top 4-Photo Row with Top Dark Charcoal Band (Expanded to Bleed Edge) */}
+              {/* Top Section: Brown Header Band & 4-Photo Row (Expanded to Bleed Edge) */}
               <div
-                className="w-full grid grid-cols-4 bg-[#3E3E3E] shrink-0 relative z-10"
+                className="w-full shrink-0 relative z-10 flex flex-col"
                 style={topBleedStyle}
               >
-                {renderImageSlot(
-                  "image1",
-                  "w-full h-full border-r border-[#3E3E3E]",
-                  "Photo 1",
-                )}
-                {renderImageSlot(
-                  "image2",
-                  "w-full h-full border-r border-[#3E3E3E]",
-                  "Photo 2",
-                )}
-                {renderImageSlot(
-                  "image3",
-                  "w-full h-full border-r border-[#3E3E3E]",
-                  "Photo 3",
-                )}
-                {renderImageSlot("image4", "w-full h-full", "Photo 4")}
+                {/* Top Brown Header Band */}
+                <div
+                  className="w-full bg-[#3E3E3E] shrink-0"
+                  style={{
+                    height: showBleed
+                      ? "calc(25px + 0.375in)"
+                      : "calc(25px + 0.25in)",
+                  }}
+                />
+
+                {/* Top White Border Line */}
+                <div
+                  className="w-full bg-white shrink-0"
+                  style={{ height: "3.5px", minHeight: "3.5px" }}
+                />
+
+                {/* Top 4-Photo Row (3mm extra width allocated to outer images for bleed trim) */}
+                <div
+                  className="w-full h-[136px] grid bg-[#3E3E3E] shrink-0"
+                  style={{
+                    gridTemplateColumns: showBleed
+                      ? "calc(25% + 0.0625in) calc(25% - 0.0625in) calc(25% - 0.0625in) calc(25% + 0.0625in)"
+                      : "repeat(4, minmax(0, 1fr))",
+                  }}
+                >
+                  {renderImageSlot(
+                    "image1",
+                    "w-full h-full",
+                    "Select image",
+                    false,
+                    { borderRight: "4.5px solid #ffffff" },
+                  )}
+                  {renderImageSlot(
+                    "image2",
+                    "w-full h-full",
+                    "Select image",
+                    false,
+                    { borderRight: "4.5px solid #ffffff" },
+                  )}
+                  {renderImageSlot(
+                    "image3",
+                    "w-full h-full",
+                    "Select image",
+                    false,
+                    { borderRight: "4.5px solid #ffffff" },
+                  )}
+                  {renderImageSlot("image4", "w-full h-full", "Select image")}
+                </div>
+
+                {/* Bottom White Border Line */}
+                <div
+                  className="w-full bg-white shrink-0"
+                  style={{ height: "3.5px", minHeight: "3.5px" }}
+                />
               </div>
 
               {/* Main Hero Photo Container with Overlay Title Header & Specs Summary Bars (Expanded to Bleed Edge) */}
               <div
-                className="h-[460px] relative bg-[#3E3E3E] shrink-0 z-10"
+                className="h-[460px] relative bg-[#3E3E3E] shrink-0 z-20"
                 style={bleedHorizontalStyle}
               >
                 {/* Main Hero Photo (Image 5) */}
                 {renderImageSlot(
                   "image5",
                   "w-full h-full",
-                  "Select Main Hero Photo (Image 5)",
+                  "Select Main Hero Photo",
                 )}
 
                 {/* Address & Logo Header Bar (Overlay on Top Edge of Main Image) */}
                 <div
                   data-drag-container="true"
-                  className={`absolute top-0 left-0 right-0 h-[42px] px-[36px] flex items-center justify-between z-20 shrink-0 border-b font-serif transition-all duration-150 group/sec border border-transparent bg-[#DDD8D3]/85 backdrop-blur-sm ${
+                  style={{
+                    backgroundColor: "rgba(221, 216, 211, 0.65)",
+                    paddingLeft: showBleed ? "48px" : "36px",
+                    paddingRight: showBleed ? "48px" : "36px",
+                  }}
+                  className={`absolute top-0 left-0 right-0 h-[42px] flex items-center justify-between z-30 shrink-0 border-b font-serif transition-all duration-150 group/sec border border-transparent bg-[#DDD8D3]/65 backdrop-blur-sm ${
                     lockedSections.headerBar
                       ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                       : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -1430,41 +1963,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                     )}
                   </button>
 
-                  {/* Left Address Line with Suite # 0000-0000 Number Road */}
-                  <div className="flex items-center gap-1 text-[17px] text-[#4A4A4A] font-serif tracking-wide z-20 whitespace-nowrap">
-                    {!isFieldDeleted("roadName") && (
-                      <DraggableBox
-                        id="roadName"
-                        position={fieldPositions.roadName}
-                        onPositionChange={updateFieldPosition}
-                        label="Suite #"
-                        zoom={0.85}
-                        disabled={lockedSections.headerBar}
-                        containerClassName="w-auto inline-flex items-center shrink-0"
-                        className="w-auto inline-flex items-center"
-                        onDelete={() =>
-                          removeStandardField(
-                            "roadName",
-                            "Suite #",
-                            roadName,
-                            "Header Bar",
-                            fieldStyles.roadName,
-                          )
-                        }
-                        deleteTitle="Remove Suite #"
-                      >
-                        <StyledInput
-                          value={roadName}
-                          onChange={(e) => setRoadName(e.target.value)}
-                          inputStyle={fieldStyles["roadName"]}
-                          onChangeStyle={(s) => updateFieldStyle("roadName", s)}
-                          className="font-serif text-[17px] text-[#4A4A4A] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap min-w-[1ch] text-center"
-                          placeholder="0"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                      </DraggableBox>
-                    )}
-
+                  {/* Left Address Line with 0000-0000 Suite # Number Road */}
+                  <div className="flex items-center gap-1.5 text-[18px] text-[#4A4A4A] font-normal tracking-wide z-20 whitespace-nowrap">
                     {!isFieldDeleted("addressCode") && (
                       <DraggableBox
                         id="addressCode"
@@ -1493,8 +1993,41 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("addressCode", s)
                           }
-                          className="font-serif text-[17px] text-[#4A4A4A] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#4A4A4A] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap"
                           placeholder="0000-0000"
+                          wrapperClassName="w-auto shrink-0"
+                        />
+                      </DraggableBox>
+                    )}
+
+                    {!isFieldDeleted("roadName") && (
+                      <DraggableBox
+                        id="roadName"
+                        position={fieldPositions.roadName}
+                        onPositionChange={updateFieldPosition}
+                        label="Suite #"
+                        zoom={0.85}
+                        disabled={lockedSections.headerBar}
+                        containerClassName="w-auto inline-flex items-center shrink-0"
+                        className="w-auto inline-flex items-center"
+                        onDelete={() =>
+                          removeStandardField(
+                            "roadName",
+                            "Suite #",
+                            roadName,
+                            "Header Bar",
+                            fieldStyles.roadName,
+                          )
+                        }
+                        deleteTitle="Remove Suite #"
+                      >
+                        <StyledInput
+                          value={roadName}
+                          onChange={(e) => setRoadName(e.target.value)}
+                          inputStyle={fieldStyles["roadName"]}
+                          onChangeStyle={(s) => updateFieldStyle("roadName", s)}
+                          className="font-sans font-normal text-[18px] text-[#4A4A4A] bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap min-w-[1ch] text-center"
+                          placeholder="0"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </DraggableBox>
@@ -1525,8 +2058,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           value={numberLabel}
                           onChange={(e) => setNumberLabel(e.target.value)}
                           inputStyle={fieldStyles["numberLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("numberLabel", s)}
-                          className="font-serif text-[17px] text-[#4A4A4A] leading-none bg-transparent border-none focus:outline-none whitespace-nowrap"
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("numberLabel", s)
+                          }
+                          className="font-sans font-normal text-[18px] text-[#4A4A4A] leading-none bg-transparent border-none focus:outline-none whitespace-nowrap"
                           placeholder="Number"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1558,8 +2093,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           value={roadLabel}
                           onChange={(e) => setRoadLabel(e.target.value)}
                           inputStyle={fieldStyles["roadLabel"]}
-                          onChangeStyle={(s) => updateFieldStyle("roadLabel", s)}
-                          className="font-serif text-[17px] text-[#4A4A4A] leading-none bg-transparent border-none focus:outline-none whitespace-nowrap"
+                          onChangeStyle={(s) =>
+                            updateFieldStyle("roadLabel", s)
+                          }
+                          className="font-sans font-normal text-[18px] text-[#4A4A4A] leading-none bg-transparent border-none focus:outline-none whitespace-nowrap"
                           placeholder="Road"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1567,8 +2104,22 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                     )}
                   </div>
 
-                  {/* Center Macdonald Realty Logo Overlay Box (Height 90px) */}
-                  <div className="absolute left-1/2 -translate-x-1/2 -top-[19px] z-30 shrink-0 overflow-hidden w-[185px] h-[90px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.25)] border border-gray-200 rounded-sm flex items-center justify-center">
+                  {/* Center Macdonald Realty Logo Overlay Box (Height 100px, Vertically Centered on Address Bar) */}
+                  <div
+                    className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 shrink-0 overflow-hidden w-[185px] h-[100px] rounded-sm flex items-center justify-center transition-all ${
+                      (imageSettings.image7?.showWhiteBg ?? true)
+                        ? "bg-white"
+                        : "bg-transparent"
+                    } ${
+                      (imageSettings.image7?.showBorder ?? true)
+                        ? "border border-gray-200"
+                        : "border-0 border-transparent"
+                    } ${
+                      (imageSettings.image7?.showShadow ?? true)
+                        ? "shadow-[0_4px_12px_rgba(0,0,0,0.25)]"
+                        : "shadow-none"
+                    }`}
+                  >
                     {renderImageSlot(
                       "image7",
                       "w-full h-full",
@@ -1603,7 +2154,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChange={(e) => setCityLine(e.target.value)}
                           inputStyle={fieldStyles["cityLine"]}
                           onChangeStyle={(s) => updateFieldStyle("cityLine", s)}
-                          className="font-serif text-[17px] text-[#4A4A4A] text-right bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#4A4A4A] text-right bg-transparent focus:outline-none border-none placeholder-gray-600 leading-none whitespace-nowrap"
                           placeholder="Brighouse South, Richmond"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1615,7 +2166,12 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                 {/* Specs Summary Row (Overlay on Bottom Edge of Main Image) */}
                 <div
                   data-drag-container="true"
-                  className={`absolute bottom-0 left-0 right-0 py-2 px-[36px] text-nowrap flex items-center justify-between text-[14.5px] font-medium text-[#444444] tracking-wider uppercase z-20 border-t transition-all duration-150 group/sec border border-transparent bg-[#DCD8D4]/85 backdrop-blur-sm ${
+                  style={{
+                    backgroundColor: "rgba(220, 216, 212, 0.65)",
+                    paddingLeft: showBleed ? "48px" : "36px",
+                    paddingRight: showBleed ? "48px" : "36px",
+                  }}
+                  className={`absolute bottom-0 left-0 right-0 py-2 text-nowrap flex items-center justify-between text-[18px] font-sans font-normal text-[#444444] tracking-wider uppercase z-20 border-t transition-all duration-150 group/sec border border-transparent bg-[#DCD8D4]/65 backdrop-blur-sm ${
                     lockedSections.specsBar
                       ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                       : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -1679,7 +2235,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChange={(e) => setBedroom(e.target.value)}
                           inputStyle={fieldStyles["bedroom"]}
                           onChangeStyle={(s) => updateFieldStyle("bedroom", s)}
-                          className="font-medium text-[14.5px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
                           placeholder="0"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1690,14 +2246,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("bedroomLabel", s)
                           }
-                          className="font-medium text-[14.5px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
                           placeholder="BEDROOM"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </div>
                     </DraggableBox>
                   )}
-                  <span className="text-gray-500 font-bold">•</span>
+                  <span className="text-gray-500 font-normal text-[18px] select-none">
+                    •
+                  </span>
 
                   {!isFieldDeleted("specBathroom") && (
                     <DraggableBox
@@ -1724,7 +2282,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChange={(e) => setBathroom(e.target.value)}
                           inputStyle={fieldStyles["bathroom"]}
                           onChangeStyle={(s) => updateFieldStyle("bathroom", s)}
-                          className="font-medium text-[14.5px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
                           placeholder="0"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1735,14 +2293,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("bathroomLabel", s)
                           }
-                          className="font-medium text-[14.5px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
                           placeholder="BATHROOM"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </div>
                     </DraggableBox>
                   )}
-                  <span className="text-gray-500 font-bold">•</span>
+                  <span className="text-gray-500 font-normal text-[18px] select-none">
+                    •
+                  </span>
 
                   {!isFieldDeleted("specSqft") && (
                     <DraggableBox
@@ -1769,7 +2329,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChange={(e) => setSqft(e.target.value)}
                           inputStyle={fieldStyles["sqft"]}
                           onChangeStyle={(s) => updateFieldStyle("sqft", s)}
-                          className="font-medium text-[14.5px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] text-right bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
                           placeholder="000"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1780,14 +2340,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("sqftLabel", s)
                           }
-                          className="font-medium text-[14.5px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
                           placeholder="SQ FT"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </div>
                     </DraggableBox>
                   )}
-                  <span className="text-gray-500 font-bold">•</span>
+                  <span className="text-gray-500 font-normal text-[18px] select-none">
+                    •
+                  </span>
 
                   {!isFieldDeleted("specBuiltYear") && (
                     <DraggableBox
@@ -1816,7 +2378,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("builtYearLabel", s)
                           }
-                          className="font-medium text-[14.5px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] bg-transparent focus:outline-none border-none uppercase whitespace-nowrap"
                           placeholder="BUILT IN"
                           wrapperClassName="w-auto shrink-0"
                         />
@@ -1827,14 +2389,16 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("builtYear", s)
                           }
-                          className="font-medium text-[14.5px] text-[#444444] text-left bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
+                          className="font-sans font-normal text-[18px] text-[#444444] text-left bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
                           placeholder="0000"
                           wrapperClassName="w-auto shrink-0"
                         />
                       </div>
                     </DraggableBox>
                   )}
-                  <span className="text-gray-500 font-bold">•</span>
+                  <span className="text-gray-500 font-normal text-[18px] select-none">
+                    •
+                  </span>
 
                   {!isFieldDeleted("priceAmount") && (
                     <DraggableBox
@@ -1860,7 +2424,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                         onChange={(e) => setAmount(e.target.value)}
                         inputStyle={fieldStyles["amount"]}
                         onChangeStyle={(s) => updateFieldStyle("amount", s)}
-                        className="font-medium text-[14.5px] text-[#444444] text-left bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
+                        className="font-sans font-normal text-[18px] text-[#444444] text-left bg-transparent focus:outline-none border-none placeholder-gray-700 whitespace-nowrap"
                         placeholder="$000,000"
                         wrapperClassName="w-auto shrink-0"
                       />
@@ -1871,14 +2435,18 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
 
               {/* Lower Content Details Section (Dark Charcoal Background - Expanded to Bleed Edge) */}
               <div
-                className="flex-1 bg-[#3E3E3E] text-white px-8 pt-4 pb-[125px] flex flex-col justify-start relative z-10"
-                style={bottomBleedStyle}
+                className="flex-1 bg-[#3E3E3E] text-white pt-4 pb-[165px] flex flex-col justify-start relative z-10"
+                style={{
+                  ...bottomBleedStyle,
+                  paddingLeft: showBleed ? "48px" : "36px",
+                  paddingRight: showBleed ? "48px" : "36px",
+                }}
               >
                 <div className="grid grid-cols-12 gap-6 w-full h-full relative">
                   {/* Description Column (Left - 50% HALF OF SHEET SPACE) */}
                   <div
                     data-drag-container="true"
-                    className={`col-span-6 pr-2 relative transition-all duration-150 group/sec border border-transparent ${
+                    className={`col-span-6 pr-2 relative transition-all duration-150 group/sec border border-transparent flex flex-col justify-start ${
                       lockedSections.description
                         ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
                         : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
@@ -1925,6 +2493,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                         label="Property Description"
                         zoom={0.85}
                         disabled={lockedSections.description}
+                        containerClassName="w-full"
                         onDelete={() =>
                           removeStandardField(
                             "propertyDescription",
@@ -1944,8 +2513,10 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("description", s)
                           }
-                          className="text-[12px] text-left text-white/95 leading-snug italic bg-transparent w-full focus:outline-none border-none placeholder-white/80"
-                          placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building."
+                          fieldId="description"
+                          fieldLabel="Property Description"
+                          className="text-[12px] font-normal text-left text-white/95 leading-snug bg-transparent w-full focus:outline-none border-none placeholder-white/80"
+                          placeholder="On top of it all! Beautiful sub-penthouse in the well appointed CENTRO building. This centrally located 2 bedroom, 2 bathroom home boasts incredible, totally unobstructed VIEWS overlooking Brighouse Park & to the South and South Westproviding unhindered privacy. The perfect floorplan with open concept living and cross unit bedrooms. Dark laminate flooring, S/S appliances, Gas range and a large open 'den/nook' area perfect for the home office. Huge private balcony, great building amenities including exercise room, sauna, roof top courtyard and outdoor kids playground. With parking, and storage locker and balance of the the 5-10 warranty, this home provides nothing but exceptional value. Call today to set up your viewing."
                         />
                       </DraggableBox>
                     )}
@@ -2020,7 +2591,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("byLawLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="BY-LAW RESTRICTIONS:"
                           />
                           <StyledInput
@@ -2032,7 +2603,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("byLawRestrictions", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                             placeholder="Pets Allowed w/Rest., Rentals Allowed"
                           />
                         </div>
@@ -2066,7 +2637,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintFeesLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="MAINT. FEES:"
                           />
                           <StyledInput
@@ -2076,7 +2647,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintenanceFees", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                             placeholder="$000.00"
                           />
                         </div>
@@ -2112,7 +2683,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintFeesIncludeLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="MAINT. FEES INCLUDE:"
                           />
                           <StyledInput
@@ -2124,8 +2695,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("maintenanceFeesInclude", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
-                            placeholder="Gardening, Garbage Pickup..."
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            placeholder="Gardening, Garbage Pickup, Gas, Hot Water, Management, Recreation Facility, Other, Caretaker"
                           />
                         </div>
                       </DraggableBox>
@@ -2160,7 +2731,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("featuresIncludedLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="FEATURES INCLUDED:"
                           />
                           <StyledInput
@@ -2172,8 +2743,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("featuresIncluded", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
-                            placeholder="Clothes Washer/Dryer/Fridge..."
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            placeholder="Clothes Washer/Dryer/Fridge/Stove/DW, Drapes/Window Coverings"
                           />
                         </div>
                       </DraggableBox>
@@ -2251,7 +2822,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("siteInfluencesLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="SITE INFLUENCES:"
                           />
                           <StyledInput
@@ -2261,8 +2832,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("siteInfluences", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
-                            placeholder="Central Location, Golf Course..."
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            placeholder="Central Location, Golf Course Nearby, Recreation Nearby, Shopping Nearby"
                           />
                         </div>
                       </DraggableBox>
@@ -2295,7 +2866,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("amenitiesLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="AMENITIES:"
                           />
                           <StyledInput
@@ -2305,8 +2876,8 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("amenities", s)
                             }
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
-                            placeholder="Exercise Centre, Garden..."
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            placeholder="Exercise Centre, Garden, In Suite Laundry, Sauna/Steam Room"
                           />
                         </div>
                       </DraggableBox>
@@ -2339,7 +2910,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("viewLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left block text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="VIEW:"
                           />
                           <StyledInput
@@ -2347,7 +2918,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChange={(e) => setView(e.target.value)}
                             inputStyle={fieldStyles["view"]}
                             onChangeStyle={(s) => updateFieldStyle("view", s)}
-                            className="text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
+                            className="font-gothic font-thin text-[12px] text-left text-white/90 bg-transparent w-full focus:outline-none border-none placeholder-white/70"
                             placeholder="South & SW - Van Isl."
                           />
                         </div>
@@ -2381,7 +2952,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("mlsLabel", s)
                             }
-                            className="font-semibold text-[12px] uppercase text-left text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
+                            className="font-gothic font-thin text-[14px] uppercase text-left text-white bg-transparent border-none focus:outline-none whitespace-nowrap"
                             placeholder="MLS* "
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -2392,7 +2963,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("mlsNumber", s)
                             }
-                            className="font-bold text-left text-[12px] text-white bg-transparent focus:outline-none border-none placeholder-white whitespace-nowrap"
+                            className="font-gothic font-thin text-left text-[12px] text-white bg-transparent focus:outline-none border-none placeholder-white whitespace-nowrap"
                             placeholder="0000000"
                             wrapperClassName="w-auto shrink-0"
                           />
@@ -2415,7 +2986,9 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   left: showBleed ? "-0.375in" : "-0.25in",
                   right: showBleed ? "-0.375in" : "-0.25in",
                   bottom: showBleed ? "-0.375in" : "-0.25in",
-                  width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
+                  width: showBleed
+                    ? "calc(100% + 0.75in)"
+                    : "calc(100% + 0.5in)",
                 }}
               >
                 <button
@@ -2451,57 +3024,52 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                   )}
                 </button>
 
-                <svg
-                  viewBox="0 0 816 230"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  preserveAspectRatio="none"
-                >
-                  {/* Metallic Accent Line Curve */}
-                  <path
-                    d="M0 40 Q 400 85 816 30 V230 H0 Z"
-                    fill="#888888"
-                    opacity="0.45"
+                {/* Footer Wave Background Image */}
+                <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden flex flex-col justify-end">
+                  <img
+                    src="/flyer18-footer-wave.png"
+                    alt=""
+                    className="w-full object-fill pointer-events-none select-none block shrink-0"
+                    style={{ height: "145px" }}
                   />
-                  {/* White Curve Card */}
-                  <path d="M0 50 Q 400 95 816 40 V230 H0 Z" fill="#FFFFFF" />
-                </svg>
+                  <div className="w-full bg-white flex-1 min-h-[35px]" />
+                </div>
 
                 {/* Contact Info Overlay on White Curve */}
                 <div className="relative z-10 px-10 pb-3 h-[120px] pt-0 flex justify-between items-start pointer-events-auto">
                   <div className="flex flex-col gap-0.5 text-gray-900 w-full">
-                    <div className="flex items-baseline gap-1 text-[13px]">
-                      <StyledInput
-                        value={contactLabel}
-                        onChange={(e) => setContactLabel(e.target.value)}
-                        inputStyle={fieldStyles["contactLabel"]}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("contactLabel", s)
+                    {!isFieldDeleted("contactName") && (
+                      <DraggableBox
+                        id="contactName"
+                        position={fieldPositions.contactName}
+                        onPositionChange={updateFieldPosition}
+                        label="Contact & Agent Name"
+                        zoom={0.85}
+                        disabled={lockedSections.contactCard}
+                        containerClassName="w-fit max-w-full inline-flex items-center shrink-0"
+                        onDelete={() =>
+                          removeStandardField(
+                            "contactName",
+                            "Contact & Agent Name",
+                            `${contactLabel} ${fullName}`,
+                            "Contact Card",
+                            fieldStyles.fullName,
+                          )
                         }
-                        className="font-bold text-gray-800 bg-transparent border-none focus:outline-none whitespace-nowrap"
-                        placeholder="CONTACT:"
-                        wrapperClassName="w-auto shrink-0"
-                      />
-                      {!isFieldDeleted("contactName") && (
-                        <DraggableBox
-                          id="contactName"
-                          position={fieldPositions.contactName}
-                          onPositionChange={updateFieldPosition}
-                          label="Agent Name"
-                          zoom={0.85}
-                          disabled={lockedSections.contactCard}
-                          onDelete={() =>
-                            removeStandardField(
-                              "contactName",
-                              "Agent Name",
-                              fullName,
-                              "Contact Card",
-                              fieldStyles.fullName,
-                            )
-                          }
-                          deleteTitle="Remove Agent Name"
-                        >
+                        deleteTitle="Remove Contact Name"
+                      >
+                        <div className="flex items-center gap-1.5 text-[16px] whitespace-nowrap">
+                          <StyledInput
+                            value={contactLabel}
+                            onChange={(e) => setContactLabel(e.target.value)}
+                            inputStyle={fieldStyles["contactLabel"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("contactLabel", s)
+                            }
+                            className="font-gothic font-normal text-[16px] text-gray-900 bg-transparent border-none focus:outline-none whitespace-nowrap uppercase"
+                            placeholder="CONTACT:"
+                            wrapperClassName="w-auto shrink-0"
+                          />
                           <StyledInput
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
@@ -2509,13 +3077,13 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                             onChangeStyle={(s) =>
                               updateFieldStyle("fullName", s)
                             }
-                            className="font-bold text-left text-[13px] text-gray-900 h-[18px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800 whitespace-nowrap"
+                            className="font-gothic font-normal text-left text-[16px] text-gray-900 bg-transparent focus:outline-none border-none uppercase placeholder-gray-800 whitespace-nowrap min-w-[19ch]"
                             placeholder="FIRSTNAME LASTNAME"
-                            wrapperClassName="w-auto shrink-0"
+                            wrapperClassName="w-auto shrink-0 min-w-[19ch]"
                           />
-                        </DraggableBox>
-                      )}
-                    </div>
+                        </div>
+                      </DraggableBox>
+                    )}
 
                     {!isFieldDeleted("contactBrokerage") && (
                       <DraggableBox
@@ -2525,6 +3093,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                         label="Company Name"
                         zoom={0.85}
                         disabled={lockedSections.contactCard}
+                        containerClassName="w-fit max-w-full inline-flex items-center shrink-0"
                         onDelete={() =>
                           removeStandardField(
                             "contactBrokerage",
@@ -2543,45 +3112,46 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                           onChangeStyle={(s) =>
                             updateFieldStyle("propertyName", s)
                           }
-                          className="font-normal text-left text-[11px] text-gray-800 h-[16px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-700 whitespace-nowrap"
+                          className="font-gothic font-normal text-left text-[13px] text-gray-900 bg-transparent focus:outline-none border-none uppercase placeholder-gray-700 whitespace-nowrap min-w-[16ch]"
                           placeholder="MACDONALD REALTY"
-                          wrapperClassName="w-auto shrink-0"
+                          wrapperClassName="w-auto shrink-0 min-w-[16ch]"
                         />
                       </DraggableBox>
                     )}
 
-                    <div className="flex items-center gap-3 text-[10.5px] text-gray-900">
-                      <div className="flex items-center gap-1">
-                        <StyledInput
-                          value={phoneLabel}
-                          onChange={(e) => setPhoneLabel(e.target.value)}
-                          inputStyle={fieldStyles["phoneLabel"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("phoneLabel", s)
+                    <div className="flex items-center gap-6 text-[13px] text-gray-900">
+                      {!isFieldDeleted("contactPhone") && (
+                        <DraggableBox
+                          id="contactPhone"
+                          position={fieldPositions.contactPhone}
+                          onPositionChange={updateFieldPosition}
+                          label="Phone Number"
+                          zoom={0.85}
+                          disabled={lockedSections.contactCard}
+                          containerClassName="w-fit inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactPhone",
+                              "Phone Number",
+                              `${phoneLabel} ${number}`,
+                              "Contact Card",
+                              fieldStyles.number,
+                            )
                           }
-                          className="font-bold bg-transparent border-none focus:outline-none whitespace-nowrap"
-                          placeholder="PHONE:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        {!isFieldDeleted("contactPhone") && (
-                          <DraggableBox
-                            id="contactPhone"
-                            position={fieldPositions.contactPhone}
-                            onPositionChange={updateFieldPosition}
-                            label="Phone Number"
-                            zoom={0.85}
-                            disabled={lockedSections.contactCard}
-                            onDelete={() =>
-                              removeStandardField(
-                                "contactPhone",
-                                "Phone Number",
-                                number,
-                                "Contact Card",
-                                fieldStyles.number,
-                              )
-                            }
-                            deleteTitle="Remove Phone Number"
-                          >
+                          deleteTitle="Remove Phone Number"
+                        >
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <StyledInput
+                              value={phoneLabel}
+                              onChange={(e) => setPhoneLabel(e.target.value)}
+                              inputStyle={fieldStyles["phoneLabel"]}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("phoneLabel", s)
+                              }
+                              className="font-gothic font-normal text-[13px] text-gray-900 bg-transparent border-none focus:outline-none whitespace-nowrap uppercase"
+                              placeholder="PHONE:"
+                              wrapperClassName="w-auto shrink-0"
+                            />
                             <StyledInput
                               value={number}
                               onChange={(e) => setNumber(e.target.value)}
@@ -2589,45 +3159,46 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("number", s)
                               }
-                              className="font-normal text-left text-[11px] text-gray-900 h-[16px] bg-transparent focus:outline-none border-none placeholder-gray-800 whitespace-nowrap"
+                              className="font-gothic font-normal text-left text-[13px] text-gray-900 bg-transparent focus:outline-none border-none placeholder-gray-800 whitespace-nowrap min-w-[12ch]"
                               placeholder="604.000.0000"
+                              wrapperClassName="w-auto shrink-0 min-w-[12ch]"
+                            />
+                          </div>
+                        </DraggableBox>
+                      )}
+
+                      {!isFieldDeleted("contactEmail") && (
+                        <DraggableBox
+                          id="contactEmail"
+                          position={fieldPositions.contactEmail}
+                          onPositionChange={updateFieldPosition}
+                          label="Email Link"
+                          zoom={0.85}
+                          disabled={lockedSections.contactCard}
+                          containerClassName="w-fit inline-flex items-center shrink-0"
+                          onDelete={() =>
+                            removeStandardField(
+                              "contactEmail",
+                              "Email Link",
+                              `${emailLabel} ${email}`,
+                              "Contact Card",
+                              fieldStyles.email,
+                            )
+                          }
+                          deleteTitle="Remove Email Link"
+                        >
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <StyledInput
+                              value={emailLabel}
+                              onChange={(e) => setEmailLabel(e.target.value)}
+                              inputStyle={fieldStyles["emailLabel"]}
+                              onChangeStyle={(s) =>
+                                updateFieldStyle("emailLabel", s)
+                              }
+                              className="font-gothic font-normal text-[13px] text-gray-900 bg-transparent border-none focus:outline-none whitespace-nowrap uppercase"
+                              placeholder="EMAIL:"
                               wrapperClassName="w-auto shrink-0"
                             />
-                          </DraggableBox>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <StyledInput
-                          value={emailLabel}
-                          onChange={(e) => setEmailLabel(e.target.value)}
-                          inputStyle={fieldStyles["emailLabel"]}
-                          onChangeStyle={(s) =>
-                            updateFieldStyle("emailLabel", s)
-                          }
-                          className="font-bold bg-transparent border-none focus:outline-none whitespace-nowrap"
-                          placeholder="EMAIL:"
-                          wrapperClassName="w-auto shrink-0"
-                        />
-                        {!isFieldDeleted("contactEmail") && (
-                          <DraggableBox
-                            id="contactEmail"
-                            position={fieldPositions.contactEmail}
-                            onPositionChange={updateFieldPosition}
-                            label="Email Link"
-                            zoom={0.85}
-                            disabled={lockedSections.contactCard}
-                            onDelete={() =>
-                              removeStandardField(
-                                "contactEmail",
-                                "Email Link",
-                                email,
-                                "Contact Card",
-                                fieldStyles.email,
-                              )
-                            }
-                            deleteTitle="Remove Email Link"
-                          >
                             <StyledInput
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
@@ -2635,35 +3206,70 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                               onChangeStyle={(s) =>
                                 updateFieldStyle("email", s)
                               }
-                              className="font-normal text-left text-[10px] text-gray-900 h-[16px] bg-transparent focus:outline-none border-none uppercase placeholder-gray-800 whitespace-nowrap"
+                              className="font-gothic font-normal text-left text-[13px] text-gray-900 bg-transparent focus:outline-none border-none uppercase placeholder-gray-800 whitespace-nowrap min-w-[22ch]"
                               placeholder="FIRSTNAME@LASTNAME.COM"
-                              wrapperClassName="w-auto shrink-0"
+                              wrapperClassName="w-auto shrink-0 min-w-[22ch]"
                             />
-                          </DraggableBox>
-                        )}
-                      </div>
+                          </div>
+                        </DraggableBox>
+                      )}
                     </div>
 
                     {/* Fine Print Disclaimer with Home & Equal Housing Opportunity icons */}
-                    <div className="flex items-center gap-1.5 pt-1 text-[8px] text-gray-600 leading-tight">
-                      <StyledInput
-                        value={disclaimerText}
-                        rows={2}
-                        onChange={(e) => setDisclaimerText(e.target.value)}
-                        inputStyle={fieldStyles["disclaimerText"]}
-                        onChangeStyle={(s) =>
-                          updateFieldStyle("disclaimerText", s)
+                    {!isFieldDeleted("contactDisclaimer") && (
+                      <DraggableBox
+                        id="contactDisclaimer"
+                        position={fieldPositions.contactDisclaimer}
+                        onPositionChange={updateFieldPosition}
+                        label="Disclaimer"
+                        zoom={0.85}
+                        disabled={lockedSections.contactCard}
+                        onDelete={() =>
+                          removeStandardField(
+                            "contactDisclaimer",
+                            "Disclaimer",
+                            disclaimerText,
+                            "Contact Card",
+                            fieldStyles.disclaimerText,
+                          )
                         }
-                        className="text-[8px] text-gray-600 leading-tight bg-transparent border-none focus:outline-none w-full"
-                        placeholder="All information deemed reliable..."
-                      />
-                      <div className="flex items-center gap-1 shrink-0 text-gray-700">
-                        <House className="w-3.5 h-3.5" />
-                        <span className="text-[9px] font-serif border border-gray-700 px-0.5 rounded-[1px] leading-none">
-                          EHO
-                        </span>
-                      </div>
-                    </div>
+                        deleteTitle="Remove Disclaimer"
+                      >
+                        <div className="flex items-center gap-1.5 pt-1 text-[7.5px] font-bold text-black leading-[1.15] tracking-tight">
+                          <StyledInput
+                            value={disclaimerText}
+                            rows={2}
+                            onChange={(e) => setDisclaimerText(e.target.value)}
+                            inputStyle={fieldStyles["disclaimerText"]}
+                            onChangeStyle={(s) =>
+                              updateFieldStyle("disclaimerText", s)
+                            }
+                            className="text-[7.5px] font-bold text-black leading-[1.15] tracking-tight bg-transparent border-none focus:outline-none w-full"
+                            placeholder="All information deemed reliable..."
+                          />
+                          <div className="flex items-center gap-1 shrink-0 text-black">
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                              <line x1="9" y1="12" x2="15" y2="12" />
+                              <line x1="9" y1="16" x2="15" y2="16" />
+                            </svg>
+                            <div className="w-3.5 h-3.5 border border-black rounded-[1px] flex items-center justify-center shrink-0">
+                              <span className="text-[7px] font-bold font-serif leading-none">
+                                R
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </DraggableBox>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2692,59 +3298,117 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
           <SafeZoneWrapper showBleed={showBleed} showGuide={showGuide}>
             <div
               data-safezone-container="true"
-              className="relative w-full h-full flex flex-col justify-between z-10 select-none overflow-hidden"
+              className="relative w-full h-full flex flex-col justify-between z-10 select-none"
             >
-              {/* Background SVG graphics */}
-              <svg
-                viewBox="0 0 816 1056"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="absolute pointer-events-none z-0"
+              {/* PAGE 2 CONTENT: Floor Plan Image Slot (Full available area, transparent background) */}
+              <div className="relative z-0 w-full h-full flex flex-col p-0 pb-[50px]">
+                <div className="w-full h-full p-0 flex-1 flex items-center justify-center bg-transparent">
+                  {renderImageSlot(
+                    "image6",
+                    "w-full h-full bg-transparent",
+                    "Select Image",
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Swooping White Footer Wave for Page 2 (Expanded to Bleed Edge) */}
+              <div
+                data-drag-container="true"
+                className={`absolute h-[160px] z-20 pointer-events-none flex flex-col justify-end transition-all duration-150 group/sec border border-transparent ${
+                  lockedSections.page2Footer
+                    ? "hover:border-amber-400 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(245,158,11,0.4)]"
+                    : "hover:border-[#8B3DFF] hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_12px_rgba(139,61,255,0.4)]"
+                }`}
                 style={{
-                  top: showBleed ? "-0.375in" : "-0.25in",
-                  bottom: showBleed ? "-0.375in" : "-0.25in",
                   left: showBleed ? "-0.375in" : "-0.25in",
                   right: showBleed ? "-0.375in" : "-0.25in",
-                  width: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
-                  height: showBleed ? "calc(100% + 0.75in)" : "calc(100% + 0.5in)",
+                  bottom: showBleed ? "-0.375in" : "-0.25in",
+                  width: showBleed
+                    ? "calc(100% + 0.75in)"
+                    : "calc(100% + 0.5in)",
                 }}
-                preserveAspectRatio="none"
               >
-                {/* Metallic Curve Bottom Background */}
-                <path
-                  d="M0 940 C0 940 400 900 816 970 V1056 H0 Z"
-                  fill="#888888"
-                  opacity="0.4"
-                />
-                <path
-                  d="M0 960 C0 960 400 920 816 990 V1056 H0 Z"
-                  fill="#404040"
-                />
-              </svg>
+                {/* Lock / Unlock button for Page 2 Footer */}
+                <button
+                  type="button"
+                  data-html2canvas-ignore="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSectionLock("page2Footer");
+                  }}
+                  className={`absolute top-6 right-8 z-40 p-1 rounded-md transition-all duration-150
+                    shadow-sm flex items-center gap-1 text-[8px] font-medium cursor-pointer pointer-events-auto
+                    opacity-0 group-hover/sec:opacity-100 ${
+                      lockedSections.page2Footer
+                        ? "bg-amber-500 text-white shadow-amber-500/30 hover:bg-amber-600"
+                        : "bg-white/90 text-gray-700 hover:bg-white border border-gray-200"
+                    }`}
+                  title={
+                    lockedSections.page2Footer
+                      ? "Unlock Page 2 Footer Section"
+                      : "Lock Page 2 Footer Section"
+                  }
+                >
+                  {lockedSections.page2Footer ? (
+                    <>
+                      <Lock className="w-3 h-3" />
+                      <span>Locked</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3 h-3" />
+                      <span>Lock</span>
+                    </>
+                  )}
+                </button>
 
-              {/* PAGE 2 CONTENT (White Floor Plan Card inset on charcoal background) */}
-              <div className="relative z-10 w-full h-full flex flex-col p-0">
-                {/* Main Central White Card Container */}
-                <div className="rounded-md shadow-2xl p-0 flex-1 flex flex-col justify-between">
-                  {/* Floor Plan Slot (Image 6) */}
-                  <div className="w-full h-full p-0 flex items-center justify-center">
-                    {renderImageSlot(
-                      "image6",
-                      "w-full h-full ",
-                      "Select Floor Plan Image (Image 6)",
-                    )}
-                  </div>
+                {/* Footer Wave Background Image */}
+                <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden flex flex-col justify-end">
+                  <img
+                    src="/flyer18-footer-wave.png"
+                    alt=""
+                    className="w-full object-fill pointer-events-none select-none block shrink-0"
+                    style={{ height: "135px" }}
+                  />
+                  <div className="w-full bg-white flex-1 min-h-[30px]" />
                 </div>
 
-                {/* Bottom Page 2 Footer Banner */}
-                <StyledInput
-                  value={footerCredit}
-                  onChange={(e) => setFooterCredit(e.target.value)}
-                  inputStyle={fieldStyles["footerCredit"]}
-                  onChangeStyle={(s) => updateFieldStyle("footerCredit", s)}
-                  className="w-full text-center text-white text-[11px] font-semibold tracking-wider pt-1 bg-transparent border-none focus:outline-none"
-                  placeholder="DESIGNED AND PRINTED BY BC FLOOR PLANS"
-                />
+                {/* Footer Credit Text on White Background */}
+                <div className="relative z-10 w-full pb-3.5 pt-1 flex justify-center items-center pointer-events-auto">
+                  {!isFieldDeleted("footerCreditPage2") && (
+                    <DraggableBox
+                      id="footerCreditPage2"
+                      position={fieldPositions.footerCreditPage2}
+                      onPositionChange={updateFieldPosition}
+                      label="Footer Credit"
+                      zoom={0.85}
+                      disabled={lockedSections.page2Footer}
+                      containerClassName="w-full"
+                      className="w-full flex justify-center"
+                      onDelete={() =>
+                        removeStandardField(
+                          "footerCreditPage2",
+                          "Footer Credit",
+                          footerCredit,
+                          "Page 2 Footer",
+                          fieldStyles.footerCredit,
+                        )
+                      }
+                      deleteTitle="Remove Footer Credit"
+                    >
+                      <StyledInput
+                        value={footerCredit}
+                        onChange={(e) => setFooterCredit(e.target.value)}
+                        inputStyle={fieldStyles["footerCredit"]}
+                        onChangeStyle={(s) =>
+                          updateFieldStyle("footerCredit", s)
+                        }
+                        className="w-full text-center text-[#3E3E3E] text-[12px] font-bold tracking-wider bg-transparent border-none focus:outline-none"
+                        placeholder="DESIGNED AND PRINTED BY BC FLOOR PLANS"
+                      />
+                    </DraggableBox>
+                  )}
+                </div>
               </div>
             </div>
           </SafeZoneWrapper>

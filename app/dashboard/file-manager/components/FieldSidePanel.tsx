@@ -50,6 +50,37 @@ const WEIGHT_OPTIONS = [
   { label: "Extra Bold", value: "800" },
 ];
 
+function normalizeWeightValue(val?: string | number): string {
+  if (!val) return "400";
+  const str = String(val).toLowerCase();
+  if (
+    str === "100" ||
+    str === "200" ||
+    str === "300" ||
+    str === "thin" ||
+    str === "light"
+  )
+    return "100";
+  if (str === "400" || str === "normal" || str === "regular") return "400";
+  if (str === "500" || str === "medium") return "500";
+  if (
+    str === "600" ||
+    str === "700" ||
+    str === "semibold" ||
+    str === "bold"
+  )
+    return "700";
+  if (
+    str === "800" ||
+    str === "900" ||
+    str === "extrabold" ||
+    str === "extra bold" ||
+    str === "black"
+  )
+    return "800";
+  return str;
+}
+
 const FONT_SIZE_OPTIONS = [
   8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 60, 72,
 ];
@@ -60,8 +91,11 @@ const DEFAULT_FONT_OPTIONS: { label: string; value: string; css: string }[] = [
   { label: "Sans Serif", value: "sans-serif", css: "sans-serif" },
   { label: "Alexandria", value: "Alexandria, sans-serif", css: "Alexandria, sans-serif" },
   { label: "Raleway", value: "Raleway, sans-serif", css: "Raleway, sans-serif" },
+  { label: "Champagne & Limousines", value: "ChampagneLimousines, sans-serif", css: "ChampagneLimousines, sans-serif" },
+  { label: "Champagne & Limousines Bold", value: "ChampagneLimousinesBold, sans-serif", css: "ChampagneLimousinesBold, sans-serif" },
   { label: "Gothic", value: "GothicRegular, sans-serif", css: "GothicRegular, sans-serif" },
   { label: "Gothic Bold", value: "GothicBold, sans-serif", css: "GothicBold, sans-serif" },
+  { label: "Gothic Italic", value: "GothicItalic, sans-serif", css: "GothicItalic, sans-serif" },
   { label: "Caslon Pro Bold", value: "ACaslonPro, serif", css: "ACaslonPro, serif" },
   { label: "Caslon Pro Regular", value: "ACaslonProRegular, serif", css: "ACaslonProRegular, serif" },
   { label: "Caslon Pro Italic", value: "ACaslonProItalic, serif", css: "ACaslonProItalic, serif" },
@@ -99,7 +133,10 @@ function matchFontOption(
   options: { label: string; value: string; css?: string }[],
   value: string,
 ) {
-  if (!value) return undefined;
+  if (!value)
+    return (
+      options.find((o) => o.label.toLowerCase() === "sans serif") || options[0]
+    );
   const cleanVal = value.trim().toLowerCase().replace(/^font-/, "");
 
   // 1. Exact match on value, css, or label
@@ -111,6 +148,34 @@ function matchFontOption(
       o.label.toLowerCase() === cleanVal,
   );
   if (exact) return exact;
+
+  // 1b. Match standard Sans Serif variations (e.g. "sans-serif", "sans", "mulish", "'gothic a1', mulish", etc.)
+  if (
+    cleanVal === "sans-serif" ||
+    cleanVal === "sans" ||
+    cleanVal === "font-sans" ||
+    cleanVal.includes("mulish") ||
+    cleanVal.endsWith("sans-serif")
+  ) {
+    const isNamedFont =
+      cleanVal.includes("gothicregular") ||
+      cleanVal.includes("gothicbold") ||
+      cleanVal.includes("gothici") ||
+      cleanVal.includes("champagne") ||
+      cleanVal.includes("raleway") ||
+      cleanVal.includes("alexandria") ||
+      cleanVal.includes("arial") ||
+      cleanVal.includes("trajan") ||
+      cleanVal.includes("caslon");
+    if (!isNamedFont) {
+      const sansOpt = options.find(
+        (o) =>
+          o.label.toLowerCase() === "sans serif" ||
+          o.value.toLowerCase() === "sans-serif",
+      );
+      if (sansOpt) return sansOpt;
+    }
+  }
 
   // Extract primary family name (before first comma, stripped of quotes)
   const primaryVal = cleanVal.split(",")[0].replace(/['"]/g, "").trim();
@@ -132,7 +197,7 @@ function matchFontOption(
   }
 
   // 2. Match primary font name against option label or primary css name
-  return options.find((o) => {
+  const matched = options.find((o) => {
     const oLabel = o.label.toLowerCase();
     const oPrimary = (o.css || o.value)
       .split(",")[0]
@@ -146,6 +211,19 @@ function matchFontOption(
       primaryVal.includes(oPrimary)
     );
   });
+  if (matched) return matched;
+
+  // 3. Fallback: if value contains sans-serif, match Sans Serif
+  if (cleanVal.includes("sans")) {
+    const sansOpt = options.find(
+      (o) =>
+        o.label.toLowerCase() === "sans serif" ||
+        o.value.toLowerCase() === "sans-serif",
+    );
+    if (sansOpt) return sansOpt;
+  }
+
+  return undefined;
 }
 
 function PanelDropdown({
@@ -173,9 +251,20 @@ function PanelDropdown({
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  const normalizedVal = normalizeWeightValue(value);
   const current =
-    options.find((o) => o.value === value) ||
-    matchFontOption(options, value);
+    options.find(
+      (o) =>
+        o.value.toLowerCase() === value?.toLowerCase() ||
+        o.value === normalizedVal ||
+        normalizeWeightValue(o.value) === normalizedVal ||
+        ((value === "100" || value === "200" || value === "300") &&
+          (o.value === "100" || o.value === "300")),
+    ) ||
+    matchFontOption(options, value) ||
+    (label === "Font Family"
+      ? options.find((o) => o.label.toLowerCase() === "sans serif") || options[0]
+      : undefined);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -197,6 +286,8 @@ function PanelDropdown({
             const isSelected =
               current?.value === o.value ||
               o.value === value ||
+              o.value === normalizedVal ||
+              normalizeWeightValue(o.value) === normalizedVal ||
               (o.css && value && o.css.toLowerCase() === value.toLowerCase());
             return (
               <button
@@ -309,6 +400,40 @@ export default function FieldSidePanel({
       window.removeEventListener("mouseup", handleGlobalMouseUp);
     };
   }, [stopNudgeTimer]);
+
+  // Keyboard arrow keys nudge when field panel is open and user is not actively typing
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isTyping =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          (activeEl as HTMLElement).isContentEditable);
+      if (isTyping) return;
+
+      const step = e.shiftKey ? 10 : 1;
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeFieldRef.current?.onNudge?.(0, -step);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeFieldRef.current?.onNudge?.(0, step);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        activeFieldRef.current?.onNudge?.(-step, 0);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        activeFieldRef.current?.onNudge?.(step, 0);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   // ── Icon button helper ────────────────────────────────────────────────────
   const IconBtn = ({
@@ -424,7 +549,7 @@ export default function FieldSidePanel({
                   <PanelDropdown
                     label="Weight"
                     options={WEIGHT_OPTIONS}
-                    value={String(currentFontWeight)}
+                    value={normalizeWeightValue(currentFontWeight)}
                     onChange={(v) => emit({ fontWeight: v })}
                   />
                 </Section>

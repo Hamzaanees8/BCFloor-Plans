@@ -63,25 +63,32 @@ export function FieldPanelProvider({ children }: { children: React.ReactNode }) 
   const [activeField, setActiveField] = useState<ActiveFieldInfo | null>(null);
   const [isDeletedFieldsOpen, setIsDeletedFieldsOpen] = useState(false);
 
+  const activeFieldRef = React.useRef<ActiveFieldInfo | null>(null);
+  activeFieldRef.current = activeField;
+
   const openPanel = useCallback((info: ActiveFieldInfo) => {
     // Opening Field Editor automatically closes Deleted Fields sidebar
     setIsDeletedFieldsOpen(false);
+    activeFieldRef.current = info;
     setActiveField(info);
   }, []);
 
   const closePanel = useCallback(() => {
+    activeFieldRef.current = null;
     setActiveField(null);
   }, []);
 
   const setDeletedFieldsOpen = useCallback((open: boolean) => {
     if (open) {
       // Opening Deleted Fields automatically closes Field Editor sidebar
+      activeFieldRef.current = null;
       setActiveField(null);
     }
     setIsDeletedFieldsOpen(open);
   }, []);
 
   const openDeletedFieldsPanel = useCallback(() => {
+    activeFieldRef.current = null;
     setActiveField(null);
     setIsDeletedFieldsOpen(true);
   }, []);
@@ -91,6 +98,7 @@ export function FieldPanelProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const closeAllSidebars = useCallback(() => {
+    activeFieldRef.current = null;
     setActiveField(null);
     setIsDeletedFieldsOpen(false);
     if (typeof document !== "undefined") {
@@ -99,11 +107,14 @@ export function FieldPanelProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const updateActiveStyle = useCallback((style: TextStyle) => {
-    setActiveField((prev) => {
-      if (!prev) return prev;
-      prev.onStyleChange(style);
-      return { ...prev, currentStyle: style };
-    });
+    const current = activeFieldRef.current;
+    if (current) {
+      current.currentStyle = style;
+      if (typeof current.onStyleChange === "function") {
+        current.onStyleChange(style);
+      }
+    }
+    setActiveField((prev) => (prev ? { ...prev, currentStyle: style } : null));
   }, []);
 
   const updateActiveFieldHandlers = useCallback((handlers: {

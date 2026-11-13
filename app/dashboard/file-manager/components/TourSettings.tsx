@@ -54,8 +54,8 @@ const TourSettings = ({
   const [lotSize, setLotSize] = useState<string>("");
   const [parkingSpots, setParkingSpots] = useState<number>();
   const [year_constructed, setYear_constructed] = useState<number>();
-  const [type, setType] = useState<string>();
-  const [description, setDescription] = useState<string>();
+  const [type, setType] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
   const [address, setAddress] = useState("");
   const [tourActivated, setTourActivated] = useState<boolean>(false);
   const [propertyWebsite, setPropertyWebsite] = useState("");
@@ -129,8 +129,8 @@ const TourSettings = ({
       setLotSize(orderData?.property?.lot_size ?? "");
       setParkingSpots(Number(orderData?.property?.parking_spots));
       setYear_constructed(Number(orderData?.property?.year_constructed));
-      setType(orderData?.property?.property_type);
-      setDescription(orderData?.property?.description);
+      setType(orderData?.property?.property_type || "");
+      setDescription(orderData?.property?.description || "");
       setfirst_name(orderData.agent.first_name);
       setlast_name(orderData.agent.last_name);
       setemail(orderData.agent.email);
@@ -658,7 +658,7 @@ const TourSettings = ({
                             <label htmlFor="">Price</label>
                             <div className="relative mt-[12px]">
                               <Input
-                                value={price}
+                                value={price ?? ""}
                                 onChange={(e) => {
                                   const val = e.target.value.replace(
                                     /[^0-9.]/g,
@@ -678,7 +678,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Beds</label>
                             <Input
-                              value={bedrooms}
+                              value={bedrooms ?? ""}
                               onChange={(e) =>
                                 setBedrooms(
                                   e.target.value
@@ -694,7 +694,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Baths</label>
                             <Input
-                              value={bathrooms}
+                              value={bathrooms ?? ""}
                               onChange={(e) =>
                                 setBathrooms(
                                   e.target.value
@@ -710,7 +710,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Property Size</label>
                             <Input
-                              value={propertySize}
+                              value={propertySize ?? ""}
                               onChange={(e) =>
                                 setPropertySize(
                                   e.target.value
@@ -727,7 +727,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Lot Size</label>
                             <Input
-                              value={lotSize}
+                              value={lotSize ?? ""}
                               onChange={(e) => setLotSize(e.target.value)}
                               placeholder="Enter Lot Size"
                               className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
@@ -738,7 +738,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Year Built</label>
                             <Input
-                              value={year_constructed}
+                              value={year_constructed ?? ""}
                               onChange={(e) =>
                                 setYear_constructed(
                                   e.target.value
@@ -755,7 +755,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Property Type</label>
                             <Select
-                              value={type}
+                              value={type ?? ""}
                               onValueChange={(value) => setType(value)}
                             >
                               <SelectTrigger className="w-full h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]">
@@ -781,7 +781,7 @@ const TourSettings = ({
                           <div>
                             <label htmlFor="">Parking Spots</label>
                             <Input
-                              value={parkingSpots}
+                              value={parkingSpots ?? ""}
                               onChange={(e) =>
                                 setParkingSpots(
                                   e.target.value
@@ -797,7 +797,7 @@ const TourSettings = ({
                           <div className="col-span-2">
                             <label htmlFor="">Description</label>
                             <Textarea
-                              value={description}
+                              value={description ?? ""}
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Description"
                               className="h-[200px] resize-none bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"

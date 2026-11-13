@@ -417,6 +417,11 @@ export const FONT_FOLDERS: Record<
         css: "TrajanProBoldBcfp17, serif",
       },
       {
+        label: "Trajan Pro",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp17, serif",
+      },
+      {
         label: "Arial Regular",
         value: "font-arial-regular",
         css: "ArialRegularBcfp17, sans-serif",
@@ -440,6 +445,11 @@ export const FONT_FOLDERS: Record<
         label: "Trajan Pro Bold",
         value: "font-trajan-bold",
         css: "TrajanProBoldBcfp17, serif",
+      },
+      {
+        label: "Trajan Pro",
+        value: "font-trajan-regular",
+        css: "TrajanProRegularBcfp17, serif",
       },
       {
         label: "Arial Regular",
@@ -573,6 +583,14 @@ function fontWeightToClass(fw?: string | number): string {
 function fontFamilyToClass(ff?: string): string {
   if (!ff) return "font-sans";
   const f = ff.toLowerCase();
+  if (
+    f.includes("champagnelimousinesbold") ||
+    (f.includes("champagne") && (f.includes("bold") || f.includes("700")))
+  )
+    return "font-champagne-bold";
+  if (f.includes("champagne")) return "font-champagne";
+  if (f.includes("gothici") || (f.includes("gothic") && f.includes("italic")))
+    return "font-gothic-italic";
   if (f.includes("alexandria")) return "font-alexandria";
   if (f.includes("raleway")) return "font-raleway";
   // BcfpStandard7 fonts
@@ -595,6 +613,7 @@ function fontFamilyToClass(ff?: string): string {
   // BcfpStandard17 fonts
   if (f.includes("acaslonproboldbcfp17")) return "font-caslon-bold";
   if (f.includes("trajanproboldbcfp17")) return "font-trajan-bold";
+  if (f.includes("trajanproregularbcfp17")) return "font-trajan-regular";
   if (f.includes("arialregularbcfp17")) return "font-arial-regular";
   if (f.includes("arialboldbcfp17")) return "font-arial-bold";
   // BcfpStandard3 fonts
@@ -659,6 +678,14 @@ function fontFamilyToClass(ff?: string): string {
   if (f.includes("serif") && !f.includes("sans-serif")) return "font-serif";
   return "font-sans";
 }
+
+export const toCleanString = (val: any): string => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "object" && "value" in val) return toCleanString(val.value);
+  if (Array.isArray(val)) return val.map(toCleanString).join("\n");
+  return String(val);
+};
 
 export default function StyledInput({
   className,
@@ -748,6 +775,9 @@ export default function StyledInput({
   const [fontFamily, setFontFamily] = useState<string>(() => {
     if (inputStyle?.fontFamily) return fontFamilyToClass(inputStyle.fontFamily);
     if (className) {
+      if (className.includes("font-champagne-bold")) return "font-champagne-bold";
+      if (className.includes("font-champagne")) return "font-champagne";
+      if (className.includes("font-gothic-italic")) return "font-gothic-italic";
       if (className.includes("font-raleway")) return "font-raleway";
       if (className.includes("font-alexandria")) return "font-alexandria";
       if (className.includes("font-caslon-bold")) return "font-caslon-bold";
@@ -757,13 +787,18 @@ export default function StyledInput({
       if (className.includes("font-gothic-bold")) return "font-gothic-bold";
       if (className.includes("font-gothic")) return "font-gothic";
       if (className.includes("font-arial-bold")) return "font-arial-bold";
+      if (className.includes("font-arial-regular") || className.includes("font-arial")) return "font-arial-regular";
       if (className.includes("font-serif")) return "font-serif";
     }
     return "font-sans";
   });
-  const [internalValue, setInternalValue] = useState(value || "");
+  const [internalValue, setInternalValue] = useState<string>(() =>
+    toCleanString(value),
+  );
   const [isFocused, setIsFocused] = useState(false);
-  const [showPlaceholder, setShowPlaceholder] = useState(!value);
+  const [showPlaceholder, setShowPlaceholder] = useState(
+    !toCleanString(value),
+  );
 
   const [showMenu, setShowMenu] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -830,12 +865,7 @@ export default function StyledInput({
   // ─── Sync value from parent ───────────────────────────────────────
   useEffect(() => {
     if (value !== undefined) {
-      const stringValue =
-        typeof value === "string"
-          ? value
-          : value && typeof value === "object" && "value" in (value as any)
-            ? (value as any).value || ""
-            : String(value || "");
+      const stringValue = toCleanString(value);
 
       setInternalValue(stringValue);
       setShowPlaceholder(!stringValue);
@@ -872,7 +902,10 @@ export default function StyledInput({
       else if (className.includes("font-thin")) setFontWeight("font-thin");
       else if (className.includes("font-normal")) setFontWeight("font-normal");
 
-      if (className.includes("font-alexandria")) setFontFamily("font-alexandria");
+      if (className.includes("font-champagne-bold")) setFontFamily("font-champagne-bold");
+      else if (className.includes("font-champagne")) setFontFamily("font-champagne");
+      else if (className.includes("font-gothic-italic")) setFontFamily("font-gothic-italic");
+      else if (className.includes("font-alexandria")) setFontFamily("font-alexandria");
       else if (className.includes("font-raleway")) setFontFamily("font-raleway");
       else if (className.includes("font-caslon-bold")) setFontFamily("font-caslon-bold");
       else if (className.includes("font-caslon")) setFontFamily("font-caslon");
@@ -881,6 +914,7 @@ export default function StyledInput({
       else if (className.includes("font-gothic-bold")) setFontFamily("font-gothic-bold");
       else if (className.includes("font-gothic")) setFontFamily("font-gothic");
       else if (className.includes("font-arial-bold")) setFontFamily("font-arial-bold");
+      else if (className.includes("font-arial-regular") || className.includes("font-arial")) setFontFamily("font-arial-regular");
       else if (className.includes("font-serif")) setFontFamily("font-serif");
     }
   }, [className]);
@@ -914,6 +948,8 @@ export default function StyledInput({
   const getFontWeightStyle = () => {
     switch (fontWeight) {
       case "font-thin":
+        return "200";
+      case "font-light":
         return "300";
       case "font-normal":
         return "400";
@@ -932,17 +968,61 @@ export default function StyledInput({
     }
   };
 
+  const getFontStrokeStyle = (): string | undefined => {
+    switch (fontWeight) {
+      case "font-medium":
+        return "0.35px currentColor";
+      case "font-semibold":
+        return "0.5px currentColor";
+      case "font-extrabold":
+        return "0.6px currentColor";
+      case "font-black":
+        return "0.8px currentColor";
+      default:
+        return undefined;
+    }
+  };
+
+  const getLetterSpacingStyle = (): string | undefined => {
+    switch (fontWeight) {
+      case "font-thin":
+        return "0.015em";
+      default:
+        return undefined;
+    }
+  };
+
   const getFontFamilyStyle = () => {
+    const isThin = fontWeight === "font-thin" || fontWeight === "font-light";
     const matchCustom = customFonts.find(
       (f) =>
         f.value === fontFamily ||
         (f.css && fontFamily && f.css.toLowerCase() === fontFamily.toLowerCase()),
     );
-    if (matchCustom) return matchCustom.css;
-    if (customFonts.length > 0 && (fontFamily === "font-sans" || fontFamily === "sans-serif")) {
-      return customFonts[0].css;
+    if (matchCustom) {
+      if (isThin && matchCustom.css.toLowerCase().includes("gothic")) {
+        return `'Gothic A1', Mulish, ${matchCustom.css}`;
+      }
+      return matchCustom.css;
     }
     const f = (fontFamily || "").toLowerCase();
+    if (f === "font-sans" || f === "sans-serif" || f === "sans") {
+      if (isThin) return "'Gothic A1', Mulish, sans-serif";
+      return "sans-serif";
+    }
+    if (
+      f.includes("champagne-bold") ||
+      f.includes("champagnelimousinesbold") ||
+      (f.includes("champagne") && (f.includes("bold") || f.includes("700")))
+    )
+      return "ChampagneLimousinesBold, sans-serif";
+    if (f.includes("champagne")) return "ChampagneLimousines, sans-serif";
+    if (
+      f.includes("gothic-italic") ||
+      f.includes("gothici") ||
+      (f.includes("gothic") && f.includes("italic"))
+    )
+      return "GothicItalic, sans-serif";
     if (f.includes("alexandria")) return "var(--font-alexandria), Alexandria, sans-serif";
     if (f.includes("raleway")) return "Raleway, sans-serif";
     if (f.includes("acaslonproboldbcfp7") || f.includes("caslon-bold") || (f.includes("caslon") && f.includes("bold")))
@@ -958,16 +1038,23 @@ export default function StyledInput({
     if (f.includes("caslon")) return "ACaslonPro, serif";
     if (f.includes("bickham")) return "BickhamScript, cursive";
     if (f.includes("gothic-bold") || f.includes("gothicbold") || (f.includes("gothic") && f.includes("bold")))
-      return "GothicBold, sans-serif";
-    if (f.includes("gothic")) return "GothicRegular, sans-serif";
+      return "GothicBold, 'Gothic A1', Mulish, sans-serif";
+    if (f.includes("gothic")) {
+      if (isThin) return "'Gothic A1', Mulish, GothicRegular, sans-serif";
+      return "GothicRegular, 'Gothic A1', Mulish, sans-serif";
+    }
     if (f.includes("trajan-bold") || f.includes("trajanprobold") || (f.includes("trajan") && f.includes("bold")))
       return "TrajanProBold, serif";
     if (f.includes("trajan")) return "TrajanProRegular, serif";
     if (f.includes("arial-bold") || f.includes("arialbold") || (f.includes("arial") && f.includes("bold")))
       return "ArialBold, sans-serif";
-    if (f.includes("arial")) return "Arial, sans-serif";
+    if (f.includes("arial")) {
+      if (isThin) return "'Gothic A1', Mulish, Arial, sans-serif";
+      return "Arial, sans-serif";
+    }
     if (f.includes("serif") && !f.includes("sans-serif")) return "serif";
-    return customFonts.length > 0 ? customFonts[0].css : "sans-serif";
+    if (isThin) return "'Gothic A1', Mulish, sans-serif";
+    return customFonts.length > 0 ? customFonts[0].css : "Mulish, sans-serif";
   };
 
   const getAlignContentStyle = () => {
@@ -1006,6 +1093,8 @@ export default function StyledInput({
       const fwNum = (() => {
         switch (fw) {
           case "font-thin":
+            return "100";
+          case "font-light":
             return "300";
           case "font-normal":
             return "400";
@@ -1031,6 +1120,19 @@ export default function StyledInput({
           return customFonts[0].css;
         }
         const f = (ff || "").toLowerCase();
+        if (
+          f.includes("champagne-bold") ||
+          f.includes("champagnelimousinesbold") ||
+          (f.includes("champagne") && (f.includes("bold") || f.includes("700")))
+        )
+          return "ChampagneLimousinesBold, sans-serif";
+        if (f.includes("champagne")) return "ChampagneLimousines, sans-serif";
+        if (
+          f.includes("gothic-italic") ||
+          f.includes("gothici") ||
+          (f.includes("gothic") && f.includes("italic"))
+        )
+          return "GothicItalic, sans-serif";
         if (f.includes("alexandria")) return "var(--font-alexandria), Alexandria, sans-serif";
         if (f.includes("raleway")) return "Raleway, sans-serif";
         if (f.includes("caslon") && f.includes("bold")) return "ACaslonProBold, serif";
@@ -1072,6 +1174,8 @@ export default function StyledInput({
         textAlign: ta,
         verticalAlign: va,
         alignContent: alignContentStr as any,
+        letterSpacing: activeLetterSpacing,
+        wordSpacing: activeWordSpacing,
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1123,7 +1227,9 @@ export default function StyledInput({
     if (isPanelActive && fieldPanel) {
       const nudgeFn = (dx: number, dy: number) => {
         const dBox = draggableBoxRef.current;
-        if (dBox) {
+        if (dBox?.onNudge) {
+          dBox.onNudge(dx, dy);
+        } else if (dBox) {
           const currentX = dBox.position?.x || 0;
           const currentY = dBox.position?.y || 0;
           dBox.onPositionChange(dBox.id, {
@@ -1150,13 +1256,43 @@ export default function StyledInput({
           draggableBoxRef.current.onDelete();
       };
 
+      const getDropdownFontFamily = () => {
+        const f = (fontFamily || inputStyle?.fontFamily || "").toLowerCase();
+        if (
+          f === "font-sans" ||
+          f === "sans-serif" ||
+          f === "sans" ||
+          f.includes("mulish")
+        )
+          return "sans-serif";
+        if (
+          f.includes("champagne-bold") ||
+          f.includes("champagnelimousinesbold")
+        )
+          return "ChampagneLimousinesBold, sans-serif";
+        if (f.includes("champagne")) return "ChampagneLimousines, sans-serif";
+        if (f.includes("gothic-bold") || f.includes("gothicbold"))
+          return "GothicBold, sans-serif";
+        if (f.includes("gothic")) return "GothicRegular, sans-serif";
+        if (f.includes("alexandria")) return "Alexandria, sans-serif";
+        if (f.includes("raleway")) return "Raleway, sans-serif";
+        if (f.includes("arial-bold") || f.includes("arialbold"))
+          return "ArialBold, sans-serif";
+        if (f.includes("arial")) return "ArialRegular, sans-serif";
+        if (f.includes("caslon-bold")) return "ACaslonProBold, serif";
+        if (f.includes("caslon")) return "ACaslonProRegular, serif";
+        if (f.includes("serif") && !f.includes("sans-serif")) return "serif";
+        if (inputStyle?.fontFamily) return inputStyle.fontFamily;
+        return "sans-serif";
+      };
+
       fieldPanel.openPanel({
         fieldId: effectiveFieldId,
         fieldLabel: effectiveFieldLabel,
         currentStyle: {
           fontSize,
           fontWeight: getFontWeightStyle(),
-          fontFamily: getFontFamilyStyle(),
+          fontFamily: getDropdownFontFamily(),
           textAlign,
           verticalAlign,
           alignContent: getAlignContentStyle() as any,
@@ -1299,6 +1435,27 @@ export default function StyledInput({
     return isSingleLine ? 1 : 1.25;
   })();
 
+  const activeLetterSpacing = (() => {
+    if (passedStyle?.letterSpacing) return passedStyle.letterSpacing;
+    if (inputStyle?.letterSpacing) return inputStyle.letterSpacing;
+    const matchTracking = className?.match(/tracking-\[([^\]]+)\]/);
+    if (matchTracking) return matchTracking[1];
+    if (className?.includes("tracking-tighter")) return "-0.05em";
+    if (className?.includes("tracking-tight")) return "-0.025em";
+    if (className?.includes("tracking-wide")) return "0.025em";
+    if (className?.includes("tracking-wider")) return "0.05em";
+    if (className?.includes("tracking-widest")) return "0.1em";
+    return getLetterSpacingStyle();
+  })();
+
+  const activeWordSpacing = (() => {
+    if (passedStyle?.wordSpacing) return passedStyle.wordSpacing;
+    if (inputStyle?.wordSpacing) return inputStyle.wordSpacing;
+    const matchWordSpacing = className?.match(/(?:\[word-spacing:([^\]]+)\]|word-spacing-\[([^\]]+)\])/);
+    if (matchWordSpacing) return matchWordSpacing[1] || matchWordSpacing[2];
+    return undefined;
+  })();
+
   const cleanedClassName = className
     ? className
         .replace(
@@ -1350,6 +1507,9 @@ export default function StyledInput({
             textDecoration: underline ? "underline" : "none",
             fontFamily: getFontFamilyStyle(),
             lineHeight: activeLineHeight,
+            WebkitTextStroke: getFontStrokeStyle(),
+            letterSpacing: activeLetterSpacing,
+            wordSpacing: activeWordSpacing,
             margin: 0,
             padding: "0 2px",
             minWidth: passedStyle?.minWidth || "1.25ch",
@@ -1408,7 +1568,7 @@ export default function StyledInput({
           suppressContentEditableWarning={true}
           {...props}
         >
-          {internalValue}
+          {toCleanString(internalValue)}
         </div>
 
         {showPlaceholder && placeholder && (
@@ -1427,6 +1587,9 @@ export default function StyledInput({
               fontStyle: italic ? "italic" : "normal",
               fontFamily: getFontFamilyStyle(),
               lineHeight: activeLineHeight,
+              WebkitTextStroke: getFontStrokeStyle(),
+              letterSpacing: activeLetterSpacing,
+              wordSpacing: activeWordSpacing,
               margin: 0,
               padding: "0 2px",
               minWidth: passedStyle?.minWidth || "1.25ch",
@@ -1620,6 +1783,8 @@ export default function StyledInput({
                     "font-sans": "Sans Serif",
                     "font-alexandria": "Alexandria",
                     "font-raleway": "Raleway",
+                    "font-champagne": "Champagne & Limousines",
+                    "font-champagne-bold": "Champagne & Limousines Bold",
                     "font-caslon-bold": "Caslon Pro Bold",
                     "font-caslon-regular": "Caslon Pro Regular",
                     "font-caslon-italic": "Caslon Pro Italic",
@@ -1629,6 +1794,7 @@ export default function StyledInput({
                     "font-bickham": "Bickham Script",
                     "font-gothic": "Gothic",
                     "font-gothic-bold": "Gothic Bold",
+                    "font-gothic-italic": "Gothic Italic",
                     "font-trajan-bold": "Trajan Pro Bold",
                     "font-trajan": "Trajan Pro",
                     "font-arial-bold": "Arial Bold",
@@ -1689,6 +1855,31 @@ export default function StyledInput({
                       label: "Raleway",
                       value: "font-raleway",
                       css: "Raleway, sans-serif",
+                    },
+                    {
+                      label: "Champagne & Limousines",
+                      value: "font-champagne",
+                      css: "ChampagneLimousines, sans-serif",
+                    },
+                    {
+                      label: "Champagne & Limousines Bold",
+                      value: "font-champagne-bold",
+                      css: "ChampagneLimousinesBold, sans-serif",
+                    },
+                    {
+                      label: "Gothic",
+                      value: "font-gothic",
+                      css: "GothicRegular, sans-serif",
+                    },
+                    {
+                      label: "Gothic Bold",
+                      value: "font-gothic-bold",
+                      css: "GothicBold, sans-serif",
+                    },
+                    {
+                      label: "Gothic Italic",
+                      value: "font-gothic-italic",
+                      css: "GothicItalic, sans-serif",
                     },
                   ].map((ff) => (
                     <button
