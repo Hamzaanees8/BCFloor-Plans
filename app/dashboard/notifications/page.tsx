@@ -46,7 +46,7 @@ const getNotificationCreatorType = (
   if (name.includes("agent") || name.includes("client")) {
     return "client";
   }
-  if (notification.order?.agent && notification.agent_uuid) {
+  if (notification.order?.agent && ((notification as any).agent_uuid || notification.meta_data?.agent_uuid)) {
     return "client";
   }
 
