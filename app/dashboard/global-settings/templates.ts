@@ -38,6 +38,17 @@ export interface BladePreviewData {
     subject: string;
     content: string;
     full_html: string;
+    organization?: {
+        id?: number;
+        uuid?: string;
+        name: string;
+        logo_url?: string | null;
+        company_logos_urls?: any[];
+        primary_color?: string;
+        contact_email?: string;
+        contact_phone?: string;
+        is_whitelabel?: boolean;
+    } | null;
 }
 
 export async function GetTemplates(params?: { event_type?: string; recipient_type?: string; is_active?: boolean }) {

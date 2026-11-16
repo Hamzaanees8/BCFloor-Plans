@@ -49,6 +49,11 @@ import {
   GetSignatures,
 } from "@/app/dashboard/global-settings/signatures";
 import SignatureCreatorDialog from "./SignatureCreatorDialog";
+import DynamicTagsSidebar from "./DynamicTagsSidebar";
+import {
+  DEFAULT_DYNAMIC_TAGS,
+  getTagDescription as getTagDescHelper,
+} from "@/lib/dynamic-tags";
 
 interface Props {
   open: boolean;
@@ -193,128 +198,8 @@ const REGISTERED_EVENTS = Object.entries(EVENT_METADATA).map(([key, meta]) => ({
   label: meta.label,
 }));
 
-const DEFAULT_DYNAMIC_TAGS = [
-  "{{recipient_name}}",
-  "{{agent_name}}",
-  "{{agent_email}}",
-  "{{agent_phone}}",
-  "{{vendor_name}}",
-  "{{vendor_number}}",
-  "{{property_address}}",
-  "{{property_location}}",
-  "{{order_id}}",
-  "{{service_name}}",
-  "{{amount}}",
-  "{{payment_for}}",
-  "{{payment_scope}}",
-  "{{payment_method}}",
-  "{{payment_date}}",
-  "{{schedule_date}}",
-  "{{schedule_time}}",
-  "{{new_date}}",
-  "{{new_time}}",
-  "{{old_date}}",
-  "{{old_time}}",
-  "{{invoice_number}}",
-  "{{receipt_url}}",
-  "{{copies}}",
-  "{{with_bleed}}",
-  "{{additional_info}}",
-  "{{pdf_url}}",
-  "{{cancellation_reason}}",
-  "{{cancellation_fee}}",
-  "{{expiry_date}}",
-  "{{new_expiry_date}}",
-  "{{duration_months}}",
-  "{{days_remaining}}",
-  "{{renewal_url}}",
-  "{{service_url}}",
-  "{{completed_by}}",
-  "{{media_count}}",
-  "{{custom_message}}",
-  "{{changes_summary}}",
-  "{{floorplan_areas}}",
-  "{{floorplan_notes}}",
-  "{{company_name}}",
-  "{{company_email}}",
-  "{{company_phone}}",
-];
-
-const DYNAMIC_TAG_DESCRIPTIONS: Record<string, string> = {
-  recipient_name: "Full name of the email recipient (agent, vendor, or admin).",
-  agent_name: "Full name of the listing agent on the order.",
-  agent_email: "Email address of the listing agent.",
-  agent_phone: "Primary phone number of the listing agent.",
-  vendor_name: "Full name of the assigned vendor / photographer.",
-  vendor_number: "Phone number of the assigned vendor.",
-  vendor_phone: "Phone number of the assigned vendor.",
-  vendor_email: "Email address of the assigned vendor.",
-  property_address: "Street address of the property / listing.",
-  listing_address: "Street address of the property / listing.",
-  property_location: "City / region of the property.",
-  listing_location: "City / region of the property.",
-  order_id: "Unique order reference ID.",
-  service_name: "Name of the ordered service or appointment.",
-  amount: "Total order or payment amount.",
-  payment_for: "Description of what the payment covers.",
-  payment_scope: "Scope of the payment (e.g., Full Order Invoice or specific service).",
-  payment_method: "Payment method used (e.g., Credit Card).",
-  payment_date: "Date and time when the payment was processed.",
-  payment_id: "Unique payment transaction ID.",
-  transfer_id: "Vendor payout / transfer reference ID.",
-  payer_name: "Name of the person who submitted the payment.",
-  schedule_date: "Scheduled appointment date.",
-  appointment_date: "Scheduled appointment date.",
-  date: "Scheduled appointment date.",
-  schedule_time: "Scheduled appointment start time.",
-  appointment_time: "Scheduled appointment start time.",
-  start_time: "Scheduled appointment start time.",
-  end_time: "Scheduled appointment end time.",
-  new_date: "New appointment date after a reschedule.",
-  new_time: "New appointment time after a reschedule.",
-  old_date: "Previous appointment date before a reschedule.",
-  old_time: "Previous appointment time before a reschedule.",
-  scheduled_appointments: "Formatted list of all scheduled appointment slots on the order.",
-  invoice_number: "Invoice number associated with the order or payment.",
-  invoice_id: "Internal invoice ID.",
-  receipt_url: "Direct link to view or download the payment receipt.",
-  copies: "Number of printed copies requested.",
-  with_bleed: "Whether the print request includes bleed.",
-  additional_info: "Extra instructions or notes provided on the print request.",
-  pdf_url: "Direct link to the printable PDF file.",
-  cancellation_reason: "Reason provided for cancelling the order or slot.",
-  cancellation_fee: "Cancellation fee amount applied, if any.",
-  expiry_date: "Current expiration date of the Matterport / 3D tour.",
-  new_expiry_date: "Updated expiration date after tour renewal.",
-  duration_months: "Number of months the tour was renewed for.",
-  days_remaining: "Days remaining until the 3D tour expires.",
-  renewal_url: "Direct link to renew the expiring 3D tour.",
-  service_url: "Direct link to view the service or media.",
-  completed_by: "Name of the vendor or team member who completed the service.",
-  media_count: "Number of media files (photos/videos/files) uploaded.",
-  uploaded_by: "Name of the person or team who uploaded the media.",
-  custom_message: "Custom message entered when sending the email.",
-  changes_summary: "Summary of what changed in the updated order or schedule.",
-  floorplan_areas: "Requested floor plan areas to measure (e.g., Garage, Deck).",
-  floorplan_notes: "Special instructions for floor plan measurements.",
-  floorplan_section: "Formatted floor plan measurement details block.",
-  company_name: "Your organization / company name.",
-  company_email: "Your organization's contact email address.",
-  company_phone: "Your organization's contact phone number.",
-  organization_name: "Name of the organization.",
-  email: "Email address of the recipient.",
-  name: "Name of the recipient.",
-  user_name: "Name of the recipient.",
-  reset_link: "Password reset link for account recovery.",
-  url: "Action or reset link URL.",
-};
-
 export function getTagDescription(tag: string): string {
-  const key = tag.replace(/^\{\{\s*|\s*\}\}$/g, "").toLowerCase();
-  return (
-    DYNAMIC_TAG_DESCRIPTIONS[key] ||
-    `Dynamic placeholder for ${key.replace(/_/g, " ")}.`
-  );
+  return getTagDescHelper(tag);
 }
 
 const COMMON_EMOJIS = [
@@ -1577,42 +1462,12 @@ const AddTemplateDialog: React.FC<Props> = ({
                 </div>
 
                 {/* Right Side: Placeholders */}
-                <div className="flex-1 flex flex-col gap-3 min-w-[240px]">
-                  <div className="bg-white border border-[#DDDDDD] rounded-lg p-4 sticky top-0 h-full flex flex-col shadow-xs">
-                    <h4 className="font-bold text-xs mb-2 text-[#4290E9] uppercase tracking-wider flex items-center justify-between">
-                      <span>Dynamic Tags</span>
-                      <span className="text-[10px] text-gray-400 font-normal">
-                        Click to insert
-                      </span>
-                    </h4>
-                    <p className="mb-3 text-[#888] text-[11px] leading-relaxed">
-                      Click any tag to insert it at your cursor in the editor:
-                    </p>
-                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                      <TooltipProvider delayDuration={150}>
-                        <ul className="flex flex-wrap gap-2 font-mono bg-[#f9f9f9] p-3 rounded-lg content-start border border-dashed border-[#CCCCCC]">
-                          {allTags.map((ph) => (
-                            <Tooltip key={ph}>
-                              <TooltipTrigger asChild>
-                                <li
-                                  onClick={() => setTextToInsert(ph)}
-                                  className="cursor-pointer hover:bg-[#4290E9] hover:text-white hover:scale-105 hover:shadow-xs p-2 rounded-md transition-all text-[#555555] font-bold text-[10px] inline-block bg-white border border-[#EEEEEE] shadow-2xs select-none border-b active:translate-y-0.5"
-                                >
-                                  {ph}
-                                </li>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                className="max-w-[240px] text-xs font-sans"
-                              >
-                                <p>{getTagDescription(ph)}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                        </ul>
-                      </TooltipProvider>
-                    </div>
-                  </div>
+                <div className="flex-1 flex flex-col gap-3 min-w-[280px] max-w-[340px] h-full overflow-hidden">
+                  <DynamicTagsSidebar
+                    availableTags={allTags}
+                    onTagClick={(tag) => setTextToInsert(tag)}
+                    className="h-full"
+                  />
                 </div>
               </div>
             )}

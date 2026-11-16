@@ -969,7 +969,7 @@ textarea::placeholder {
 @font-face {
   font-family: 'ChampagneLimousines';
   src: url('/fonts/Champagne_Limousines.ttf') format('truetype');
-  font-weight: 400;
+  font-weight: 100 400;
   font-style: normal;
   font-display: swap;
 }
@@ -1001,7 +1001,7 @@ textarea::placeholder {
 @font-face {
   font-family: 'Champagne & Limousines';
   src: url('/fonts/Champagne_Limousines.ttf') format('truetype');
-  font-weight: 400;
+  font-weight: 100 400;
   font-style: normal;
   font-display: swap;
 }

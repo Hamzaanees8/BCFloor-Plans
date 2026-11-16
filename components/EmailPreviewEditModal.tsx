@@ -46,6 +46,8 @@ import {
   GetSignatures,
 } from "@/app/dashboard/global-settings/signatures";
 import { interpolateTemplate } from "@/lib/email-templates";
+import { DEFAULT_DYNAMIC_TAGS } from "@/lib/dynamic-tags";
+import DynamicTagsSidebar from "./DynamicTagsSidebar";
 
 export type { RecipientRole };
 
@@ -81,44 +83,6 @@ const COMMON_EMOJIS = [
   { cat: "Real Estate & Orders", items: ["🏠", "🏢", "📍", "📅", "🕒", "✉️", "📞", "💵", "💳", "📄", "📋", "🔗", "📷", "🔑", "📦"] },
   { cat: "Arrows & Bullets", items: ["➜", "➔", "➤", "•", "▸", "◆", "✦", "★", "👉", "👇"] },
   { cat: "General", items: ["😀", "😊", "👍", "👏", "👋", "🙏", "✨", "💡", "ℹ️", "💬"] },
-];
-
-const DEFAULT_DYNAMIC_TAGS = [
-  "{{recipient_name}}",
-  "{{agent_name}}",
-  "{{agent_email}}",
-  "{{agent_phone}}",
-  "{{vendor_name}}",
-  "{{vendor_number}}",
-  "{{vendor_phone}}",
-  "{{vendor_email}}",
-  "{{property_address}}",
-  "{{property_location}}",
-  "{{order_id}}",
-  "{{service_name}}",
-  "{{amount}}",
-  "{{payment_for}}",
-  "{{payment_scope}}",
-  "{{payment_method}}",
-  "{{payment_date}}",
-  "{{payment_id}}",
-  "{{transfer_id}}",
-  "{{schedule_date}}",
-  "{{schedule_time}}",
-  "{{new_date}}",
-  "{{new_time}}",
-  "{{old_date}}",
-  "{{old_time}}",
-  "{{company_name}}",
-  "{{company_email}}",
-  "{{company_phone}}",
-  "{{invoice_number}}",
-  "{{invoice_id}}",
-  "{{receipt_url}}",
-  "{{cancellation_reason}}",
-  "{{cancellation_fee}}",
-  "{{service_url}}",
-  "{{custom_message}}",
 ];
 
 const DUMMY_PREVIEW_VALUES: Record<string, string> = {
@@ -1007,37 +971,13 @@ export default function EmailPreviewEditModal({
                 </div>
 
                 {/* Right Side: Dynamic Tags */}
-                <div className="flex-1 flex flex-col gap-3 min-w-[240px]">
-                  <div className="bg-white border border-[#DDDDDD] rounded-lg p-4 sticky top-0 h-full flex flex-col shadow-xs">
-                    <h4 className="font-bold text-xs mb-2 text-[#4290E9] uppercase tracking-wider flex items-center justify-between">
-                      <span>Dynamic Tags</span>
-                      <span className="text-[10px] text-gray-400 font-normal">Click to insert</span>
-                    </h4>
-                    <p className="mb-3 text-[#888] text-[11px] leading-relaxed">
-                      Click any tag to insert it at your cursor in the editor:
-                    </p>
-                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                      <ul className="flex flex-wrap gap-2 font-mono bg-[#f9f9f9] p-3 rounded-lg content-start border border-dashed border-[#CCCCCC]">
-                        {allTags.map((ph) => {
-                          const info = getTagInfo(ph);
-                          return (
-                            <li
-                              key={ph}
-                              onClick={() => handleTagClick(ph)}
-                              className="cursor-pointer hover:bg-[#4290E9] hover:text-white hover:scale-105 hover:shadow-xs p-2 rounded-md transition-all text-[#555555] font-bold text-[10px] inline-block bg-white border border-[#EEEEEE] shadow-2xs select-none border-b active:translate-y-0.5"
-                              title={
-                                info.hasValue
-                                  ? `Insert: "${info.value}"`
-                                  : `Click to insert ${ph}`
-                              }
-                            >
-                              {ph}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  </div>
+                <div className="flex-1 flex flex-col gap-3 min-w-[280px] max-w-[340px] h-full overflow-hidden">
+                  <DynamicTagsSidebar
+                    availableTags={allTags}
+                    onTagClick={handleTagClick}
+                    getTagPreviewValue={getTagInfo}
+                    className="h-full"
+                  />
                 </div>
               </div>
             )}

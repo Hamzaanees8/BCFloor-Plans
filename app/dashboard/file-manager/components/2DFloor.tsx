@@ -109,6 +109,7 @@ const Service: React.FC<
     tourDefaultSettings,
     isSaving,
     isPackageUpgrading,
+    setFloorPlanSubtype,
   } = useFileManagerContext();
   const isAlwaysSort = Boolean(
     tourSettings?.always_enable_sorting ??
@@ -643,18 +644,29 @@ const Service: React.FC<
         return null;
       })();
 
+      const isBranded =
+        file.subtype === "branded_floorplan" || file.subtype === "branded";
+      const isUnbranded =
+        file.subtype === "unbranded_floorplan" || file.subtype === "unbranded";
+      const fileTargetId =
+        file.uuid || file.name || (file as any).file?.name || "";
+
       let displayType = "2D Floor Plan";
-      if (isLocal) {
+      if (isBranded) {
+        displayType = "Branded Floor Plan";
+      } else if (isUnbranded) {
+        displayType = "Unbranded Floor Plan";
+      } else if (isLocal) {
         displayType =
           file.type === "photo"
-            ? "UnBranded Floor Plan"
-            : file.type || "UnBranded Floor Plan";
+            ? "Floor Plan"
+            : file.type || "Floor Plan";
       } else {
         displayType =
           file.group ||
           (file.type === "photo"
-            ? "UnBranded Floor Plan"
-            : file.type || "UnBranded Floor Plan");
+            ? "Floor Plan"
+            : file.type || "Floor Plan");
       }
 
       return (
@@ -685,6 +697,17 @@ const Service: React.FC<
               className="relative w-full aspect-[4/3] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
+              {/* Subtype Badge Indicator */}
+              {isBranded && (
+                <span className="absolute top-1 left-1 z-30 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
+                  ✓ Branded
+                </span>
+              )}
+              {isUnbranded && (
+                <span className="absolute top-1 left-1 z-30 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
+                  ✓ Unbranded
+                </span>
+              )}
               {isLocal ? (
                 <div className="absolute inset-0 overflow-hidden rounded-[6px]">
                   <OptimizedImagePreview
@@ -1100,6 +1123,53 @@ const Service: React.FC<
                 </Tooltip>
               )}
             </div>
+            {/* Checkbox controls for Branded & Unbranded */}
+            <div className="flex items-center justify-between gap-1 w-full pt-1.5 pb-0.5 text-[11px]">
+              <label
+                className={`flex-1 flex items-center justify-center gap-1 cursor-pointer select-none px-1.5 py-1 rounded border transition-colors ${
+                  isBranded
+                    ? "bg-blue-100 text-blue-800 border-blue-300 font-semibold"
+                    : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isBranded}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setFloorPlanSubtype?.(
+                      fileTargetId,
+                      isBranded ? null : "branded_floorplan",
+                    );
+                  }}
+                  className="h-3 w-3 accent-blue-600 cursor-pointer"
+                />
+                <span>Branded</span>
+              </label>
+              <label
+                className={`flex-1 flex items-center justify-center gap-1 cursor-pointer select-none px-1.5 py-1 rounded border transition-colors ${
+                  isUnbranded
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold"
+                    : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isUnbranded}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setFloorPlanSubtype?.(
+                      fileTargetId,
+                      isUnbranded ? null : "unbranded_floorplan",
+                    );
+                  }}
+                  className="h-3 w-3 accent-emerald-600 cursor-pointer"
+                />
+                <span>Unbranded</span>
+              </label>
+            </div>
           </div>
           <div
             className="grid grid-cols-4 gap-1 justify-between items-center px-1 py-1"
@@ -1234,6 +1304,7 @@ const Service: React.FC<
       setFilesData,
       setFilesToHide,
       setFloorFiles,
+      setFloorPlanSubtype,
       userType,
       vendorName,
     ],

@@ -22,13 +22,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { getTagDescription } from "./AddTemplateDialog";
+import { DEFAULT_DYNAMIC_TAGS } from "@/lib/dynamic-tags";
+import DynamicTagsSidebar from "./DynamicTagsSidebar";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
@@ -60,6 +55,8 @@ export interface RuntimeEmailEditorModalProps {
   extraData?: Record<string, any>;
   recipientEmails?: Record<string, string | undefined>;
   recipientNames?: Record<string, string | undefined>;
+  orderData?: any;
+  organizationData?: any;
   onComplete?: () => void;
   onCustomSend?: (
     staged: Record<string, { subject: string; content: string }>,
@@ -150,29 +147,6 @@ const COMMON_EMOJIS = [
   "💬",
 ];
 
-const DEFAULT_DYNAMIC_TAGS = [
-  "{{recipient_name}}",
-  "{{service_name}}",
-  "{{property_address}}",
-  "{{order_id}}",
-  "{{schedule_date}}",
-  "{{schedule_time}}",
-  "{{company_name}}",
-  "{{company_phone}}",
-  "{{company_email}}",
-  "{{cancellation_reason}}",
-  "{{cancellation_fee}}",
-  "{{invoice_number}}",
-  "{{media_count}}",
-  "{{changes_summary}}",
-  "{{completed_by}}",
-  "{{expiry_date}}",
-  "{{floorplan_areas}}",
-  "{{floorplan_notes}}",
-  "{{action_url}}",
-  "{{portal_url}}",
-];
-
 export default function RuntimeEmailEditorModal({
   open,
   onClose,
@@ -187,12 +161,49 @@ export default function RuntimeEmailEditorModal({
   extraData,
   recipientEmails = {},
   recipientNames = {},
+  orderData,
+  organizationData,
   onComplete,
   onCustomSend,
 }: RuntimeEmailEditorModalProps) {
   const { organizationId } = useAppContext();
   const { organization } = useOrganization();
   const { appliedSettings, organizations } = useWhiteLabel();
+
+  // Organization resolved from backend BladePreview or orderData
+  const [previewOrg, setPreviewOrg] = useState<{
+    id?: number;
+    uuid?: string;
+    name: string;
+    logo_url?: string | null;
+    company_logos_urls?: any[];
+    primary_color?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    is_whitelabel?: boolean;
+  } | null>(null);
+
+  // Initialize previewOrg if orderData has organization already loaded
+  useEffect(() => {
+    if (open && (orderData?.organization || organizationData)) {
+      const orgSource = organizationData || orderData?.organization;
+      const orgLogos = orgSource.company_logos_urls || orgSource.company_logos || [];
+      const primary = Array.isArray(orgLogos)
+        ? orgLogos.find((l: any) => l?.type === "primary_logo") || orgLogos[0]
+        : null;
+      setPreviewOrg((prev) => prev ?? {
+        id: orgSource.id,
+        uuid: orgSource.uuid,
+        name: orgSource.name,
+        logo_url: primary?.url || (typeof primary === "string" ? primary : null),
+        company_logos_urls: orgLogos,
+        primary_color: orgSource.primary_color,
+        contact_email: orgSource.contact_email,
+        contact_phone: orgSource.contact_phone,
+        is_whitelabel: Boolean(orgSource.is_whitelabel),
+      });
+    }
+  }, [open, orderData, organizationData]);
 
   const currentOrgObj = useMemo(() => {
     return (
@@ -202,27 +213,81 @@ export default function RuntimeEmailEditorModal({
     );
   }, [organizations, organizationId, organization]);
 
-  const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
-  const orgLogo =
-    organization?.branding?.logo ||
-    appliedSettings?.admin?.logo ||
-    (currentOrgObj as any)?.company_logos_urls?.[0]?.url ||
-    null;
+  const resolvedOrg = useMemo(() => {
+    return (
+      previewOrg ||
+      organizationData ||
+      orderData?.organization ||
+      currentOrgObj ||
+      organization ||
+      null
+    );
+  }, [previewOrg, organizationData, orderData, currentOrgObj, organization]);
+
+  const orgName =
+    previewOrg?.name ||
+    resolvedOrg?.name ||
+    resolvedOrg?.from_name ||
+    currentOrgObj?.name ||
+    organization?.name ||
+    "BC Floor Plans";
+
+  const orgLogo = useMemo(() => {
+    // 1. Direct logo_url from backend resolved previewOrg
+    if (previewOrg?.logo_url) return previewOrg.logo_url;
+
+    // 2. Company logos urls (primary or first) on resolved org
+    const logos =
+      (resolvedOrg as any)?.company_logos_urls ||
+      (resolvedOrg as any)?.company_logos ||
+      [];
+    if (Array.isArray(logos) && logos.length > 0) {
+      const primary =
+        logos.find((l: any) => l?.type === "primary_logo") || logos[0];
+      if (primary?.url) return primary.url;
+      if (typeof primary === "string") return primary;
+    }
+
+    // 3. Organization branding logo
+    if (resolvedOrg?.branding?.logo) return resolvedOrg.branding.logo;
+    if (organization?.branding?.logo) return organization.branding.logo;
+
+    // 4. Applied Whitelabel Settings logo
+    if (appliedSettings?.admin?.logo) return appliedSettings.admin.logo;
+
+    // 5. Direct logo property
+    if ((resolvedOrg as any)?.logo) return (resolvedOrg as any).logo;
+
+    return null;
+  }, [previewOrg, resolvedOrg, organization, appliedSettings]);
+
   const orgPrimaryColor =
-    (typeof organization?.branding?.primary_color === "object"
-      ? (organization.branding.primary_color as { value: string }).value
-      : (organization?.branding?.primary_color as string)) ||
+    previewOrg?.primary_color ||
+    (typeof resolvedOrg?.branding?.primary_color === "object"
+      ? (resolvedOrg.branding.primary_color as { value: string }).value
+      : (resolvedOrg?.branding?.primary_color as string)) ||
+    resolvedOrg?.primary_color ||
     appliedSettings?.admin?.pageTabColor ||
     "#6BAE41";
+
   const orgEmail =
+    previewOrg?.contact_email ||
+    resolvedOrg?.contact_email ||
     currentOrgObj?.contact_email ||
     organization?.contact_email ||
     "mail@bcfloorplans.com";
+
   const orgPhone =
+    previewOrg?.contact_phone ||
+    resolvedOrg?.contact_phone ||
     currentOrgObj?.contact_phone ||
     organization?.contact_phone ||
     "604-788-7783";
-  const isWhitelabel = Boolean((currentOrgObj as any)?.is_whitelabel || (organization as any)?.is_whitelabel);
+
+  const isWhitelabel = Boolean(
+    previewOrg?.is_whitelabel ??
+    ((resolvedOrg as any)?.is_whitelabel || (organization as any)?.is_whitelabel)
+  );
 
   // Navigation across queue: 0, 1, ...
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -353,6 +418,9 @@ export default function RuntimeEmailEditorModal({
           isRuntime: true,
         });
         if (res.success && res.data) {
+          if (res.data.organization) {
+            setPreviewOrg(res.data.organization);
+          }
           const loadedHtml = res.data.content || res.data.html || "";
           const defaultSubj =
             res.data.subject ||
@@ -783,47 +851,12 @@ export default function RuntimeEmailEditorModal({
               </EmailEditorCanvasWrapper>
 
               {/* Right Side: Dynamic Tags Sidebar */}
-              <div className="w-[260px] shrink-0 border border-[#DDDDDD] rounded-lg bg-white p-3 flex flex-col shadow-2xs min-h-0 overflow-hidden">
-                <div className="flex justify-between items-center mb-2 pb-2 border-b border-[#EEEEEE] shrink-0">
-                  <span className="font-bold text-[11px] uppercase tracking-wider text-gray-700">
-                    Dynamic Tags
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase">
-                    Click to insert
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-1.5 custom-scrollbar">
-                  <TooltipProvider delayDuration={150}>
-                    {allTags.map((tag) => {
-                      const info = getTagInfo(tag);
-                      return (
-                        <Tooltip key={tag}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => handleTagClick(tag)}
-                              className="px-2.5 py-1.5 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded text-left font-mono text-[11px] transition-colors cursor-pointer"
-                            >
-                              {tag}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="left"
-                            className="max-w-[240px] text-xs font-sans"
-                          >
-                            <p>{getTagDescription(tag)}</p>
-                            {info.hasValue && (
-                              <p className="mt-1 text-[10px] opacity-80">
-                                Value: &quot;{info.value}&quot;
-                              </p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </TooltipProvider>
-                </div>
-              </div>
+              <DynamicTagsSidebar
+                availableTags={allTags}
+                onTagClick={handleTagClick}
+                getTagPreviewValue={getTagInfo}
+                className="w-[280px] shrink-0 h-full"
+              />
             </div>
           </div>
 

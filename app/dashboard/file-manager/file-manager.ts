@@ -599,6 +599,8 @@ export async function UpdateFilesData(
       formData.append(`files[${fileIndex}][subtype]`, fileObj.subtype);
     } else if (fileObj.isPanorama) {
       formData.append(`files[${fileIndex}][subtype]`, "panorama_360");
+    } else {
+      formData.append(`files[${fileIndex}][subtype]`, "");
     }
     formData.append(`files[${fileIndex}][group]`, fileObj.group || "");
     formData.append(

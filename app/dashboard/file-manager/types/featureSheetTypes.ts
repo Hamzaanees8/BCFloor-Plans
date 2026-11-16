@@ -169,7 +169,7 @@ export const templateImages: TemplateDefinition[] = [
   { id: "BCFPStandard16", type: "listing", url: "BcfpStandard16", label: "Flyer 3", pages: ["/listing_flyer_16_page_1.png", "/listing_flyer_16_page_2.png"] },
   { id: "BCFPStandard17", type: "listing", url: "BcfpStandard17", label: "Flyer 4", pages: ["/listing_flyer_17_page_1.png", "/listing_flyer_17_page_2.png"] },
   { id: "BCFPStandard18", type: "listing", url: "BcfpStandard18", label: "Flyer 5", pages: ["/listing_flyer_18_page_1.png", "/listing_flyer_18_page_2.png"] },
-  { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19", label: "Flyer 6" },
+  { id: "BCFPStandard19", type: "listing", url: "BcfpStandard19", label: "Flyer 6", pages: ["/listing_flyer_19_page_1.png", "/listing_flyer_19_page_2.png"] },
   { id: "BCFPStandard20", type: "listing", url: "BcfpStandard20", label: "Flyer 7", pages: ["/listing_flyer_20_page_1.png", "/listing_flyer_20_page_2.png"] },
   { id: "BCFPStandard21", type: "listing", url: "BcfpStandard21", label: "Flyer 8", pages: ["/listing_flyer_21_page_1.png", "/listing_flyer_21_page_2.png"] },
   { id: "BCFPStandard22", type: "listing", url: "BcfpStandard22", label: "Flyer 9", pages: ["/listing_flyer_22_page_1.png", "/listing_flyer_22_page_2.png"] },

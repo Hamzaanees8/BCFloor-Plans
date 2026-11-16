@@ -546,10 +546,10 @@ const syncLiveLayout = (liveRoot, cloneRoot) => {
     // Preserve position / top / left / right / bottom / width / height / transform from live DOM if set
     if (liveEl.style.position || comp.position === "absolute" || comp.position === "relative") {
       cloneEl.style.position = comp.position;
-      if (liveEl.style.top) cloneEl.style.top = liveEl.style.top;
-      if (liveEl.style.left) cloneEl.style.left = liveEl.style.left;
-      if (liveEl.style.right) cloneEl.style.right = liveEl.style.right;
-      if (liveEl.style.bottom) cloneEl.style.bottom = liveEl.style.bottom;
+      if (liveEl.style.top) cloneEl.style.top = liveEl.style.top.includes("calc(") ? comp.top : liveEl.style.top;
+      if (liveEl.style.left) cloneEl.style.left = liveEl.style.left.includes("calc(") ? comp.left : liveEl.style.left;
+      if (liveEl.style.right) cloneEl.style.right = liveEl.style.right.includes("calc(") ? comp.right : liveEl.style.right;
+      if (liveEl.style.bottom) cloneEl.style.bottom = liveEl.style.bottom.includes("calc(") ? comp.bottom : liveEl.style.bottom;
     }
 
     if (liveEl.style.width) {
@@ -557,6 +557,15 @@ const syncLiveLayout = (liveRoot, cloneRoot) => {
     }
     if (liveEl.style.height) {
       cloneEl.style.height = liveEl.style.height.includes("calc(") ? comp.height : liveEl.style.height;
+    }
+
+    // Preserve non-transparent background color from computed styles
+    if (
+      comp.backgroundColor &&
+      comp.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+      comp.backgroundColor !== "transparent"
+    ) {
+      cloneEl.style.backgroundColor = comp.backgroundColor;
     }
 
     // Only copy inline transform when explicitly defined on live element (e.g. DraggableBox translate3d)

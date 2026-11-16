@@ -28,6 +28,11 @@ export default function EmailEditorCanvasWrapper({
   defaultExpanded = true,
 }: EmailEditorCanvasWrapperProps) {
   const [showFraming, setShowFraming] = useState<boolean>(defaultExpanded);
+  const [imgFailed, setImgFailed] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    setImgFailed(false);
+  }, [logoUrl]);
 
   return (
     <div className="border border-[#DDDDDD] bg-white rounded-lg p-0 flex-1 w-full max-w-full flex flex-col min-h-[640px] md:min-h-[680px] overflow-hidden shadow-xs relative">
@@ -80,11 +85,12 @@ export default function EmailEditorCanvasWrapper({
             className="py-4 px-6 bg-white flex items-center justify-center text-center min-h-[76px] transition-all"
             style={{ borderBottom: `3px solid ${primaryColor || "#2563EB"}` }}
           >
-            {logoUrl ? (
+            {logoUrl && !imgFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
                 alt={`${orgName} Logo`}
+                onError={() => setImgFailed(true)}
                 className="max-h-[68px] max-w-[210px] w-auto h-auto object-contain block select-none pointer-events-none"
               />
             ) : (

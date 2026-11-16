@@ -458,6 +458,156 @@ export const FONT_FOLDERS: Record<
       },
     ],
   },
+  BcfpStandard19: {
+    name: "BcfpStandard19",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegular, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBold, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "Arial, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard19: {
+    name: "BcfpStandard19",
+    fonts: [
+      {
+        label: "Gothic",
+        value: "font-gothic",
+        css: "GothicRegular, sans-serif",
+      },
+      {
+        label: "Gothic Bold",
+        value: "font-gothic-bold",
+        css: "GothicBold, sans-serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "Arial, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
+    ],
+  },
+  BcfpStandard20: {
+    name: "BcfpStandard20",
+    fonts: [
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Caslon Pro Regular",
+        value: "font-caslon-regular",
+        css: "ACaslonProRegular, serif",
+      },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBold, serif",
+      },
+      {
+        label: "Caslon Pro Italic",
+        value: "font-caslon-italic",
+        css: "ACaslonProItalic, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "Arial, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
+    ],
+  },
+  bcfpstandard20: {
+    name: "BcfpStandard20",
+    fonts: [
+      {
+        label: "Trajan Pro",
+        value: "font-trajan",
+        css: "TrajanProRegular, serif",
+      },
+      {
+        label: "Trajan Pro Bold",
+        value: "font-trajan-bold",
+        css: "TrajanPro, serif",
+      },
+      {
+        label: "Caslon Pro Regular",
+        value: "font-caslon-regular",
+        css: "ACaslonProRegular, serif",
+      },
+      {
+        label: "Caslon Pro Bold",
+        value: "font-caslon-bold",
+        css: "ACaslonProBold, serif",
+      },
+      {
+        label: "Caslon Pro Italic",
+        value: "font-caslon-italic",
+        css: "ACaslonProItalic, serif",
+      },
+      {
+        label: "Arial",
+        value: "font-arial-regular",
+        css: "Arial, sans-serif",
+      },
+      {
+        label: "Arial Bold",
+        value: "font-arial-bold",
+        css: "ArialBold, sans-serif",
+      },
+    ],
+  },
 };
 
 // Add uppercase and clean key aliases
@@ -468,6 +618,8 @@ FONT_FOLDERS["BCFPStandard7"] = FONT_FOLDERS["BcfpStandard7"];
 FONT_FOLDERS["BCFPStandard8"] = FONT_FOLDERS["BcfpStandard8"];
 FONT_FOLDERS["BCFPStandard15"] = FONT_FOLDERS["BcfpStandard15"];
 FONT_FOLDERS["BCFPStandard17"] = FONT_FOLDERS["BcfpStandard17"];
+FONT_FOLDERS["BCFPStandard19"] = FONT_FOLDERS["BcfpStandard19"];
+FONT_FOLDERS["BCFPStandard20"] = FONT_FOLDERS["BcfpStandard20"];
 
 export const FontFolderContext = createContext<string | undefined>(undefined);
 
@@ -781,6 +933,7 @@ export default function StyledInput({
       if (className.includes("font-raleway")) return "font-raleway";
       if (className.includes("font-alexandria")) return "font-alexandria";
       if (className.includes("font-caslon-bold")) return "font-caslon-bold";
+      if (className.includes("font-caslon-regular")) return "font-caslon-regular";
       if (className.includes("font-caslon")) return "font-caslon";
       if (className.includes("font-trajan-bold")) return "font-trajan-bold";
       if (className.includes("font-trajan-regular") || className.includes("font-trajan")) return "font-trajan-regular";
@@ -908,6 +1061,7 @@ export default function StyledInput({
       else if (className.includes("font-alexandria")) setFontFamily("font-alexandria");
       else if (className.includes("font-raleway")) setFontFamily("font-raleway");
       else if (className.includes("font-caslon-bold")) setFontFamily("font-caslon-bold");
+      else if (className.includes("font-caslon-regular")) setFontFamily("font-caslon-regular");
       else if (className.includes("font-caslon")) setFontFamily("font-caslon");
       else if (className.includes("font-trajan-bold")) setFontFamily("font-trajan-bold");
       else if (className.includes("font-trajan-regular") || className.includes("font-trajan")) setFontFamily("font-trajan-regular");
