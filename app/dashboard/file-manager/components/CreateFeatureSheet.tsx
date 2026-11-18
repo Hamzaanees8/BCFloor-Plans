@@ -1775,7 +1775,7 @@ const CreateFeatureSheet = forwardRef<
           ? `${primaryAgentName} & ${coNames.join(" & ")}`
           : primaryAgentName || initialFormData.fullName;
 
-      updateFormData({
+      setFormData({
         ...initialFormData,
         fullName: combinedAgentNames,
         realtorName: combinedAgentNames,
@@ -1798,6 +1798,7 @@ const CreateFeatureSheet = forwardRef<
     selectedSheetUuid,
     featureSheets,
     updateFormData,
+    setFormData,
     orderData,
   ]);
 
@@ -2007,7 +2008,7 @@ const CreateFeatureSheet = forwardRef<
     } else {
       setSelectedSheetUuid(null);
       // Reset form data for new template
-      updateFormData({
+      setFormData({
         ...initialFormData,
         avatar_url: orderData?.agent.avatar_url || "",
         AvatarfileName: orderData?.agent.avatar || "",

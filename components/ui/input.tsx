@@ -4,12 +4,7 @@ import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, value, ...props }, ref) => {
-    const resolvedValue =
-      value === null
-        ? ""
-        : props.onChange !== undefined && value === undefined
-        ? ""
-        : value;
+    const resolvedValue = value === null ? "" : value;
     return (
       <input
         type={type}

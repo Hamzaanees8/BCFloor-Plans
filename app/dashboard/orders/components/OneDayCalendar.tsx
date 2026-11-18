@@ -1269,6 +1269,7 @@ export default function OneDayCalendar({
     tempPropertyData,
     servicesData: contextServicesData,
     portalSettings,
+    isBookNowMode,
   } = useOrderContext();
 
   // Use external data if provided (for BookNow), otherwise use context
@@ -1277,6 +1278,12 @@ export default function OneDayCalendar({
   const vendorsData = externalVendorsData || contextVendorsData;
   const servicesData = externalServicesData || contextServicesData;
   const { userType } = useAppContext();
+  const isAdmin =
+    userType === "admin" || (userType as string)?.toLowerCase() === "admin";
+  const isAgent =
+    (userType as string)?.toLowerCase() === "agent" ||
+    (Boolean(isBookNowMode) && !isAdmin) ||
+    !isAdmin;
   const { id } = useParams();
   const activeSquareFootage =
     Number(squareFootage) ||
@@ -1412,6 +1419,7 @@ export default function OneDayCalendar({
     serviceSlotsForDate: Slot[];
     clickedEvent: any;
     slotRangeText: string;
+    isGrouped?: boolean;
   } | null>(null);
   const [showAgain, setShowAgain] = useState(true);
   const [showConfirmUnbookSlot, setShowConfirmUnbookSlot] = useState(false);
@@ -1843,6 +1851,93 @@ export default function OneDayCalendar({
       requiredSlotsCountForService,
     );
 
+    const groupSelectedSlotsForEvents = (slotsList: Slots[]): Slots[] => {
+      if (!isAgent) return slotsList;
+
+      const currentServiceSelectedSlots = selectedSlotsOnCurrentDate
+        .filter(
+          (s: Slot) =>
+            s.service_id === service.uuid ||
+            String(s.service_id) === String(service.id),
+        )
+        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+      if (currentServiceSelectedSlots.length === 0) return slotsList;
+
+      // Group contiguous selected slots by same vendor and continuous times
+      const groups: Slot[][] = [];
+      let currentGroup: Slot[] = [currentServiceSelectedSlots[0]];
+
+      for (let i = 1; i < currentServiceSelectedSlots.length; i++) {
+        const prev = currentGroup[currentGroup.length - 1];
+        const curr = currentServiceSelectedSlots[i];
+        const prevVendor = prev.vendor?.uuid || prev.vendor_id;
+        const currVendor = curr.vendor?.uuid || curr.vendor_id;
+        if (prev.end_time === curr.start_time && prevVendor === currVendor) {
+          currentGroup.push(curr);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = [curr];
+        }
+      }
+      groups.push(currentGroup);
+
+      // Create grouped event objects
+      const groupedEvents: Slots[] = groups.map((grp) => {
+        const first = grp[0];
+        const last = grp[grp.length - 1];
+        const vendorId = first.vendor?.uuid || first.vendor_id;
+        const matchedVendor = vendorsData.find((v) => v.uuid === vendorId);
+        const vendorName = matchedVendor
+          ? `${matchedVendor.first_name} ${matchedVendor.last_name}`
+          : "Assigned Vendor";
+        const dist = vendorId ? vendorDistances[vendorId] : undefined;
+
+        const startISO = dayjs(`${date}T${first.start_time}`).toISOString();
+        const endISO = dayjs(`${date}T${last.end_time}`).toISOString();
+
+        return {
+          start: startISO,
+          end: endISO,
+          title: `${vendorName}\n${service.title}`,
+          className: `slot-selected slot-grouped vendor-${vendorId}`,
+          extendedProps: {
+            isGroupedSelected: true,
+            serviceId: service.uuid,
+            serviceTitle: service.title,
+            vendorId,
+            vendorName,
+            distance: dist,
+            slotsCount: grp.length,
+            durationMinutes: grp.length * 15,
+            startTime: first.start_time,
+            endTime: last.end_time,
+            availableVendorIds: [],
+          },
+        };
+      });
+
+      // Filter out individual 15-min selected slots that fall inside any group range
+      const nonSelectedSlots = slotsList.filter((slot) => {
+        const slotStart = dayjs(slot.start);
+        const isInsideGroup = groups.some((grp) => {
+          const first = grp[0];
+          const last = grp[grp.length - 1];
+          const grpStart = dayjs(`${date}T${first.start_time}`);
+          const grpEnd = dayjs(`${date}T${last.end_time}`);
+          return (
+            (slotStart.isSame(grpStart) || slotStart.isAfter(grpStart)) &&
+            slotStart.isBefore(grpEnd)
+          );
+        });
+        return !isInsideGroup;
+      });
+
+      return [...nonSelectedSlots, ...groupedEvents].sort((a, b) =>
+        dayjs(a.start).diff(dayjs(b.start)),
+      );
+    };
+
     // When filteredVendors is empty but there are selected slots to display,
     // generate slot grid for day bounds so matchingSelected can find the right
     // time positions and mark them as slot-selected.
@@ -1894,7 +1989,7 @@ export default function OneDayCalendar({
         };
       });
       return {
-        events: mappedEvents,
+        events: groupSelectedSlotsForEvents(mappedEvents),
         minTime: dayStartTime,
         maxTime: dayEndTime,
       };
@@ -2677,7 +2772,7 @@ export default function OneDayCalendar({
     }
 
     return {
-      events: finalSlots,
+      events: groupSelectedSlotsForEvents(finalSlots),
       minTime: finalMinTime,
       maxTime: finalMaxTime,
     };
@@ -2699,6 +2794,8 @@ export default function OneDayCalendar({
     destinationAddress,
     unbookedSlotsKeys,
     userType,
+    isAgent,
+    vendorDistances,
   ]);
 
   // Sync computedEvents to state only when they actually change (reference-stable write)
@@ -3445,17 +3542,31 @@ export default function OneDayCalendar({
     );
     const requiredSlots = Math.ceil(requiredDuration / 15);
 
-    const isAlreadySelected = selectedSlots.find(
-      (slot: Slot) =>
-        slot.service_id === service.uuid &&
-        slot.start_time === slotStart &&
-        slot.end_time === slotEnd &&
-        slot.date === selectedDate,
-    );
+    const isGroupedEvent =
+      Boolean(info.event.extendedProps?.isGroupedSelected) ||
+      info.event.classNames.includes("slot-grouped");
+
+    const isAlreadySelected = isGroupedEvent
+      ? selectedSlots.some(
+          (slot: Slot) =>
+            (slot.service_id === service.uuid ||
+              String(slot.service_id) === String(service.id)) &&
+            slot.date === selectedDate,
+        )
+      : selectedSlots.find(
+          (slot: Slot) =>
+            (slot.service_id === service.uuid ||
+              String(slot.service_id) === String(service.id)) &&
+            slot.start_time === slotStart &&
+            slot.end_time === slotEnd &&
+            slot.date === selectedDate,
+        );
 
     if (!forceProceed && !isAlreadySelected) {
       const existingSlots = selectedSlots.filter(
-        (slot: Slot) => slot.service_id === service.uuid,
+        (slot: Slot) =>
+          slot.service_id === service.uuid ||
+          String(slot.service_id) === String(service.id),
       );
       const hasDifferentDate = existingSlots.some(
         (slot: Slot) => slot.date !== selectedDate,
@@ -3471,11 +3582,13 @@ export default function OneDayCalendar({
       const serviceSlotsForDate = selectedSlots
         .filter(
           (slot: Slot) =>
-            slot.service_id === service.uuid && slot.date === selectedDate,
+            (slot.service_id === service.uuid ||
+              String(slot.service_id) === String(service.id)) &&
+            slot.date === selectedDate,
         )
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-      if (serviceSlotsForDate.length > 0) {
+      if (serviceSlotsForDate.length > 0 && !isAgent && !isGroupedEvent) {
         const firstSlot = serviceSlotsForDate[0];
         const lastSlot = serviceSlotsForDate[serviceSlotsForDate.length - 1];
         const isFirst = firstSlot.start_time === slotStart;
@@ -3485,7 +3598,8 @@ export default function OneDayCalendar({
             prev.filter(
               (s: Slot) =>
                 !(
-                  s.service_id === service.uuid &&
+                  (s.service_id === service.uuid ||
+                    String(s.service_id) === String(service.id)) &&
                   s.start_time === slotStart &&
                   s.end_time === slotEnd &&
                   s.date === selectedDate
@@ -3509,12 +3623,13 @@ export default function OneDayCalendar({
       const slotRangeText = `${formatTime(firstSlot.start_time)} - ${formatTime(lastSlot.end_time)}`;
 
       setPendingDeselect({
-        slotStart,
-        slotEnd,
+        slotStart: firstSlot.start_time,
+        slotEnd: lastSlot.end_time,
         selectedDate,
         serviceSlotsForDate,
         clickedEvent: clicked,
         slotRangeText,
+        isGrouped: isGroupedEvent || isAgent,
       });
       setShowConfirmDeselect(true);
       return;
@@ -3522,7 +3637,9 @@ export default function OneDayCalendar({
 
     const currentServiceSlots = selectedSlots.filter(
       (slot: Slot) =>
-        slot.service_id === service.uuid && slot.date === selectedDate,
+        (slot.service_id === service.uuid ||
+          String(slot.service_id) === String(service.id)) &&
+        slot.date === selectedDate,
     );
 
     const currentAssignedVendorId =
@@ -3537,8 +3654,6 @@ export default function OneDayCalendar({
     const effectiveCurrentServiceSlots = isSwitchingVendor
       ? []
       : currentServiceSlots;
-
-
 
     const getAdminOverrideSlots = (startISO: string, slotsCount: number) => {
       const slots: { start: string; end: string }[] = [];
@@ -3572,7 +3687,7 @@ export default function OneDayCalendar({
           dayjs(`${selectedDate}T${firstSlot.start_time}`),
         );
 
-      if (isAdjacentToEnd || isAdjacentToStart) {
+      if ((isAdjacentToEnd || isAdjacentToStart) && !isAgent) {
         const currentDurationMins = effectiveCurrentServiceSlots.length * 15;
         if (!isAdmin && currentDurationMins >= requiredDuration) {
           // Agent already has full required duration selected; proceed to replacement selection prompt
@@ -3707,6 +3822,11 @@ export default function OneDayCalendar({
 
   const handleCancelDeselect = () => {
     if (!pendingDeselect) return;
+    if (isAgent || pendingDeselect.isGrouped) {
+      setPendingDeselect(null);
+      setShowConfirmDeselect(false);
+      return;
+    }
     const { slotStart, slotEnd, selectedDate, serviceSlotsForDate } =
       pendingDeselect;
 
@@ -4115,6 +4235,12 @@ export default function OneDayCalendar({
     .slot-unavailable {
       cursor: not-allowed !important;
     }
+    .slot-selected.slot-grouped {
+      background-color: #0ade19 !important;
+      border: 1px dashed black !important;
+      border-radius: 6px !important;
+      cursor: pointer !important;
+    }
   `;
 
   return (
@@ -4162,6 +4288,71 @@ export default function OneDayCalendar({
               eventInfo.event.classNames.includes("slot-available");
             const isTwilightRecommended =
               eventInfo.event.extendedProps?.twilightRecommended;
+            const isGrouped =
+              eventInfo.event.extendedProps?.isGroupedSelected ||
+              eventInfo.event.classNames.includes("slot-grouped");
+
+            if (isGrouped) {
+              const vendorName =
+                eventInfo.event.extendedProps?.vendorName ||
+                eventInfo.event.title?.split("\n")[0] ||
+                "Assigned Vendor";
+              const serviceTitle =
+                eventInfo.event.extendedProps?.serviceTitle ||
+                service.title;
+              const durationMins =
+                eventInfo.event.extendedProps?.durationMinutes ||
+                (eventInfo.event.start && eventInfo.event.end
+                  ? dayjs(eventInfo.event.end).diff(
+                      dayjs(eventInfo.event.start),
+                      "minute",
+                    )
+                  : 0);
+
+              const startTimeStr = eventInfo.event.start
+                ? dayjs(eventInfo.event.start).format("h:mm A")
+                : "";
+              const endTimeStr = eventInfo.event.end
+                ? dayjs(eventInfo.event.end).format("h:mm A")
+                : "";
+
+              return (
+                <div
+                  className={`fc-event-main-frame w-full h-full relative flex flex-col items-center justify-center text-center px-2 py-1 gap-0.5 select-none ${isTwilightRecommended ? "twilight-recommended-slot" : ""}`}
+                  style={{
+                    color: "#424242",
+                  }}
+                  title={`Selected: ${startTimeStr} - ${endTimeStr} (${durationMins} min)`}
+                >
+                  <div className="text-[10px] font-semibold text-[#1a1a1a] leading-tight">
+                    {startTimeStr} - {endTimeStr} ({durationMins} min)
+                  </div>
+                  <div className="text-[10px] font-bold text-[#1a1a1a] truncate w-full leading-tight">
+                    {serviceTitle}
+                  </div>
+                  <div className="text-[9px] font-medium text-[#424242] truncate w-full">
+                    {vendorName}
+                  </div>
+                  {isRecommended && !isTwilightRecommended && (
+                    <div className="recommended-corner-indicator">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const availableVendorIds =
               eventInfo.event.extendedProps?.availableVendorIds || [];
 

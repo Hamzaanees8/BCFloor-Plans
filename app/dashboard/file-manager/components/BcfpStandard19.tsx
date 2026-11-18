@@ -69,19 +69,16 @@ interface BcfpStandard19Props {
 const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
   ({ orderData, showBleed: propShowBleed, showGuide: propShowGuide }, ref) => {
     const {
-      formData,
       updateFormData,
       setRestoreDetailFieldHandler,
       setRestoreAllDetailFieldsHandler,
     } = useFileManagerContext();
 
     // ── 1. Deletion & Restoration State ──────────────────────────────────────
-    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
-      formData.deletedDetailFields || [],
-    );
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>([]);
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
-    >(formData.deletedStandardFieldIds || []);
+    >([]);
 
     const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
 
@@ -147,108 +144,55 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
     ]);
 
     // ── 2. Text Fields State ──────────────────────────────────────────────────
-    const [byLawRestrictions, setByLawRestrictions] = useState(
-      formData.byLawRestrictions || "",
-    );
-    const [maintFees, setMaintFees] = useState(formData.maintenanceFees || "");
-    const [maintFeesInclude, setMaintFeesInclude] = useState(
-      formData.maintenanceFeesInclude || "",
-    );
-    const [featuresIncluded, setFeaturesIncluded] = useState(
-      formData.featuresIncluded || "",
-    );
-    const [siteInfluences, setSiteInfluences] = useState(
-      formData.siteInfluences || "",
-    );
-    const [amenities, setAmenities] = useState(formData.amenities || "");
-    const [view, setView] = useState(formData.view || "");
-    const [description, setDescription] = useState(formData.description || "");
+    const [byLawRestrictions, setByLawRestrictions] = useState("");
+    const [maintFees, setMaintFees] = useState("");
+    const [maintFeesInclude, setMaintFeesInclude] = useState("");
+    const [featuresIncluded, setFeaturesIncluded] = useState("");
+    const [siteInfluences, setSiteInfluences] = useState("");
+    const [amenities, setAmenities] = useState("");
+    const [view, setView] = useState("");
+    const [description, setDescription] = useState("");
     const [headline, setHeadline] = useState(
-      formData.headline ||
-        "ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.",
+      "ON TOP OF IT ALL! BEAUTIFUL SUB-PENTHOUSE IN THE WELL APPOINTED CENTRO BUILDING.",
     );
-    const [fullName, setFullName] = useState(formData.fullName || "");
-    const [email, setEmail] = useState(formData.email || "");
-    const [propertyName, setPropertyName] = useState(
-      formData.propertyName || "Macdonald Realty",
-    );
-    const [amount, setAmount] = useState(formData.amount || "");
-    const [number, setNumber] = useState(formData.number || "604.000.0000");
-    const [addressCode, setAddressCode] = useState(
-      formData.addressCode && formData.addressCode !== "0000-0000"
-        ? formData.addressCode
-        : orderData?.property?.mls_number ||
-            orderData?.property?.mls_property ||
-            (orderData?.property as any)?.mls ||
-            "",
-    );
-    const [roadName, setRoadName] = useState(
-      formData.roadName && formData.roadName !== "0"
-        ? formData.roadName
-        : orderData?.property?.suite && orderData.property.suite !== "0"
-          ? String(orderData.property.suite)
-          : "",
-    );
-    const [cityLine, setCityLine] = useState(formData.cityLine || "");
-    const [bedroom, setBedroom] = useState(formData.bedroom || "0");
-    const [bathroom, setBathroom] = useState(formData.bathroom || "0");
-    const [sqft, setSqft] = useState(formData.sqft || "3000");
-    const [builtYear, setBuiltYear] = useState(formData.builtYear || "0000");
+    const [fullName, setFullName] = useState("");
+    const [email, setEmail] = useState("");
+    const [propertyName, setPropertyName] = useState("");
+    const [amount, setAmount] = useState("");
+    const [number, setNumber] = useState("");
+    const [addressCode, setAddressCode] = useState("");
+    const [roadName, setRoadName] = useState("");
+    const [cityLine, setCityLine] = useState("");
+    const [bedroom, setBedroom] = useState("");
+    const [bathroom, setBathroom] = useState("");
+    const [sqft, setSqft] = useState("");
+    const [builtYear, setBuiltYear] = useState("");
 
     // Editable Labels
-    const [contactLabel, setContactLabel] = useState(
-      formData.contactLabel || "CONTACT:",
-    );
-    const [phoneLabel, setPhoneLabel] = useState(
-      formData.phoneLabel || "Phone:",
-    );
-    const [emailLabel, setEmailLabel] = useState(
-      formData.emailLabel || "Email:",
-    );
-    const [bedroomLabel, setBedroomLabel] = useState(
-      formData.bedroomLabel || "BEDROOM •",
-    );
-    const [bathroomLabel, setBathroomLabel] = useState(
-      formData.bathroomLabel || "BATHROOM •",
-    );
-    const [sqftLabel, setSqftLabel] = useState(formData.sqftLabel || "SQ FT •");
-    const [builtYearLabel, setBuiltYearLabel] = useState(
-      formData.builtYearLabel || "BUILT IN",
-    );
-    const [roadLabelBefore, setRoadLabelBefore] = useState(
-      formData.roadLabelBefore &&
-        String(formData.roadLabelBefore).toLowerCase() !== "number"
-        ? formData.roadLabelBefore
-        : "",
-    );
-    const [roadLabelAfter, setRoadLabelAfter] = useState(
-      formData.roadLabelAfter &&
-        String(formData.roadLabelAfter).toLowerCase() !== "road"
-        ? formData.roadLabelAfter
-        : "",
-    );
+    const [contactLabel, setContactLabel] = useState("CONTACT:");
+    const [phoneLabel, setPhoneLabel] = useState("Phone:");
+    const [emailLabel, setEmailLabel] = useState("Email:");
+    const [bedroomLabel, setBedroomLabel] = useState("BEDROOM •");
+    const [bathroomLabel, setBathroomLabel] = useState("BATHROOM •");
+    const [sqftLabel, setSqftLabel] = useState("SQ FT •");
+    const [builtYearLabel, setBuiltYearLabel] = useState("BUILT IN");
+    const [roadLabelBefore, setRoadLabelBefore] = useState("");
+    const [roadLabelAfter, setRoadLabelAfter] = useState("");
     const [byLawRestrictionsLabel, setByLawRestrictionsLabel] = useState(
-      formData.byLawRestrictionsLabel || "BY-LAW RESTRICTIONS:",
+      "BY-LAW RESTRICTIONS:",
     );
-    const [maintFeesLabel, setMaintFeesLabel] = useState(
-      formData.maintFeesLabel || "MAINT. FEES:",
-    );
+    const [maintFeesLabel, setMaintFeesLabel] = useState("MAINT. FEES:");
     const [maintFeesIncludeLabel, setMaintFeesIncludeLabel] = useState(
-      formData.maintFeesIncludeLabel || "MAINT. FEES INCLUDE:",
+      "MAINT. FEES INCLUDE:",
     );
-    const [featuresIncludedLabel, setFeaturesIncludedLabel] = useState(
-      formData.featuresIncludedLabel || "FEATURES INCLUDED:",
-    );
-    const [siteInfluencesLabel, setSiteInfluencesLabel] = useState(
-      formData.siteInfluencesLabel || "SITE INFLUENCES:",
-    );
-    const [amenitiesLabel, setAmenitiesLabel] = useState(
-      formData.amenitiesLabel || "AMENITIES:",
-    );
-    const [viewLabel, setViewLabel] = useState(formData.viewLabel || "VIEW:");
+    const [featuresIncludedLabel, setFeaturesIncludedLabel] =
+      useState("FEATURES INCLUDED:");
+    const [siteInfluencesLabel, setSiteInfluencesLabel] =
+      useState("SITE INFLUENCES:");
+    const [amenitiesLabel, setAmenitiesLabel] = useState("AMENITIES:");
+    const [viewLabel, setViewLabel] = useState("VIEW:");
     const [disclaimerText, setDisclaimerText] = useState(
-      formData.disclaimerText ||
-        "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
+      "All information deemed reliable but not guaranteed and should be independently verified. All properties are subject to prior sale, change or withdrawal. Neither listing broker(s) nor BC Floor Plans shall be responsible for any typographical errors, misinformation, misprints and shall be held totally harmless.",
     );
 
     // ── 3. Bleed & Guide State ────────────────────────────────────────────────
@@ -491,14 +435,13 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
         fontFamily: "Arial, sans-serif",
         textAlign: "left",
       },
-      ...(formData.fieldStyles || {}),
     });
     const updateFieldStyle = (field: string, style: TextStyle) =>
       setFieldStyles((prev) => ({ ...prev, [field]: style }));
 
     const [fieldPositions, setFieldPositions] = useState<
       Record<string, { x: number; y: number }>
-    >(formData.fieldPositions || {});
+    >({});
     const updateFieldPosition = (id: string, pos: { x: number; y: number }) => {
       setFieldPositions((prev) => ({ ...prev, [id]: pos }));
     };
@@ -533,7 +476,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
     const [images, setImages] = useState<Record<ImageKey, string | null>>(
       () => {
         const defaultAgentLogo =
-          (formData as any)?.images?.image7 ||
           (orderData?.agent as any)?.company_logo_url ||
           (orderData?.agent as any)?.logo_url ||
           (orderData?.agent as any)?.logo ||
@@ -551,7 +493,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           image5: null,
           image6: null,
           image7: defaultAgentLogo as string | null,
-          ...((formData as any)?.images || {}),
         };
       },
     );
@@ -563,7 +504,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
       >
     >(() => ({
       image7: { showBorder: false, showWhiteBg: true, showShadow: true },
-      ...((formData as any)?.imageSettings || {}),
     }));
 
     const toggleImageSetting = (
@@ -631,6 +571,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
     const [processingSlots, setProcessingSlots] = useState<
       Record<string, boolean>
     >({});
+    const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
 
     const isSlotActive = (key: string) =>
       hoveredSlot === key ||
@@ -824,101 +765,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           }
         }
       }
-
-      if (formData) {
-        if ((formData as any).imageSettings) {
-          setImageSettings((prev) => ({
-            ...prev,
-            ...(formData as any).imageSettings,
-          }));
-        }
-        if (formData.byLawRestrictions)
-          setByLawRestrictions(formData.byLawRestrictions);
-        if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude)
-          setMaintFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded)
-          setFeaturesIncluded(formData.featuresIncluded);
-        if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
-        if (formData.amenities) setAmenities(formData.amenities);
-        if (formData.view) setView(formData.view);
-        if (formData.description) setDescription(formData.description);
-        if (formData.headline) setHeadline(formData.headline);
-        if (formData.fullName) setFullName(formData.fullName);
-        if (formData.email) setEmail(formData.email);
-        if (formData.propertyName) setPropertyName(formData.propertyName);
-        if (formData.amount) setAmount(formData.amount);
-        if (formData.number) setNumber(formData.number);
-        if (formData.addressCode && formData.addressCode !== "0000-0000")
-          setAddressCode(formData.addressCode);
-        if (formData.roadName && formData.roadName !== "0")
-          setRoadName(formData.roadName);
-        if (formData.cityLine) setCityLine(formData.cityLine);
-        if (formData.bedroom) setBedroom(formData.bedroom);
-        if (formData.bathroom) setBathroom(formData.bathroom);
-        if (formData.sqft) setSqft(formData.sqft);
-        if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if (formData.contactLabel) setContactLabel(formData.contactLabel);
-        if (formData.phoneLabel) setPhoneLabel(formData.phoneLabel);
-        if (formData.emailLabel) setEmailLabel(formData.emailLabel);
-        if (formData.bedroomLabel) setBedroomLabel(formData.bedroomLabel);
-        if (formData.bathroomLabel) setBathroomLabel(formData.bathroomLabel);
-        if (formData.sqftLabel) setSqftLabel(formData.sqftLabel);
-        if (formData.builtYearLabel) setBuiltYearLabel(formData.builtYearLabel);
-        if (
-          formData.roadLabelBefore &&
-          String(formData.roadLabelBefore).toLowerCase() !== "number"
-        )
-          setRoadLabelBefore(formData.roadLabelBefore);
-        if (
-          formData.roadLabelAfter &&
-          String(formData.roadLabelAfter).toLowerCase() !== "road"
-        )
-          setRoadLabelAfter(formData.roadLabelAfter);
-        if (formData.byLawRestrictionsLabel)
-          setByLawRestrictionsLabel(formData.byLawRestrictionsLabel);
-        if (formData.maintFeesLabel) setMaintFeesLabel(formData.maintFeesLabel);
-        if (formData.maintFeesIncludeLabel)
-          setMaintFeesIncludeLabel(formData.maintFeesIncludeLabel);
-        if (formData.featuresIncludedLabel)
-          setFeaturesIncludedLabel(formData.featuresIncludedLabel);
-        if (formData.siteInfluencesLabel)
-          setSiteInfluencesLabel(formData.siteInfluencesLabel);
-        if (formData.amenitiesLabel) setAmenitiesLabel(formData.amenitiesLabel);
-        if (formData.viewLabel) setViewLabel(formData.viewLabel);
-        if (formData.disclaimerText) setDisclaimerText(formData.disclaimerText);
-        if (formData.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(formData.images as unknown as typeof images),
-          }));
-        if (formData.imageScales)
-          setScale((prev) => ({
-            ...prev,
-            ...(formData.imageScales as unknown as typeof scale),
-          }));
-        if (formData.imagePositions)
-          setPosition((prev) => ({
-            ...prev,
-            ...(formData.imagePositions as unknown as typeof position),
-          }));
-        if (formData.imageRotations)
-          setRotation((prev) => ({
-            ...prev,
-            ...(formData.imageRotations as unknown as typeof rotation),
-          }));
-        if (formData.fieldPositions)
-          setFieldPositions((prev) => ({
-            ...prev,
-            ...(formData.fieldPositions as unknown as typeof fieldPositions),
-          }));
-        if (formData.fieldStyles)
-          setFieldStyles((prev) => ({
-            ...prev,
-            ...(formData.fieldStyles as unknown as typeof fieldStyles),
-          }));
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderData]);
 
     // Sync to context
@@ -1152,6 +998,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
             deletedStandardFieldIds,
           },
           images,
+          deletedImageSlots,
           imageScales: scale,
           imagePositions: position,
           imageRotations: rotation,
@@ -1159,14 +1006,24 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           fieldStyles,
         } as any);
 
+        payload.fieldPositions = fieldPositions;
+        payload.fieldStyles = fieldStyles;
+        (payload as any).deletedImageSlots = deletedImageSlots;
         (payload as any).deletedStandardFieldIds = deletedStandardFieldIds;
         (payload as any).deletedDetailFields = deletedDetailFields;
         (payload as any).lockedSections = lockedSections;
         if (payload.content) {
+          (payload.content as any).deletedImageSlots = deletedImageSlots;
           (payload.content as any).deletedStandardFieldIds =
             deletedStandardFieldIds;
           (payload.content as any).deletedDetailFields = deletedDetailFields;
           (payload.content as any).lockedSections = lockedSections;
+          (payload.content as any).fieldStyles = fieldStyles;
+          (payload.content as any).fieldPositions = fieldPositions;
+          if ((payload.content as any).otherDetails) {
+            (payload.content as any).otherDetails.fieldStyles = fieldStyles;
+            (payload.content as any).otherDetails.fieldPositions = fieldPositions;
+          }
         }
         return payload;
       },
@@ -1183,14 +1040,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.offeredAtPrice as any).value
               : (state.offeredAtPrice as string),
           );
-          const s = st(state.offeredAtPrice);
-          if (s)
-            updateFieldStyle(
-              "amount",
-              s.fontSize === "36px" || s.fontSize === "30px"
-                ? { ...s, fontSize: "32px" }
-                : s,
-            );
         }
         if (state.realtorName) {
           setFullName(
@@ -1198,12 +1047,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.realtorName as any).value
               : (state.realtorName as string),
           );
-          const s = st(state.realtorName);
-          if (s)
-            updateFieldStyle(
-              "fullName",
-              s.fontSize === "20px" ? { ...s, fontSize: "12px" } : s,
-            );
         }
         if (state.emailLink) {
           setEmail(
@@ -1211,12 +1054,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.emailLink as any).value
               : (state.emailLink as string),
           );
-          const s = st(state.emailLink);
-          if (s)
-            updateFieldStyle(
-              "email",
-              s.fontSize === "20px" ? { ...s, fontSize: "12px" } : s,
-            );
         }
         if (state.companyName) {
           setPropertyName(
@@ -1224,12 +1061,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.companyName as any).value
               : (state.companyName as string),
           );
-          const s = st(state.companyName);
-          if (s)
-            updateFieldStyle(
-              "propertyName",
-              s.fontSize === "20px" ? { ...s, fontSize: "10.5px" } : s,
-            );
         }
         if (state.propertyNotesTitle) {
           const val =
@@ -1237,12 +1068,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.propertyNotesTitle as any).value
               : (state.propertyNotesTitle as string);
           setRoadName(val === "0" ? "" : val);
-          const s = st(state.propertyNotesTitle);
-          if (s)
-            updateFieldStyle(
-              "roadName",
-              s.fontSize === "28px" ? { ...s, fontSize: "28px" } : s,
-            );
         }
         if (state.propertyNotesDescription) {
           setDescription(
@@ -1250,8 +1075,6 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               ? (state.propertyNotesDescription as any).value
               : (state.propertyNotesDescription as string),
           );
-          const s = st(state.propertyNotesDescription);
-          if (s) updateFieldStyle("description", s);
         }
 
         if (state.expandedDetail1Description)
@@ -1313,6 +1136,8 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           if (details.headline) setHeadline(details.headline as string);
           if (details.description)
             setDescription(details.description as string);
+          if (details.disclaimerText)
+            setDisclaimerText(details.disclaimerText as string);
         }
 
         const c19 = (payload?.content as Record<string, any>) || {};
@@ -1324,54 +1149,61 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
         };
 
+        if (!incomingStyles19.amount && st(state.offeredAtPrice)) {
+          incomingStyles19.amount = st(state.offeredAtPrice)!;
+        }
+        if (!incomingStyles19.fullName && st(state.realtorName)) {
+          incomingStyles19.fullName = st(state.realtorName)!;
+        }
+        if (!incomingStyles19.email && st(state.emailLink)) {
+          incomingStyles19.email = st(state.emailLink)!;
+        }
+        if (!incomingStyles19.propertyName && st(state.companyName)) {
+          incomingStyles19.propertyName = st(state.companyName)!;
+        }
+        if (!incomingStyles19.roadName && st(state.propertyNotesTitle)) {
+          incomingStyles19.roadName = st(state.propertyNotesTitle)!;
+        }
+        if (!incomingStyles19.description && st(state.propertyNotesDescription)) {
+          incomingStyles19.description = st(state.propertyNotesDescription)!;
+        }
+
         if (incomingStyles19.fullName?.fontSize === "20px") {
           incomingStyles19.fullName = {
             ...incomingStyles19.fullName,
             fontSize: "14px",
-            fontFamily: "TrajanProRegular, serif",
+            fontFamily: incomingStyles19.fullName.fontFamily || "TrajanProRegular, serif",
           };
         }
-        if (
-          incomingStyles19.contactLabel?.fontSize === "20px" ||
-          !incomingStyles19.contactLabel?.fontSize
-        ) {
+        if (incomingStyles19.contactLabel?.fontSize === "20px") {
           incomingStyles19.contactLabel = {
             ...incomingStyles19.contactLabel,
             fontSize: "14px",
-            fontFamily: "TrajanProRegular, serif",
+            fontFamily: incomingStyles19.contactLabel.fontFamily || "TrajanProRegular, serif",
           };
         }
         if (incomingStyles19.propertyName?.fontSize === "20px") {
           incomingStyles19.propertyName = {
             ...incomingStyles19.propertyName,
             fontSize: "12px",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: incomingStyles19.propertyName.fontFamily || "Arial, sans-serif",
           };
         }
-        if (
-          incomingStyles19.number?.fontSize === "20px" ||
-          incomingStyles19.number?.fontSize === "11px"
-        ) {
+        if (incomingStyles19.number?.fontSize === "20px") {
           incomingStyles19.number = {
             ...incomingStyles19.number,
             fontSize: "12px",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: incomingStyles19.number.fontFamily || "Arial, sans-serif",
           };
         }
-        if (
-          incomingStyles19.email?.fontSize === "20px" ||
-          incomingStyles19.email?.fontSize === "11px"
-        ) {
+        if (incomingStyles19.email?.fontSize === "20px") {
           incomingStyles19.email = {
             ...incomingStyles19.email,
             fontSize: "12px",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: incomingStyles19.email.fontFamily || "Arial, sans-serif",
           };
         }
-        if (
-          incomingStyles19.cityLine?.letterSpacing === "0.2em" ||
-          !incomingStyles19.cityLine?.letterSpacing
-        ) {
+        if (incomingStyles19.cityLine?.letterSpacing === "0.2em") {
           incomingStyles19.cityLine = {
             ...incomingStyles19.cityLine,
             letterSpacing: "0.1em",
@@ -1429,11 +1261,22 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
           }));
         }
 
-        if (state.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as unknown as typeof images),
-          }));
+        if ((state as any).deletedImageSlots) {
+          setDeletedImageSlots((state as any).deletedImageSlots);
+        }
+
+        if (state.images) {
+          const sDeleted =
+            (state as any).deletedImageSlots || deletedImageSlots || [];
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              state.images as any,
+              sProcessing,
+              sDeleted,
+            ),
+          );
+        }
         if (state.imageScales)
           setScale((prev) => ({
             ...prev,
@@ -1463,7 +1306,14 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
               c19.imageSettings),
           }));
         }
-        if (state.fieldPositions) {
+        const incomingPositions19 =
+          (od19.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (c19.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (state.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (payload.fieldPositions as Record<string, { x: number; y: number }>);
+        if (incomingPositions19) {
+          setFieldPositions(incomingPositions19);
+        } else if (state.fieldPositions) {
           setFieldPositions(
             state.fieldPositions as Record<string, { x: number; y: number }>,
           );
@@ -1484,6 +1334,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== key));
         setImages((prev) => ({ ...prev, [key]: url }));
       }
     };
@@ -1492,6 +1343,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
       key: keyof typeof images,
       fileRef: React.RefObject<HTMLInputElement | null>,
     ) => {
+      setDeletedImageSlots((prev) => [...prev, key]);
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
@@ -1552,6 +1404,7 @@ const BcfpStandard19 = forwardRef<BcfpStandard19Ref, BcfpStandard19Props>(
 
     const handleGallerySelect = (url: string) => {
       if (currentImageSlot) {
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== currentImageSlot));
         setImages((prev) => ({ ...prev, [currentImageSlot]: url }));
       }
       setShowGallery(false);

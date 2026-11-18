@@ -188,6 +188,7 @@ const Page = () => {
                             <Input
                                 placeholder="Search properties..."
                                 className="h-[38px] w-full bg-gray-50 pr-10"
+                                value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                             <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

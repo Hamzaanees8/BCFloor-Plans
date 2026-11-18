@@ -133,6 +133,9 @@ export function payloadToFormData(payload: AgentPayload): FormData {
                 valueToAppend = subValue ? 1 : 0;
               }
               formData.append(`${key}[${subKey}]`, String(valueToAppend));
+            } else if (subKey === 'expiry_date') {
+              // Explicitly pass empty string when expiry_date is null/cleared so backend resets it to null
+              formData.append(`${key}[${subKey}]`, '');
             }
           });
         } else {

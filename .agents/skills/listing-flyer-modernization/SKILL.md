@@ -1067,3 +1067,20 @@ For each flyer:
 - Verify section drag locks and `<DraggableBox>` wrapping for each field.
 - Verify `exportToPayload` and `importFromPayload` with font size preservation.
 - Run `npx tsc --noEmit --skipLibCheck` and verify 0 errors.
+
+---
+
+## 19. CLEAN TEMPLATE DEFAULTS VS SAVED DATA ISOLATION (ZERO CROSS-TEMPLATE POLLUTION)
+
+1. **Clean Initial Local State**:
+   - Flyer components must NEVER initialize state with `useState(formData.xyz || "")` or `...(formData.fieldStyles || {})`.
+   - On initial mount, all fields, labels, field styles, and field positions must initialize strictly to their clean template design defaults (or empty string `""` / empty array `[]`).
+2. **OrderData as Sole Authority for New Sheets**:
+   - In `useEffect([orderData])`, populate property and agent details (price, specs, address, city line, agent name, email, phone, company, logo) strictly from `orderData`.
+   - NEVER include an `if (formData) { ... }` block inside `useEffect([orderData])`. Doing so leaks data from previously viewed or edited templates into the current template.
+3. **Saved Payload as Sole Authority for Saved Sheets**:
+   - When a saved sheet is selected or loaded, `CreateFeatureSheet.tsx` invokes `activeStandardRef.current.importFromPayload(sheetData)`.
+   - `importFromPayload` is the exclusive mechanism that populates saved field values, styles, and positions for that specific sheet.
+4. **Context Reset on Template Switch**:
+   - In `CreateFeatureSheet.tsx`, when switching to an unsaved template (`selectedSheetUuid === null`), call `setFormData({ ...initialFormData, ... })` to completely replace the shared context with clean initial state rather than partially merging dirty state.
+

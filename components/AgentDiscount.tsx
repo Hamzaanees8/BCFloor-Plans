@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/context/AppContext";
-import { X, Calendar as CalendarIcon } from "lucide-react";
+import { X, Calendar as CalendarIcon, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { Button } from "./ui/button";
@@ -225,10 +225,26 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                     </div>
                 )}
 
-                <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">
-                        Expiration Date
-                    </label>
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-gray-700">
+                            Expiration Date <span className="text-xs text-gray-400 font-normal">(Optional)</span>
+                        </label>
+                        {expiryDate && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setExpiryDate(undefined);
+                                }}
+                                className="text-xs text-[#E06D5E] hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                                Clear Date (No Expiry)
+                            </button>
+                        )}
+                    </div>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -240,7 +256,7 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                                 style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {expiryDate ? format(expiryDate, "PPP") : <span>Pick a date</span>}
+                                {expiryDate ? format(expiryDate, "PPP") : <span>No expiration (Permanent)</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -252,6 +268,12 @@ const AgentDiscount: React.FC<Props> = ({ open, setOpen, addDiscount, isDetailed
                             />
                         </PopoverContent>
                     </Popover>
+                    <div className="mt-1.5 p-2.5 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800 flex items-start gap-2 leading-relaxed">
+                        <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                        <span>
+                            <strong>Note for Admin:</strong> If no expiry date is set, the agent will receive this discount <strong>permanently</strong> until it is manually removed or an expiration date is set.
+                        </span>
+                    </div>
                 </div>
 
                 {isDetailed && (

@@ -1962,9 +1962,12 @@ const Service: React.FC<
         uuid={orderData?.uuid}
         open={open}
         setOpen={setOpen}
-        onSuccess={(updatedOrder) => {
+        onSuccess={async (updatedOrder) => {
           if (updatedOrder && setOrderData) {
             setOrderData(updatedOrder);
+          }
+          if (onRefreshAll) {
+            await onRefreshAll();
           }
         }}
       />

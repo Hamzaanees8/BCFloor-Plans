@@ -1634,7 +1634,22 @@ const FileManager = () => {
       if (osIdForDedup) seenExtraServiceIds.add(osIdForDedup);
 
       const serviceId = os.service_id || os.service?.id;
-      const baseLimit = Number(os.option.quantity) || 1;
+
+      // Skip sqft-based services (Floor Plans, Matterport, Video with no quantity limit).
+      // These services have quantity = null/0 and are priced per sq-ft, not per photo.
+      // Extra media files uploaded by the vendor are NOT "extra photos" — they are
+      // delivery files, so we must never generate an extra-items line for them.
+      // Also skip by category name: floor plan and matterport services are always sqft-based
+      // regardless of what option.quantity may be set to in the database.
+      const optionQty = Number(os.option?.quantity);
+      const catNameForSkip = (os.service?.category?.name || os.service?.name || "").toLowerCase();
+      const isSqftBasedCategory =
+        catNameForSkip.includes("floor") ||
+        catNameForSkip.includes("matterport") ||
+        catNameForSkip.includes("floor plan") ||
+        catNameForSkip.includes("floorplan");
+      if (!optionQty || optionQty <= 0 || isSqftBasedCategory) return;
+      const baseLimit = optionQty;
 
       // Count extra items already paid on any existing paid invoice (use max per invoice to avoid double-counting consolidated vs service invoices)
       let alreadyPaidExtraCount = 0;
@@ -1687,7 +1702,22 @@ const FileManager = () => {
 
       if (selectedCount > effectiveLimit) {
         const extraCount = selectedCount - effectiveLimit;
-        const unitPrice = parseFloat(os.option.amount) / baseLimit;
+
+        // Calculate unit price reflecting any applied discount (agent discount, package discount, etc.)
+        const serviceDiscountItem = cleanedBaseItems.find(
+          (i: any) =>
+            Number(i.order_service_id) === Number(os.id) &&
+            (i.meta?.type === "package_discount" ||
+              i.meta?.type === "agent_discount" ||
+              i.meta?.type === "code_discount" ||
+              (i.description || "").toLowerCase().includes("discount")),
+        );
+        const rawAmount = parseFloat(os.option.amount || "0");
+        const discountAmt = serviceDiscountItem
+          ? Math.abs(parseFloat(serviceDiscountItem.amount || "0"))
+          : 0;
+        const effectiveAmt = Math.max(0, rawAmount - discountAmt);
+        const unitPrice = effectiveAmt > 0 ? effectiveAmt / baseLimit : rawAmount / baseLimit;
 
         let extraLabel = "Photos";
         const catName = os.service?.category?.name?.toLowerCase() || "";

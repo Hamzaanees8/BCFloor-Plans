@@ -3059,9 +3059,9 @@ const GlobalSettings = () => {
                                                                     {capitalizeFirst(discount.discount_code || "")}
                                                                 </p>
 
-                                                                {discount.expiry_date && <p className="text-[12px] font-[300] text-[#666666]">
-                                                                    Expires {discount.expiry_date}
-                                                                </p>}
+                                                                <p className="text-[12px] font-[400] text-[#666666]">
+                                                                    {discount.expiry_date ? `Expires ${discount.expiry_date}` : "Permanent (No Expiry)"}
+                                                                </p>
                                                             </div>
 
                                                             <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">

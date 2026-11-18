@@ -6,12 +6,7 @@ const Textarea = React.forwardRef<
   HTMLTextAreaElement,
   React.ComponentProps<"textarea">
 >(({ className, value, ...props }, ref) => {
-  const resolvedValue =
-    value === null
-      ? ""
-      : props.onChange !== undefined && value === undefined
-      ? ""
-      : value;
+  const resolvedValue = value === null ? "" : value;
   return (
     <textarea
       className={cn(

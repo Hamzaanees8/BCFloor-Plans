@@ -236,6 +236,25 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return Math.min(baseTotal, amount);
     }, [agentDiscount]);
 
+    const getWinningDiscountType = React.useCallback((): 'agent' | 'package' | 'code' | 'none' => {
+        if (!selectedServices?.length) return 'none';
+        const rawOrigTotal = selectedServices.reduce((sum, sel) => sum + getOriginalPrice(sel), 0);
+        let rawCodeDisc = 0;
+        selectedServices.forEach(s => {
+            const orig = getOriginalPrice(s);
+            const disc = calculateServicePriceAfterDiscounts(s);
+            rawCodeDisc += (orig - disc);
+        });
+        const rawPackageDiscount = calculatePackageDiscount();
+        const rawAgentDisc = calculateAgentDiscount(rawOrigTotal);
+
+        const maxDisc = Math.max(rawPackageDiscount, rawAgentDisc, rawCodeDisc);
+        if (maxDisc <= 0) return 'none';
+        if (rawAgentDisc >= maxDisc) return 'agent';
+        if (rawPackageDiscount >= maxDisc) return 'package';
+        return 'code';
+    }, [selectedServices, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
+
     const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
     const propertyCountry = tempPropertyData?.country || currentListing?.country || "CA";
 
@@ -271,32 +290,44 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                     }
                 }
 
-                const subtotalAfterPromo = selectedServices.reduce((sum, s) => sum + calculateServicePriceAfterDiscounts(s), 0);
-                const rawAgentDisc = calculateAgentDiscount(subtotalAfterPromo);
+                const rawAgentDisc = calculateAgentDiscount(totalOrig);
 
-                let pkgDisc = 0;
-                let agentDiscVal = 0;
-                if (rawPkgDisc > 0 && rawAgentDisc > 0) {
-                    if (rawAgentDisc >= rawPkgDisc) {
-                        agentDiscVal = rawAgentDisc;
-                    } else {
-                        pkgDisc = rawPkgDisc;
-                    }
-                } else if (rawPkgDisc > 0) {
-                    pkgDisc = rawPkgDisc;
-                } else if (rawAgentDisc > 0) {
-                    agentDiscVal = rawAgentDisc;
+                // Calculate code/quantity discount value against original prices
+                let rawCodeDisc = 0;
+                selectedServices.forEach(s => {
+                    const orig = getOriginalPrice(s);
+                    const disc = calculateServicePriceAfterDiscounts(s);
+                    rawCodeDisc += (orig - disc);
+                });
+
+                // Pick single largest discount among Package, Agent, and Coupon/Promo
+                const maxDisc = Math.max(rawPkgDisc, rawAgentDisc, rawCodeDisc);
+                let winner = 'none';
+                if (maxDisc > 0) {
+                    if (rawAgentDisc >= maxDisc) winner = 'agent';
+                    else if (rawPkgDisc >= maxDisc) winner = 'package';
+                    else winner = 'code';
                 }
+
+                const pkgDisc = winner === 'package' ? rawPkgDisc : 0;
+                const agentDiscVal = winner === 'agent' ? rawAgentDisc : 0;
 
                 const pkgRatio = eligibleOrig > 0 ? (pkgDisc / eligibleOrig) : 0;
                 const agentRatio = totalOrig > 0 ? (agentDiscVal / totalOrig) : 0;
 
                 const items = selectedServices.map((sel) => {
-                    const discountedPrice = calculateServicePriceAfterDiscounts(sel);
-                    const isPkgService = isServiceInActivePackage(sel);
-                    const pkgDeduction = isPkgService ? (getOriginalPrice(sel) * pkgRatio) : 0;
-                    const agentDeduction = getOriginalPrice(sel) * agentRatio;
-                    const effAmount = Math.max(0, discountedPrice - pkgDeduction - agentDeduction);
+                    const origPrice = getOriginalPrice(sel);
+                    let effAmount = origPrice;
+
+                    if (winner === 'code') {
+                        effAmount = calculateServicePriceAfterDiscounts(sel);
+                    } else if (winner === 'package') {
+                        const pkgDeduction = isServiceInActivePackage(sel) ? (origPrice * pkgRatio) : 0;
+                        effAmount = Math.max(0, origPrice - pkgDeduction);
+                    } else if (winner === 'agent') {
+                        const agentDeduction = origPrice * agentRatio;
+                        effAmount = Math.max(0, origPrice - agentDeduction);
+                    }
 
                     return {
                         amount: Number(effAmount.toFixed(2)),
@@ -414,29 +445,27 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             return;
         }
 
-        const subtotalWithServiceDiscounts = selectedServices.reduce((sum, sel) => {
-            return sum + calculateServicePriceAfterDiscounts(sel);
-        }, 0);
+        const rawOrigTotal = selectedServices.reduce((sum, sel) => sum + getOriginalPrice(sel), 0);
+
+        let rawCodeDisc = 0;
+        selectedServices.forEach(s => {
+            const orig = getOriginalPrice(s);
+            const disc = calculateServicePriceAfterDiscounts(s);
+            rawCodeDisc += (orig - disc);
+        });
 
         const rawPackageDiscount = calculatePackageDiscount();
-        const rawAgentDisc = calculateAgentDiscount(subtotalWithServiceDiscounts);
+        const rawAgentDisc = calculateAgentDiscount(rawOrigTotal);
 
-        let finalPackageDiscount = 0;
-        let finalAgentDiscount = 0;
-
-        if (rawPackageDiscount > 0 && rawAgentDisc > 0) {
-            if (rawAgentDisc >= rawPackageDiscount) {
-                finalAgentDiscount = rawAgentDisc;
-            } else {
-                finalPackageDiscount = rawPackageDiscount;
-            }
-        } else if (rawPackageDiscount > 0) {
-            finalPackageDiscount = rawPackageDiscount;
-        } else if (rawAgentDisc > 0) {
-            finalAgentDiscount = rawAgentDisc;
+        const maxDisc = Math.max(rawPackageDiscount, rawAgentDisc, rawCodeDisc);
+        let winningDiscountVal = 0;
+        if (maxDisc > 0) {
+            if (rawAgentDisc >= maxDisc) winningDiscountVal = rawAgentDisc;
+            else if (rawPackageDiscount >= maxDisc) winningDiscountVal = rawPackageDiscount;
+            else winningDiscountVal = rawCodeDisc;
         }
 
-        const orderTotal = Math.max(0, subtotalWithServiceDiscounts - finalPackageDiscount - finalAgentDiscount);
+        const orderTotal = Math.max(0, rawOrigTotal - winningDiscountVal);
 
         setTotal(Number(orderTotal.toFixed(2)));
     }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, agentDiscount, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
@@ -490,6 +519,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     };
 
     const buildDiscountPayload = () => {
+        // Only send code/quantity discount payload if 'code' won the 3-way evaluation
+        if (getWinningDiscountType() !== 'code') {
+            return [];
+        }
+
         const discountPayload: {
             discount_id: string;
             type: 'code' | 'quantity' | 'manual' | 'package';
@@ -614,9 +648,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                 })),
                 services: selectedServices
                     .map(service => {
-                        const isPaid = service.payment_status?.toUpperCase() === 'PAID';
                         const originalPrice = getOriginalPrice(service);
-                        const computedPrice = isPaid ? originalPrice : calculateServicePriceAfterDiscounts(service);
+                        // Always send original (un-discounted) price as the service amount.
+                        // Discounts are communicated separately via the `discounts` payload.
+                        // Using the post-discount price here would corrupt os.amount in the DB
+                        // and cause the invoice backend to double-apply discounts.
+                        const computedPrice = originalPrice;
 
                         const matchedSlot = selectedSlots.find(
                             slot => slot.service_id === service.uuid ||
@@ -1252,7 +1289,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                         <Plus className={`w-[24px] h-[24px] ${userType}-bg text-white rounded-sm `} />
                                     </div>
                                 </div>
-                                {selectedServices.map((sel) => {
+                                {getWinningDiscountType() === 'code' && selectedServices.map((sel) => {
                                     const fullService = services.find(s => s.uuid === sel.uuid);
                                     if (!fullService) return null;
 
@@ -1281,15 +1318,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                                                 return (
                                                     <div key={idx} className='flex items-start justify-between gap-x-6'>
-                                                        <p className='text-[14px] font-normal text-[#666666] '>
-                                                            Code: {discount.name ?? discount.code_key ?? "Unnamed Discount"}
-                                                        </p>
+                                                        <div className='flex flex-col'>
+                                                            <p className='text-[14px] font-medium text-[#333333]'>
+                                                                {fullService.name || sel.custom || "Service"}
+                                                            </p>
+                                                            <p className='text-[12px] font-normal text-[#888888]'>
+                                                                Code: {discount.name ?? discount.code_key ?? "Unnamed Discount"}
+                                                            </p>
+                                                        </div>
                                                         <p className='text-[14px] font-normal text-[#666666] text-center'>
                                                             {discount.description ?? "—"}
                                                         </p>
                                                         <div className='text-right text-[14px] gap-x-1.5 font-normal flex items-start'>
                                                             <p className='line-through text-[#E06D5E]'>${originalPrice.toFixed(2)}</p>
-                                                            <p className='text-[#6BAE41]'>${discountedPrice.toFixed(2)}</p>
+                                                            <p className='text-[#6BAE41] font-medium'>${discountedPrice.toFixed(2)}</p>
                                                         </div>
                                                     </div>
                                                 );
@@ -1345,69 +1387,62 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                 }
                                             }
 
-                                            // Option B: Pick Maximum / Best Single Discount between Package and Agent Discount
+                                            // Option B: Pick Maximum / Best Single Discount among Package, Agent, and Coupon/Promo
                                             const rawPkgDisc = packageDiscount;
-                                            const baseBeforeAgent = Math.max(0, totalOriginalPrice - totalDiscountValue);
-                                            const rawAgentDisc = calculateAgentDiscount(baseBeforeAgent);
+                                            const rawAgentDisc = calculateAgentDiscount(totalOriginalPrice);
+                                            const rawCodeDisc = totalDiscountValue;
 
-                                            let effectivePkgDisc = 0;
-                                            let effectiveAgentDisc = 0;
-                                            if (rawPkgDisc > 0 && rawAgentDisc > 0) {
-                                                if (rawAgentDisc >= rawPkgDisc) {
-                                                    effectiveAgentDisc = rawAgentDisc;
-                                                } else {
-                                                    effectivePkgDisc = rawPkgDisc;
-                                                }
-                                            } else if (rawPkgDisc > 0) {
-                                                effectivePkgDisc = rawPkgDisc;
-                                            } else if (rawAgentDisc > 0) {
-                                                effectiveAgentDisc = rawAgentDisc;
+                                            const maxDisc = Math.max(rawPkgDisc, rawAgentDisc, rawCodeDisc);
+                                            let winner = 'none';
+                                            if (maxDisc > 0) {
+                                                if (rawAgentDisc >= maxDisc) winner = 'agent';
+                                                else if (rawPkgDisc >= maxDisc) winner = 'package';
+                                                else winner = 'code';
                                             }
 
+                                            const effectivePkgDisc = winner === 'package' ? rawPkgDisc : 0;
+                                            const effectiveAgentDisc = winner === 'agent' ? rawAgentDisc : 0;
+                                            const effectiveCodeDisc = winner === 'code' ? rawCodeDisc : 0;
+
                                             const agentDiscountVal = effectiveAgentDisc;
-                                            const grandTotal = Math.max(0, baseBeforeAgent - effectivePkgDisc - effectiveAgentDisc);
+                                            const grandTotal = Math.max(0, totalOriginalPrice - maxDisc);
 
                                             // Calculate paid amount (use discounted price for paid services if applicable)
                                             const paidAmount = selectedServices.reduce((acc, curr) => {
                                                 if (curr.payment_status?.toUpperCase() === 'PAID') {
                                                     const originalPrice = getOriginalPrice(curr);
 
-                                                    // Calculate discount for this specific paid service
-                                                    const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === curr.uuid)
-                                                        ? appliedCodeDiscount
-                                                        : null;
-                                                    const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                                                        d.services?.some(s => s.uuid === curr.uuid)
-                                                    );
-                                                    const allDiscounts: Discount[] = [];
-                                                    if (codeDiscount) allDiscounts.push(codeDiscount);
-                                                    allDiscounts.push(...quantityDiscounts);
-                                                    const bestDiscount = allDiscounts.reduce((best, currDiscount) => {
-                                                        const currPercent = parseFloat(currDiscount.percentage ?? "0");
-                                                        const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-                                                        return currPercent > bestPercent ? currDiscount : best;
-                                                    }, null as Discount | null);
-
                                                     let discountAmount = 0;
-                                                    if (bestDiscount) {
-                                                        const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
-                                                        discountAmount = originalPrice * discountPercent / 100;
-                                                    }
+                                                    if (winner === 'code') {
+                                                        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === curr.uuid)
+                                                            ? appliedCodeDiscount
+                                                            : null;
+                                                        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
+                                                            d.services?.some(s => s.uuid === curr.uuid)
+                                                        );
+                                                        const allDiscounts: Discount[] = [];
+                                                        if (codeDiscount) allDiscounts.push(codeDiscount);
+                                                        allDiscounts.push(...quantityDiscounts);
+                                                        const bestDiscount = allDiscounts.reduce((best, currDiscount) => {
+                                                            const currPercent = parseFloat(currDiscount.percentage ?? "0");
+                                                            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+                                                            return currPercent > bestPercent ? currDiscount : best;
+                                                        }, null as Discount | null);
 
-                                                    // Add package discount proportionally ONLY for services in package if package discount won
-                                                    if (activePackage && effectivePkgDisc > 0 && isServiceInActivePackage(curr)) {
+                                                        if (bestDiscount) {
+                                                            const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
+                                                            discountAmount = originalPrice * discountPercent / 100;
+                                                        }
+                                                    } else if (winner === 'package' && activePackage && effectivePkgDisc > 0 && isServiceInActivePackage(curr)) {
                                                         const rawEligibleTotal = selectedServices.reduce((sum, s) => {
                                                             if (!isServiceInActivePackage(s)) return sum;
                                                             return sum + getOriginalPrice(s);
                                                         }, 0);
                                                         const serviceRatio = rawEligibleTotal > 0 ? (originalPrice / rawEligibleTotal) : 0;
-                                                        discountAmount += (effectivePkgDisc * serviceRatio);
-                                                    }
-
-                                                    // Add agent discount proportionally if agent discount won
-                                                    if (agentDiscountVal > 0) {
+                                                        discountAmount = (effectivePkgDisc * serviceRatio);
+                                                    } else if (winner === 'agent' && agentDiscountVal > 0) {
                                                         const agentRatio = totalOriginalPrice > 0 ? (agentDiscountVal / totalOriginalPrice) : 0;
-                                                        discountAmount += (originalPrice * agentRatio);
+                                                        discountAmount = (originalPrice * agentRatio);
                                                     }
 
                                                     return acc + (originalPrice - discountAmount);
@@ -1425,75 +1460,94 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                                                     <div className='flex items-center justify-between'>
                                                         <p className='font-normal text-[14px] text-[#424242]'>Subtotal</p>
                                                         <p className='font-normal text-[14px] text-[#424242]'>
-                                                            ${baseBeforeAgent.toFixed(2)}
+                                                            ${totalOriginalPrice.toFixed(2)}
                                                         </p>
                                                     </div>
 
-                                                    {/* When Package is winner and Agent is superseded */}
-                                                    {effectivePkgDisc > 0 && (
-                                                        <>
-                                                            {rawAgentDisc > 0 && (
-                                                                <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
-                                                                    <p className='truncate max-w-[280px]'>
-                                                                        Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)
-                                                                    </p>
-                                                                    <p className='whitespace-nowrap shrink-0 font-medium'>
-                                                                        -${rawAgentDisc.toFixed(2)}
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                            <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
-                                                                <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
-                                                                    <span className='truncate max-w-[260px]' title={activePackage?.name}>
-                                                                        Package: {activePackage?.name}
-                                                                    </span>
-                                                                    <span className='shrink-0'>
-                                                                        ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
-                                                                    </span>
-                                                                    {rawAgentDisc > 0 && (
-                                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
-                                                                            Best Value
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <p className='whitespace-nowrap shrink-0 font-bold'>
-                                                                    -${effectivePkgDisc.toFixed(2)}
-                                                                </p>
-                                                            </div>
-                                                        </>
+                                                    {/* Superseded discounts (shown crossed-out) */}
+                                                    {winner !== 'agent' && rawAgentDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
+                                                            <p className='truncate max-w-[280px]'>
+                                                                Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)
+                                                            </p>
+                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
+                                                                -${rawAgentDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
                                                     )}
 
-                                                    {/* When Agent is winner and Package is superseded */}
-                                                    {effectiveAgentDisc > 0 && (
-                                                        <>
-                                                            {rawPkgDisc > 0 && (
-                                                                <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
-                                                                    <p className='truncate max-w-[280px]' title={activePackage?.name}>
-                                                                        Package ({activePackage?.name} &mdash; {activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
-                                                                    </p>
-                                                                    <p className='whitespace-nowrap shrink-0 font-medium'>
-                                                                        -${rawPkgDisc.toFixed(2)}
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                            <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
-                                                                <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
-                                                                    <span>Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)</span>
-                                                                    {rawPkgDisc > 0 && (
-                                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
-                                                                            Best Value
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <p className='whitespace-nowrap shrink-0 font-bold'>
-                                                                    -${effectiveAgentDisc.toFixed(2)}
-                                                                </p>
+                                                    {winner !== 'package' && rawPkgDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
+                                                            <p className='truncate max-w-[280px]' title={activePackage?.name}>
+                                                                Package ({activePackage?.name} &mdash; {activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
+                                                            </p>
+                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
+                                                                -${rawPkgDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {winner !== 'code' && rawCodeDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
+                                                            <p className='truncate max-w-[280px]'>
+                                                                Coupon Discount ({appliedCodeDiscount?.name ?? appliedCodeDiscount?.code_key ?? 'Promo'})
+                                                            </p>
+                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
+                                                                -${rawCodeDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Winner discount display */}
+                                                    {effectivePkgDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
+                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
+                                                                <span className='truncate max-w-[260px]' title={activePackage?.name}>
+                                                                    Package: {activePackage?.name}
+                                                                </span>
+                                                                <span className='shrink-0'>
+                                                                    ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
+                                                                </span>
+                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
+                                                                    Best Value
+                                                                </span>
                                                             </div>
-                                                        </>
+                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
+                                                                -${effectivePkgDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {effectiveAgentDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
+                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
+                                                                <span>Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)</span>
+                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
+                                                                    Best Value
+                                                                </span>
+                                                            </div>
+                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
+                                                                -${effectiveAgentDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {effectiveCodeDisc > 0 && (
+                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
+                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
+                                                                <span>Coupon Discount ({appliedCodeDiscount?.name ?? appliedCodeDiscount?.code_key ?? 'Promo'})</span>
+                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
+                                                                    Best Value
+                                                                </span>
+                                                            </div>
+                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
+                                                                -${effectiveCodeDisc.toFixed(2)}
+                                                            </p>
+                                                        </div>
                                                     )}
 
                                                     {/* When Agent discount has min spend not met */}
-                                                    {agentDiscount && agentDiscount.minimum_spend > 0 && baseBeforeAgent < Number(agentDiscount.minimum_spend) && !effectivePkgDisc && (
+                                                    {agentDiscount && agentDiscount.minimum_spend > 0 && totalOriginalPrice < Number(agentDiscount.minimum_spend) && !effectivePkgDisc && (
                                                         <div className='flex items-center justify-between text-amber-700 text-[12px] bg-amber-50/80 px-2 py-1 rounded border border-amber-200'>
                                                             <p>Agent Discount ({agentDiscount.amount}%): Min. spend ${Number(agentDiscount.minimum_spend).toLocaleString()} not met</p>
                                                             <p className='whitespace-nowrap shrink-0'>&mdash;</p>

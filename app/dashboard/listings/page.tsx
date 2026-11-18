@@ -1037,6 +1037,7 @@ const Page = () => {
         <Input
           placeholder="Search listings..."
           className="h-[38px] w-full bg-white"
+          value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 

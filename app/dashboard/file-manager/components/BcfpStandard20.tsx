@@ -6,7 +6,6 @@ import {
   RotateCw,
   Lock,
   Unlock,
-  Loader2,
 } from "lucide-react";
 import React, {
   forwardRef,
@@ -76,12 +75,10 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
     } = useFileManagerContext();
 
     // ── 1. Deletion & Restoration State ──────────────────────────────────────
-    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>(
-      formData.deletedDetailFields || [],
-    );
+    const [deletedDetailFields, setDeletedDetailFields] = useState<any[]>([]);
     const [deletedStandardFieldIds, setDeletedStandardFieldIds] = useState<
       string[]
-    >(formData.deletedStandardFieldIds || []);
+    >([]);
 
     const isFieldDeleted = (id: string) => deletedStandardFieldIds.includes(id);
 
@@ -649,6 +646,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
 
     // ── 7. Modals & Slot Activity State ───────────────────────────────────────
     const [processingSlots, setProcessingSlots] = useState<Record<string, boolean>>({});
+    const [deletedImageSlots, setDeletedImageSlots] = useState<string[]>([]);
     const [currentImageSlot, setCurrentImageSlot] = useState<string | null>(
       null,
     );
@@ -714,6 +712,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== key));
         setImages((prev) => ({ ...prev, [key]: url }));
       }
     };
@@ -722,6 +721,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
       key: string,
       refToReset: React.RefObject<HTMLInputElement | null>,
     ) => {
+      setDeletedImageSlots((prev) => [...prev, key]);
       setImages((prev) => ({ ...prev, [key]: null }));
       setScale((prev) => ({ ...prev, [key]: 1 }));
       setPosition((prev) => ({ ...prev, [key]: { x: 0, y: 0 } }));
@@ -777,6 +777,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
 
     const handleGalleryImageSelect = (imageUrl: string) => {
       if (currentImageSlot) {
+        setDeletedImageSlots((prev) => prev.filter((s) => s !== currentImageSlot));
         setImages((prev) => ({ ...prev, [currentImageSlot]: imageUrl }));
       }
       setShowGallery(false);
@@ -930,266 +931,7 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
           }
         }
       }
-
-      if (formData) {
-        if (formData.byLawRestrictions)
-          setByLawRestrictions(formData.byLawRestrictions);
-        if (formData.maintenanceFees) setMaintFees(formData.maintenanceFees);
-        if (formData.maintenanceFeesInclude)
-          setMaintFeesInclude(formData.maintenanceFeesInclude);
-        if (formData.featuresIncluded)
-          setFeaturesIncluded(formData.featuresIncluded);
-        if (formData.siteInfluences) setSiteInfluences(formData.siteInfluences);
-        if (formData.amenities) setAmenities(formData.amenities);
-        if (formData.view) setView(formData.view);
-        if (formData.description) setDescription(formData.description);
-        if (formData.fullName) setFullName(formData.fullName);
-        if (formData.email) setEmail(formData.email);
-        if (formData.propertyName) setPropertyName(formData.propertyName);
-        if (formData.amount) setAmount(formData.amount);
-        if (formData.number) setNumber(formData.number);
-        if (formData.addressCode) {
-          setAddressCode(formData.addressCode);
-          setMlsNumber(formData.addressCode);
-        }
-        if (formData.roadName && formData.roadName !== "0") {
-          setRoadName(formData.roadName);
-          setSuite(formData.roadName);
-        }
-        if (formData.cityLine) setCityLine(formData.cityLine);
-        if (formData.bedroom) setBedroom(formData.bedroom);
-        if (formData.bathroom) setBathroom(formData.bathroom);
-        if (formData.sqft) setSqft(formData.sqft);
-        if (formData.builtYear) setBuiltYear(formData.builtYear);
-        if (formData.suite && formData.suite !== "0") {
-          setSuite(formData.suite);
-          setRoadName(formData.suite);
-        }
-        if (formData.mlsNumber) {
-          setMlsNumber(formData.mlsNumber);
-          setAddressCode(formData.mlsNumber);
-        }
-
-        if (formData.roadLabelBefore && String(formData.roadLabelBefore).toLowerCase() !== "number")
-          setRoadLabelBefore(formData.roadLabelBefore);
-        if (formData.roadLabelAfter && String(formData.roadLabelAfter).toLowerCase() !== "road")
-          setRoadLabelAfter(formData.roadLabelAfter);
-        if (formData.bedroomLabel) setBedroomLabel(formData.bedroomLabel);
-        if (formData.bathroomLabel) setBathroomLabel(formData.bathroomLabel);
-        if (formData.sqftLabel) setSqftLabel(formData.sqftLabel);
-        if (formData.builtYearLabel) setBuiltYearLabel(formData.builtYearLabel);
-        if (formData.byLawLabel) setByLawLabel(formData.byLawLabel);
-        if (formData.maintFeesLabel) setMaintFeesLabel(formData.maintFeesLabel);
-        if (formData.maintFeesIncludeLabel)
-          setMaintFeesIncludeLabel(formData.maintFeesIncludeLabel);
-        if (formData.featuresIncludedLabel)
-          setFeaturesIncludedLabel(formData.featuresIncludedLabel);
-        if (formData.siteInfluencesLabel)
-          setSiteInfluencesLabel(formData.siteInfluencesLabel);
-        if (formData.amenitiesLabel) setAmenitiesLabel(formData.amenitiesLabel);
-        if (formData.viewLabel) setViewLabel(formData.viewLabel);
-        if (formData.contactLabel) setContactLabel(formData.contactLabel);
-        if (formData.phoneLabel) setPhoneLabel(formData.phoneLabel);
-        if (formData.emailLabel) setEmailLabel(formData.emailLabel);
-        if (formData.disclaimerText) setDisclaimerText(formData.disclaimerText);
-
-        if (formData.images)
-          setImages((prev) => ({ ...prev, ...(formData.images as any) }));
-        if (formData.imageScales)
-          setScale((prev) => ({ ...prev, ...(formData.imageScales as any) }));
-        if (formData.imagePositions)
-          setPosition((prev) => ({
-            ...prev,
-            ...(formData.imagePositions as any),
-          }));
-        if (formData.imageRotations)
-          setRotation((prev) => ({
-            ...prev,
-            ...(formData.imageRotations as any),
-          }));
-        if (formData.fieldPositions) setFieldPositions(formData.fieldPositions);
-        if (formData.fieldStyles) {
-          const fs = { ...formData.fieldStyles };
-          const row1Keys = [
-            "roadName",
-            "suite",
-            "addressCode",
-            "mlsNumber",
-            "roadLabelBefore",
-            "roadLabelAfter",
-          ];
-          for (const k of row1Keys) {
-            if (!fs[k] || fs[k].fontSize === "21px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "24px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "100",
-              };
-            }
-          }
-          if (!fs.cityLine || fs.cityLine.fontSize === "15px") {
-            fs.cityLine = {
-              ...(fs.cityLine || {}),
-              fontSize: "18px",
-              fontFamily: "ACaslonProRegular, serif",
-              fontWeight: "100",
-            };
-          }
-          if (!fs.headerAmount) {
-            fs.headerAmount = {
-              fontSize: "18px",
-              fontFamily: "ACaslonProRegular, serif",
-              fontWeight: "100",
-            };
-          }
-          const specKeys = [
-            "bedroom",
-            "bedroomLabel",
-            "bathroom",
-            "bathroomLabel",
-            "sqft",
-            "sqftLabel",
-            "builtYear",
-            "builtYearLabel",
-          ];
-          for (const k of specKeys) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize === "10px" || fs[k].fontSize === "13px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "14px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "400",
-                color: fs[k]?.color || "#000000",
-              };
-            }
-          }
-          if (!fs.description || !fs.description.fontFamily) {
-            fs.description = {
-              ...(fs.description || {}),
-              fontSize: fs.description?.fontSize || "12px",
-              fontFamily: "ACaslonProRegular, serif",
-              fontWeight: fs.description?.fontWeight || "400",
-              fontStyle: fs.description?.fontStyle || "italic",
-              color: fs.description?.color || "#000000",
-              textAlign: fs.description?.textAlign || "left",
-            };
-          }
-          const detailTitleKeys = [
-            "byLawLabel",
-            "maintFeesLabel",
-            "maintFeesIncludeLabel",
-            "featuresIncludedLabel",
-            "siteInfluencesLabel",
-            "amenitiesLabel",
-            "viewLabel",
-          ];
-          for (const k of detailTitleKeys) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "14px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "14px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "400",
-                color: fs[k]?.color || "#000000",
-                textAlign: "left",
-              };
-            }
-          }
-          const detailValueKeys = [
-            "byLawRestrictions",
-            "maintFees",
-            "maintFeesInclude",
-            "featuresIncluded",
-            "siteInfluences",
-            "amenities",
-            "view",
-          ];
-          for (const k of detailValueKeys) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "12px" || fs[k].textAlign === "right") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "12px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "400",
-                color: fs[k]?.color || "#000000",
-                textAlign: "left",
-              };
-            }
-          }
-
-          // Contact & Price Section (All Trajan Pro)
-          // 1. Contact & Name: 16px, Trajan Pro, normal (400)
-          for (const k of ["contactLabel", "fullName", "contactName"]) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "16px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "16px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "400",
-                color: fs[k]?.color || "#000000",
-                textAlign: fs[k]?.textAlign || "left",
-              };
-            }
-          }
-
-          // 2. Price: 32px, Trajan Pro, medium (500)
-          for (const k of ["amount", "priceAmount"]) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "32px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "32px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "500",
-                color: fs[k]?.color || "#000000",
-                textAlign: fs[k]?.textAlign || "right",
-              };
-            }
-          }
-
-          // 3. Phone & Email Titles: 14px, Trajan Pro, medium (500)
-          for (const k of ["phoneLabel", "emailLabel"]) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "14px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "14px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "500",
-                color: fs[k]?.color || "#000000",
-                textAlign: fs[k]?.textAlign || "left",
-              };
-            }
-          }
-
-          // 4. Other Contact fields: 14px, Trajan Pro, normal (400)
-          for (const k of [
-            "propertyName",
-            "contactBrokerage",
-            "number",
-            "contactPhone",
-            "email",
-            "contactEmail",
-          ]) {
-            if (!fs[k] || !fs[k].fontFamily || fs[k].fontSize !== "14px") {
-              fs[k] = {
-                ...(fs[k] || {}),
-                fontSize: "14px",
-                fontFamily: "TrajanProRegular, serif",
-                fontWeight: "400",
-                color: fs[k]?.color || "#000000",
-                textAlign: fs[k]?.textAlign || "left",
-              };
-            }
-          }
-          setFieldStyles((prev) => ({ ...prev, ...fs }));
-        }
-        if (formData.deletedStandardFieldIds)
-          setDeletedStandardFieldIds(formData.deletedStandardFieldIds);
-        if (formData.deletedDetailFields)
-          setDeletedDetailFields(formData.deletedDetailFields);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [orderData]);
 
     // Auto-fetch agent company logo into image8 if available
     useEffect(() => {
@@ -1467,14 +1209,29 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
             _deletedStandardFieldIds: deletedStandardFieldIds,
             deletedStandardFieldIds,
             deletedDetailFields,
+            fieldStyles,
+            fieldPositions,
           },
           images,
+          deletedImageSlots,
           imageScales: scale,
           imagePositions: position,
           imageRotations: rotation,
           fieldPositions,
           fieldStyles,
         });
+        payload.fieldPositions = fieldPositions;
+        payload.fieldStyles = fieldStyles;
+        (payload as any).deletedImageSlots = deletedImageSlots;
+        if (payload.content) {
+          (payload.content as any).deletedImageSlots = deletedImageSlots;
+          (payload.content as any).fieldStyles = fieldStyles;
+          (payload.content as any).fieldPositions = fieldPositions;
+          if ((payload.content as any).otherDetails) {
+            (payload.content as any).otherDetails.fieldStyles = fieldStyles;
+            (payload.content as any).otherDetails.fieldPositions = fieldPositions;
+          }
+        }
         return payload;
       },
       importFromPayload: (payload: FeatureSheetResponse) => {
@@ -1586,13 +1343,34 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
           (orderData?.agent as any)?.avatar_url ||
           null;
 
-        if (state.images)
-          setImages((prev) => ({
-            ...prev,
-            ...(state.images as any),
-            image8: (state.images as any).image8 || prev.image8 || defaultAgentLogo,
-          }));
-        else if (defaultAgentLogo) {
+        const sProcessing =
+          (state as any).processingSlots ||
+          (payload as any).processingSlots ||
+          {};
+        const sDeleted =
+          (state as any).deletedImageSlots || deletedImageSlots || [];
+        setProcessingSlots(sProcessing);
+
+        if ((state as any).deletedImageSlots) {
+          setDeletedImageSlots((state as any).deletedImageSlots);
+        }
+
+        if (state.images) {
+          setImages((prev) =>
+            featureSheetService.mergeResolvedImages(
+              prev,
+              {
+                ...(state.images as any),
+                image8:
+                  (state.images as any).image8 ||
+                  prev.image8 ||
+                  defaultAgentLogo,
+              },
+              sProcessing,
+              sDeleted,
+            ),
+          );
+        } else if (defaultAgentLogo) {
           setImages((prev) => ({
             ...prev,
             image8: prev.image8 || defaultAgentLogo,
@@ -1610,243 +1388,81 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
             ...prev,
             ...(state.imageRotations as any),
           }));
-        if (state.fieldPositions)
+        const c = (payload?.content as Record<string, any>) || {};
+        const od = (c.otherDetails as Record<string, any>) || {};
+
+        const incomingPositions =
+          (od.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (c.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (state.fieldPositions as Record<string, { x: number; y: number }>) ||
+          (payload.fieldPositions as Record<string, { x: number; y: number }>);
+        if (incomingPositions) {
+          setFieldPositions(incomingPositions);
+        } else if (state.fieldPositions) {
           setFieldPositions(
             state.fieldPositions as Record<string, { x: number; y: number }>,
           );
+        }
 
-        // Normalize foreign backend default font sizes
-        const styles = {
+        const incomingStyles: Record<string, TextStyle> = {
+          ...((od.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((c.fieldStyles as Record<string, TextStyle>) || {}),
           ...((state.fieldStyles as Record<string, TextStyle>) || {}),
+          ...((payload.fieldStyles as Record<string, TextStyle>) || {}),
         };
-        if (helperSt(state.realtorName)) {
-          const s = helperSt(state.realtorName)!;
-          styles.fullName = {
-            ...s,
-            fontSize: "16px",
-            fontFamily: "TrajanProRegular, serif",
-            fontWeight: "400",
-          };
+
+        if (!incomingStyles.fullName && helperSt(state.realtorName)) {
+          incomingStyles.fullName = helperSt(state.realtorName)!;
         }
-        if (helperSt(state.companyName)) {
-          const s = helperSt(state.companyName)!;
-          styles.propertyName = {
-            ...s,
-            fontSize: "14px",
-            fontFamily: "TrajanProRegular, serif",
-            fontWeight: "400",
-          };
+        if (!incomingStyles.propertyName && helperSt(state.companyName)) {
+          incomingStyles.propertyName = helperSt(state.companyName)!;
         }
-        if (helperSt(state.emailLink)) {
-          const s = helperSt(state.emailLink)!;
-          styles.email = {
-            ...s,
-            fontSize: "14px",
-            fontFamily: "TrajanProRegular, serif",
-            fontWeight: "400",
-          };
+        if (!incomingStyles.email && helperSt(state.emailLink)) {
+          incomingStyles.email = helperSt(state.emailLink)!;
         }
-        if (helperSt(state.offeredAtPrice)) {
-          const s = helperSt(state.offeredAtPrice)!;
-          styles.amount = {
-            ...s,
-            fontSize: "32px",
-            fontFamily: "TrajanProRegular, serif",
-            fontWeight: "500",
-          };
+        if (!incomingStyles.amount && helperSt(state.offeredAtPrice)) {
+          incomingStyles.amount = helperSt(state.offeredAtPrice)!;
         }
-        if (helperSt(state.propertyNotesTitle)) {
-          const s = helperSt(state.propertyNotesTitle)!;
-          styles.suite =
-            s.fontSize === "28px" || s.fontSize === "21px"
-              ? {
-                  ...s,
-                  fontSize: "24px",
-                  fontFamily: "TrajanProRegular, serif",
-                  fontWeight: "100",
-                }
-              : s;
-          styles.roadName = styles.suite;
+        if (!incomingStyles.suite && helperSt(state.propertyNotesTitle)) {
+          incomingStyles.suite = helperSt(state.propertyNotesTitle)!;
+          if (!incomingStyles.roadName) incomingStyles.roadName = incomingStyles.suite;
         }
-        const row1Keys = [
-          "roadName",
-          "suite",
-          "addressCode",
-          "mlsNumber",
-          "roadLabelBefore",
-          "roadLabelAfter",
-        ];
-        for (const k of row1Keys) {
-          if (!styles[k] || styles[k].fontSize === "21px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "24px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "100",
-            };
-          }
+        if (!incomingStyles.description && helperSt(state.propertyNotesDescription)) {
+          incomingStyles.description = helperSt(state.propertyNotesDescription)!;
         }
-        if (!styles.cityLine || styles.cityLine.fontSize === "15px") {
-          styles.cityLine = {
-            ...(styles.cityLine || {}),
-            fontSize: "18px",
-            fontFamily: "ACaslonProRegular, serif",
-            fontWeight: "100",
-          };
+        if (!incomingStyles.byLawRestrictions && helperSt(state.expandedDetail1Description)) {
+          incomingStyles.byLawRestrictions = helperSt(state.expandedDetail1Description)!;
         }
-        if (!styles.headerAmount) {
-          styles.headerAmount = {
-            fontSize: "18px",
-            fontFamily: "ACaslonProRegular, serif",
-            fontWeight: "100",
-          };
+        if (!incomingStyles.maintFees && helperSt(state.expandedDetail2Description)) {
+          incomingStyles.maintFees = helperSt(state.expandedDetail2Description)!;
         }
-        const specKeys = [
-          "bedroom",
-          "bedroomLabel",
-          "bathroom",
-          "bathroomLabel",
-          "sqft",
-          "sqftLabel",
-          "builtYear",
-          "builtYearLabel",
-        ];
-        for (const k of specKeys) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize === "10px" || styles[k].fontSize === "13px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "14px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "400",
-              color: styles[k]?.color || "#000000",
-            };
-          }
+        if (!incomingStyles.maintFeesInclude && helperSt(state.expandedDetail3Description)) {
+          incomingStyles.maintFeesInclude = helperSt(state.expandedDetail3Description)!;
         }
-        if (helperSt(state.propertyNotesDescription)) {
-          const s = helperSt(state.propertyNotesDescription)!;
-          styles.description =
-            s.fontSize === "28px" ? { ...s, fontSize: "12px" } : s;
-        }
-        if (!styles.description || !styles.description.fontFamily) {
-          styles.description = {
-            ...(styles.description || {}),
-            fontSize: styles.description?.fontSize || "12px",
-            fontFamily: "ACaslonProRegular, serif",
-            fontWeight: styles.description?.fontWeight || "400",
-            fontStyle: styles.description?.fontStyle || "italic",
-            color: styles.description?.color || "#000000",
-            textAlign: styles.description?.textAlign || "left",
-          };
-        }
-        const detailTitleKeys = [
-          "byLawLabel",
-          "maintFeesLabel",
-          "maintFeesIncludeLabel",
-          "featuresIncludedLabel",
-          "siteInfluencesLabel",
-          "amenitiesLabel",
-          "viewLabel",
-        ];
-        for (const k of detailTitleKeys) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "14px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "14px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "400",
-              color: styles[k]?.color || "#000000",
-              textAlign: "left",
-            };
-          }
-        }
-        const detailValueKeys = [
-          "byLawRestrictions",
-          "maintFees",
-          "maintFeesInclude",
-          "featuresIncluded",
-          "siteInfluences",
-          "amenities",
-          "view",
-        ];
-        for (const k of detailValueKeys) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "12px" || styles[k].textAlign === "right") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "12px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "400",
-              color: styles[k]?.color || "#000000",
-              textAlign: "left",
-            };
-          }
-        }
-        // Contact & Price Section (All Trajan Pro)
-        // 1. Contact & Name: 16px, Trajan Pro, normal (400)
-        for (const k of ["contactLabel", "fullName", "contactName"]) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "16px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "16px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "400",
-              color: styles[k]?.color || "#000000",
-              textAlign: styles[k]?.textAlign || "left",
-            };
-          }
+        if (!incomingStyles.featuresIncluded && helperSt(state.expandedDetail4Description)) {
+          incomingStyles.featuresIncluded = helperSt(state.expandedDetail4Description)!;
         }
 
-        // 2. Price: 32px, Trajan Pro, medium (500)
-        for (const k of ["amount", "priceAmount"]) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "32px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "32px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "500",
-              color: styles[k]?.color || "#000000",
-              textAlign: styles[k]?.textAlign || "right",
-            };
-          }
+        // Only fix legacy 20px defaults if that leaked from backend template creation:
+        if (incomingStyles.fullName?.fontSize === "20px") {
+          incomingStyles.fullName = { ...incomingStyles.fullName, fontSize: "16px", fontFamily: incomingStyles.fullName.fontFamily || "TrajanProRegular, serif" };
+        }
+        if (incomingStyles.propertyName?.fontSize === "20px") {
+          incomingStyles.propertyName = { ...incomingStyles.propertyName, fontSize: "14px", fontFamily: incomingStyles.propertyName.fontFamily || "TrajanProRegular, serif" };
+        }
+        if (incomingStyles.number?.fontSize === "20px") {
+          incomingStyles.number = { ...incomingStyles.number, fontSize: "14px", fontFamily: incomingStyles.number.fontFamily || "TrajanProRegular, serif" };
+        }
+        if (incomingStyles.email?.fontSize === "20px") {
+          incomingStyles.email = { ...incomingStyles.email, fontSize: "14px", fontFamily: incomingStyles.email.fontFamily || "TrajanProRegular, serif" };
         }
 
-        // 3. Phone & Email Titles: 14px, Trajan Pro, medium (500)
-        for (const k of ["phoneLabel", "emailLabel"]) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "14px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "14px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "500",
-              color: styles[k]?.color || "#000000",
-              textAlign: styles[k]?.textAlign || "left",
-            };
-          }
+        if (Object.keys(incomingStyles).length > 0) {
+          setFieldStyles((prev) => ({
+            ...prev,
+            ...incomingStyles,
+          }));
         }
-
-        // 4. Other Contact fields: 14px, Trajan Pro, normal (400)
-        for (const k of [
-          "propertyName",
-          "contactBrokerage",
-          "number",
-          "contactPhone",
-          "email",
-          "contactEmail",
-        ]) {
-          if (!styles[k] || !styles[k].fontFamily || styles[k].fontSize !== "14px") {
-            styles[k] = {
-              ...(styles[k] || {}),
-              fontSize: "14px",
-              fontFamily: "TrajanProRegular, serif",
-              fontWeight: "400",
-              color: styles[k]?.color || "#000000",
-              textAlign: styles[k]?.textAlign || "left",
-            };
-          }
-        }
-        setFieldStyles(styles);
-
-        const sProcessing = (state as any).processingSlots || (payload as any).processingSlots || {};
-        setProcessingSlots(sProcessing);
 
         const rawOtherDetails =
           (payload.content?.otherDetails as Record<string, any>) || {};
@@ -1933,99 +1549,83 @@ const BcfpStandard20 = forwardRef<BcfpStandard20Ref, BcfpStandard20Props>(
             onMouseLeave={() => handleMouseLeave(key)}
           >
             {hasImage ? (
-              images[key] === "processing" ||
-              images[key]?.includes("processing") ? (
+              <>
                 <div
-                  data-html2canvas-ignore="true"
-                  className="w-full h-full bg-slate-900/90 text-white flex flex-col items-center justify-center p-2 text-center pointer-events-none z-10"
+                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                  onMouseDown={(e) => handleMouseDown(key, e)}
                 >
-                  <Loader2 className="w-5 h-5 animate-spin text-[#00B9F2] mb-1" />
-                  <span className="text-xs font-semibold text-gray-200">
-                    Processing...
-                  </span>
-                  <span className="text-[9px] text-gray-400 mt-0.5">
-                    Auto-refreshing every 30s
-                  </span>
+                  <ImageEditor
+                    src={images[key]!}
+                    scale={scale[key]}
+                    position={position[key]}
+                    rotation={rotation[key]}
+                    objectFit={isLogoSlot ? "contain" : "cover"}
+                    isProcessing={processingSlots[key]}
+                  />
                 </div>
-              ) : (
-                <>
-                  <div
-                    className="w-full h-full cursor-grab active:cursor-grabbing"
-                    onMouseDown={(e) => handleMouseDown(key, e)}
-                  >
-                    <ImageEditor
-                      src={images[key]!}
-                      scale={scale[key]}
-                      position={position[key]}
-                      rotation={rotation[key]}
-                      objectFit={isLogoSlot ? "contain" : "cover"}
-                      isProcessing={processingSlots[key]}
-                    />
-                  </div>
 
-                  {/* Zoom Controls */}
-                  <div className="absolute bottom-1.5 left-1.5 flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleZoom(key, "in");
-                      }}
-                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="w-3.5 h-3.5 text-gray-700" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleZoom(key, "out");
-                      }}
-                      className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="w-3.5 h-3.5 text-gray-700" />
-                    </button>
-                  </div>
-
-                  {/* Rotate */}
+                {/* Zoom Controls */}
+                <div className="absolute bottom-1.5 left-1.5 flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-20">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRotate(key);
+                      handleZoom(key, "in");
                     }}
-                    className="absolute top-2 right-[68px] z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
-                    title="Rotate image"
+                    className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom In"
                   >
-                    <RotateCw className="w-3.5 h-3.5 text-gray-700" />
+                    <ZoomIn className="w-3.5 h-3.5 text-gray-700" />
                   </button>
-
-                  {/* Edit */}
-                  <button
-                    type="button"
-                    onClick={(e) => openImageSourceModal(key, e)}
-                    className="absolute top-2 right-9 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Edit image"
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-gray-700" />
-                  </button>
-
-                  {/* Delete */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(key, inputRef);
+                      handleZoom(key, "out");
                     }}
-                    className="absolute top-2 right-2 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    title="Delete image"
+                    className="bg-white p-1.5 rounded-full shadow hover:bg-gray-100"
+                    title="Zoom Out"
                   >
-                    <Trash className="w-3.5 h-3.5 text-red-500" />
+                    <ZoomOut className="w-3.5 h-3.5 text-gray-700" />
                   </button>
-                </>
-              )
+                </div>
+
+                {/* Rotate */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRotate(key);
+                  }}
+                  className="absolute top-2 right-[68px] z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto print:hidden"
+                  title="Rotate image"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+
+                {/* Edit */}
+                <button
+                  type="button"
+                  onClick={(e) => openImageSourceModal(key, e)}
+                  className="absolute top-2 right-9 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  title="Edit image"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-gray-700" />
+                </button>
+
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(key, inputRef);
+                  }}
+                  className="absolute top-2 right-2 z-20 bg-white p-1.5 rounded-full shadow hover:bg-gray-100 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                  title="Delete image"
+                >
+                  <Trash className="w-3.5 h-3.5 text-red-500" />
+                </button>
+              </>
             ) : (
               <div
                 data-html2canvas-ignore="true"

@@ -3609,11 +3609,9 @@ const AgentForm = () => {
                                         </div>
                                       </div>
 
-                                      {agentDiscount.expiry_date && (
-                                        <p className="text-[12px] font-[300] text-[#666666]">
-                                          Expires {agentDiscount.expiry_date}
-                                        </p>
-                                      )}
+                                      <p className="text-[12px] font-[400] text-[#666666]">
+                                        {agentDiscount.expiry_date ? `Expires ${agentDiscount.expiry_date}` : "Permanent (No Expiry)"}
+                                      </p>
                                     </div>
 
                                     <div className="basis-[20%] w-full flex gap-x-4 items-center justify-end">
@@ -3661,7 +3659,7 @@ const AgentForm = () => {
                                   <div>
                                     <span className="text-gray-500 block">Valid Until:</span>
                                     <span className="font-semibold text-emerald-900">
-                                      {agentDiscount.expiry_date || "Ongoing"}
+                                      {agentDiscount.expiry_date || "Permanent (No Expiry)"}
                                     </span>
                                   </div>
                                   {Number(agentDiscount.minimum_orders || 0) > 0 && (

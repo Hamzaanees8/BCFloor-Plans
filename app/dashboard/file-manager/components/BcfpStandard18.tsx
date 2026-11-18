@@ -15,7 +15,6 @@ import {
   RotateCw,
   Lock,
   Unlock,
-  Loader2,
   Square,
   Layers,
   Sun,
@@ -1035,35 +1034,20 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
             onMouseLeave={() => handleMouseLeave(key)}
           >
             {hasImage ? (
-              images[key] === "processing" ||
-              images[key]?.includes("processing") ? (
+              <>
                 <div
-                  data-html2canvas-ignore="true"
-                  className="w-full h-full bg-slate-900/90 text-white flex flex-col items-center justify-center p-2 text-center pointer-events-none z-10"
+                  className="w-full h-full cursor-grab active:cursor-grabbing"
+                  onMouseDown={(e) => handleMouseDown(key, e)}
                 >
-                  <Loader2 className="w-5 h-5 animate-spin text-[#00B9F2] mb-1" />
-                  <span className="text-xs font-semibold text-gray-200">
-                    Processing...
-                  </span>
-                  <span className="text-[9px] text-gray-400 mt-0.5">
-                    Auto-refreshing every 30s
-                  </span>
+                  <ImageEditor
+                    src={images[key]!}
+                    scale={scale[key]}
+                    position={position[key]}
+                    rotation={rotation[key]}
+                    objectFit={isLogoSlot ? "contain" : "cover"}
+                    isProcessing={processingSlots[key]}
+                  />
                 </div>
-              ) : (
-                <>
-                  <div
-                    className="w-full h-full cursor-grab active:cursor-grabbing"
-                    onMouseDown={(e) => handleMouseDown(key, e)}
-                  >
-                    <ImageEditor
-                      src={images[key]!}
-                      scale={scale[key]}
-                      position={position[key]}
-                      rotation={rotation[key]}
-                      objectFit={isLogoSlot ? "contain" : "cover"}
-                      isProcessing={processingSlots[key]}
-                    />
-                  </div>
 
                   {/* Zoom Controls */}
                   <div
@@ -1151,8 +1135,7 @@ const BcfpStandard18 = forwardRef<BcfpStandard18Ref, BcfpStandard18Props>(
                     <Trash className="w-3.5 h-3.5 text-red-500" />
                   </button>
                 </>
-              )
-            ) : (
+              ) : (
               <div
                 data-html2canvas-ignore="true"
                 onClick={(e) => openImageSourceModal(key, e)}
