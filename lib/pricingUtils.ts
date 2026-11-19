@@ -1,4 +1,4 @@
-export interface AreaItemInput {
+﻿export interface AreaItemInput {
   type: string;
   footage: number;
   custom_title?: string;
@@ -508,7 +508,8 @@ export const resolveServicePrice = (params: {
       const singleSvcInv = targetInvoices.find(
         (inv: any) =>
           (!inv.notes?.toLowerCase().includes("consolidated") ||
-            inv.items?.length === 1) &&
+            inv.items?.length === 1 ||
+            (inv.items?.length === 2 && inv.items.some((it: any) => (it.description || '').toLowerCase().includes('discount')))) &&
           inv.items?.some(isMatchingItem),
       );
       const chosenInvoice =
@@ -566,7 +567,8 @@ export const resolveServicePrice = (params: {
           const singleSvcInv = agentInvs.find(
             (inv: any) =>
               !inv.notes?.toLowerCase().includes("consolidated") ||
-              inv.items?.length === 1,
+              inv.items?.length === 1 ||
+              (inv.items?.length === 2 && inv.items.some((it: any) => (it.description || '').toLowerCase().includes('discount'))),
           );
           const chosenInv = singleSvcInv || agentInvs[0];
           if (chosenInv && Array.isArray(chosenInv.items)) {

@@ -146,9 +146,12 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                         originalPrice = catalogOption.min_price
                             ? Math.max(calculated, catalogOption.min_price)
                             : calculated;
-                    } else if (Number(sel.price) > 0) {
+                    } else if (Number(sel.price) > 1) {
+                        // sel.price > 1 means it's a real calculated total, not the raw per-sqft rate
+                        // (e.g. a rate like $0.10/sqft would be ≤1; a real total would be e.g. $250)
                         originalPrice = Number(sel.price);
                     }
+                    // If sqFootage=0 and sel.price ≤ 1, leave originalPrice=0 — cannot compute yet
                 } else if (Number(catalogOption.amount) > 0) {
                     originalPrice = Number(catalogOption.amount);
                 }
@@ -1325,6 +1328,9 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
                                     // ✅ skip rendering if no discounts for this service
                                     if (allDiscounts?.length === 0) return null;
+
+                                    // ✅ skip if price couldn't be computed (sq_ft_rate service with sqFootage not yet loaded)
+                                    if (originalPrice <= 0) return null;
 
                                     return (
                                         <div key={fullService.uuid} className="col-span-2 space-y-5">

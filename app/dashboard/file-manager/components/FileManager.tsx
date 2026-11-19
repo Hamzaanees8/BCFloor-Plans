@@ -2133,6 +2133,8 @@ const FileManager = () => {
       }
     }
 
+    let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
+
     const userTargetInvoice =
       invoices.find((inv) =>
         userType === "agent"
@@ -2149,11 +2151,23 @@ const FileManager = () => {
                   inv.agent_type !== "co_agent"))
           : inv.agent_type === "primary" || (inv.agent && !inv.split_details),
       ) || invoices[0];
-    const gstRate =
-      parseFloat(userTargetInvoice?.tax_rate || invoices[0]?.tax_rate || "0") /
-      100;
 
-    let currentBookedService = activeServiceGroup?.[activeServiceIndex] as any;
+    // Find the dedicated single-service invoice for this specific booked service if it exists,
+    // so we use its specific tax rate rather than the main invoice's combined/blended tax rate.
+    const serviceDedicatedInvoice = currentBookedService
+      ? invoices.find((inv) => {
+          const isSingle = (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length <= 2);
+          return isSingle && inv.items?.some((it: any) => 
+            it.order_service_id === currentBookedService.id || 
+            it.order_service?.uuid === currentBookedService.uuid ||
+            (it.description && currentBookedService.service?.name && it.description.toLowerCase().trim() === currentBookedService.service.name.toLowerCase().trim())
+          );
+        })
+      : null;
+
+    const effectiveInvoiceForTax = serviceDedicatedInvoice || userTargetInvoice || invoices[0];
+    const gstRate =
+      parseFloat(effectiveInvoiceForTax?.tax_rate || "0") / 100;
     if (currentBookedService) {
       const squareFootage = orderData?.property?.square_footage
         ? parseFloat(orderData.property.square_footage.toString())

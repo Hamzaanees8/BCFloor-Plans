@@ -2124,6 +2124,10 @@ const Page = () => {
                               ? String(billing.tax_rate)
                               : "0"),
                         );
+                        const orderTaxDetails =
+                          primaryInvoice?.tax_details ||
+                          billing.tax_details ||
+                          null;
                         const subtotalVal =
                           primaryInvoice &&
                           parseFloat(primaryInvoice.subtotal || "0") > 0
@@ -2701,7 +2705,27 @@ const Page = () => {
                                                 })}
                                               </span>
                                             </div>
-                                            {taxRate > 0 && (
+                                            {orderTaxDetails && Object.keys(orderTaxDetails).length > 0 ? (
+                                              Object.entries(orderTaxDetails).map(([taxKey, taxVal]: [string, any]) => {
+                                                const rate = taxVal?.rate ?? taxRate;
+                                                const amt = parseFloat(taxVal?.amount || 0);
+                                                return (
+                                                  <div key={taxKey}>
+                                                    <span className="text-gray-500 block text-xs">
+                                                      {taxKey} ({rate}%)
+                                                    </span>
+                                                    <span className="font-semibold text-[#DC9600]">
+                                                      {(
+                                                        amt * splitMultiplier
+                                                      ).toLocaleString("en-US", {
+                                                        style: "currency",
+                                                        currency: "USD",
+                                                      })}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })
+                                            ) : taxRate > 0 ? (
                                               <div>
                                                 <span className="text-gray-500 block text-xs">
                                                   GST/HST ({taxRate}%)
@@ -2715,7 +2739,7 @@ const Page = () => {
                                                   })}
                                                 </span>
                                               </div>
-                                            )}
+                                            ) : null}
                                             <div>
                                               <span className="text-gray-500 block text-xs">
                                                 Grand Total
@@ -3455,20 +3479,52 @@ const Page = () => {
                                                     pricing.totalPrice;
                                                   const effectiveTaxRate =
                                                     pricing.appliedTaxRate;
+                                                  const serviceTaxDetails =
+                                                    pricing.taxDetails;
+                                                  const servicePaidAmount =
+                                                    pricing.paidAmount ?? 0;
+                                                  const serviceRefundedAmount =
+                                                    pricing.refundedAmount ?? 0;
+                                                  const serviceOriginalPrice =
+                                                    pricing.originalPrice;
+                                                  const serviceDiscountAmount =
+                                                    pricing.discountAmount;
 
                                                   return (
                                                     <>
                                                       <p>
                                                         Base Price:{" "}
                                                         <span className="font-medium text-gray-800">
-                                                          {serviceBasePrice.toLocaleString(
-                                                            "en-US",
-                                                            {
+                                                          {serviceOriginalPrice && serviceDiscountAmount && serviceDiscountAmount > 0 ? (
+                                                            <>
+                                                              <span className="line-through text-gray-400 font-normal mr-1.5">
+                                                                {serviceOriginalPrice.toLocaleString("en-US", {
+                                                                  style: "currency",
+                                                                  currency: "USD",
+                                                                })}
+                                                              </span>
+                                                              <span>
+                                                                {serviceBasePrice.toLocaleString("en-US", {
+                                                                  style: "currency",
+                                                                  currency: "USD",
+                                                                })}
+                                                              </span>
+                                                            </>
+                                                          ) : (
+                                                            serviceBasePrice.toLocaleString("en-US", {
                                                               style: "currency",
                                                               currency: "USD",
-                                                            },
+                                                            })
                                                           )}
                                                         </span>
+                                                        {serviceDiscountAmount && serviceDiscountAmount > 0 ? (
+                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            Discount: -{serviceDiscountAmount.toLocaleString("en-US", {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            })}
+                                                          </span>
+                                                        ) : null}
                                                         {isCoAgentShared && (
                                                           <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                                                             {
@@ -3478,40 +3534,64 @@ const Page = () => {
                                                           </span>
                                                         )}
                                                       </p>
-                                                      {effectiveTaxRate > 0 ? (
-                                                        <>
-                                                          <p className="text-xs text-gray-500">
-                                                            GST (
-                                                            {effectiveTaxRate}
-                                                            %):{" "}
-                                                            <span className="font-medium">
-                                                              {serviceTaxAmount.toLocaleString(
-                                                                "en-US",
-                                                                {
-                                                                  style:
-                                                                    "currency",
-                                                                  currency:
-                                                                    "USD",
-                                                                },
-                                                              )}
-                                                            </span>
-                                                          </p>
-                                                          <p className="text-[13px] font-semibold text-gray-700">
-                                                            Total Price:{" "}
-                                                            <span className="text-[#6BAE41]">
-                                                              {serviceTotalPrice.toLocaleString(
-                                                                "en-US",
-                                                                {
-                                                                  style:
-                                                                    "currency",
-                                                                  currency:
-                                                                    "USD",
-                                                                },
-                                                              )}
-                                                            </span>
-                                                          </p>
-                                                        </>
+                                                      {serviceTaxDetails && Object.keys(serviceTaxDetails).length > 0 ? (
+                                                        Object.entries(serviceTaxDetails).map(([taxKey, taxVal]: [string, any]) => {
+                                                          const rate = taxVal?.rate ?? effectiveTaxRate;
+                                                          const amt = parseFloat(taxVal?.amount || 0);
+                                                          return (
+                                                            <p key={taxKey} className="text-xs text-gray-500">
+                                                              {taxKey} ({rate}%):{" "}
+                                                              <span className="font-medium">
+                                                                {amt.toLocaleString("en-US", {
+                                                                  style: "currency",
+                                                                  currency: "USD",
+                                                                })}
+                                                              </span>
+                                                            </p>
+                                                          );
+                                                        })
+                                                      ) : serviceTaxAmount > 0 ? (
+                                                        <p className="text-xs text-gray-500">
+                                                          {effectiveTaxRate > 0 ? ("Tax (" + effectiveTaxRate + "%):") : "Tax:"}{" "}
+                                                          <span className="font-medium">
+                                                            {serviceTaxAmount.toLocaleString("en-US", {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            })}
+                                                          </span>
+                                                        </p>
                                                       ) : null}
+                                                      <p className="text-[13px] font-semibold text-gray-700">
+                                                        Total Price:{" "}
+                                                        <span className="text-[#6BAE41]">
+                                                          {serviceTotalPrice.toLocaleString("en-US", {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                          })}
+                                                        </span>
+                                                      </p>
+                                                      {servicePaidAmount > 0 && (
+                                                        <p className="text-xs text-gray-600">
+                                                          Amount Paid:{" "}
+                                                          <span className="font-semibold text-[#6BAE41]">
+                                                            {servicePaidAmount.toLocaleString("en-US", {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            })}
+                                                          </span>
+                                                        </p>
+                                                      )}
+                                                      {serviceRefundedAmount > 0 && (
+                                                        <p className="text-xs text-gray-600">
+                                                          Amount Refunded:{" "}
+                                                          <span className="font-semibold text-red-500">
+                                                            {serviceRefundedAmount.toLocaleString("en-US", {
+                                                              style: "currency",
+                                                              currency: "USD",
+                                                            })}
+                                                          </span>
+                                                        </p>
+                                                      )}
                                                     </>
                                                   );
                                                 })()}

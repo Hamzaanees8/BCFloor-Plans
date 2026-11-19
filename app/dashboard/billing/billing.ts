@@ -19,6 +19,15 @@ export interface ServiceItem {
   related_invoices: ServiceInvoices[];
   order_service_uuid: string;
   uuid?: string;
+  original_amount?: number;
+  discounted_amount?: number;
+  tax_amount?: number;
+  tax_rate?: number;
+  tax_details?: any;
+  total_amount?: number;
+  paid_amount?: number;
+  refunded_amount?: number;
+  invoice_status?: string;
 }
 
 export interface OrderSlots {
@@ -54,6 +63,7 @@ export interface BillingItem {
   grand_total?: number;
   tax_amount?: number;
   tax_rate?: number;
+  tax_details?: any;
   total_paid: number;
   total_refunded?: number;
   remaining_amount: number;
@@ -402,8 +412,33 @@ export function prepareServiceInvoicePreview(
     return sum + (parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0)));
   }, 0);
 
-  const taxRate = parseFloat(targetInvoice.tax_rate || "0");
-  const taxAmount = subtotal * (taxRate / 100);
+  let taxDetails = targetInvoice.tax_details;
+  let taxAmount = 0;
+  const itemsTaxSum = matchingItems.reduce((sum: number, item: any) => sum + (parseFloat(item.tax_amount || "0") || 0), 0);
+  const itemsGstSum = matchingItems.reduce((sum: number, item: any) => sum + (parseFloat(item.gst_amount || "0") || 0), 0);
+  const itemsPstSum = matchingItems.reduce((sum: number, item: any) => sum + (parseFloat(item.pst_amount || "0") || 0), 0);
+
+  if (itemsTaxSum > 0) {
+    taxAmount = itemsTaxSum;
+    if (itemsGstSum > 0 || itemsPstSum > 0) {
+      taxDetails = {};
+      if (itemsGstSum > 0) {
+        taxDetails["GST"] = {
+          rate: targetInvoice.tax_details?.GST?.rate ?? 11,
+          amount: itemsGstSum,
+        };
+      }
+      if (itemsPstSum > 0) {
+        taxDetails["PST"] = {
+          rate: targetInvoice.tax_details?.PST?.rate ?? 7,
+          amount: itemsPstSum,
+        };
+      }
+    }
+  } else {
+    const taxRate = parseFloat(targetInvoice.tax_rate || "0");
+    taxAmount = subtotal * (taxRate / 100);
+  }
   const total = subtotal + taxAmount;
 
   return {
@@ -412,6 +447,7 @@ export function prepareServiceInvoicePreview(
     subtotal: subtotal.toFixed(2),
     tax_amount: taxAmount.toFixed(2),
     tax: taxAmount.toFixed(2),
+    tax_details: taxDetails,
     total: total.toFixed(2),
     total_amount: total.toFixed(2),
   };
@@ -621,6 +657,22 @@ export function getServiceCombinedStatus(
   return "partially_paid";
 }
 
+export interface ServicePricingDetails {
+  basePrice: number;
+  taxAmount: number;
+  totalPrice: number;
+  isFromInvoice: boolean;
+  matchingInvoicesCount: number;
+  appliedTaxRate: number;
+  taxDetails?: Record<string, { rate?: number; amount?: number }>;
+  paidAmount?: number;
+  refundedAmount?: number;
+  invoiceStatus?: string;
+  originalPrice?: number;
+  discountAmount?: number;
+  discountDescription?: string;
+}
+
 /**
  * Compute the actual price, tax, and total for a specific service based on actual invoice line items.
  * If services are split across multiple invoices (e.g. Primary Agent + Co-Agent), combines the prices
@@ -642,20 +694,34 @@ export function getServiceActualInvoicePricing({
   userType?: string | null;
   currentUser?: any;
   fallbackTaxRate?: number;
-}): {
-  basePrice: number;
-  taxAmount: number;
-  totalPrice: number;
-  isFromInvoice: boolean;
-  matchingInvoicesCount: number;
-  appliedTaxRate: number;
-} {
+}): ServicePricingDetails {
   const serviceUuid = service?.uuid || service?.order_service_uuid;
   const serviceNumericId = service?.service_id;
   const serviceName = service?.service_name;
 
   if (!Array.isArray(invoices) || invoices.length === 0) {
-    const basePrice = (service?.amount || 0) * splitMultiplier;
+    if (service?.total_amount != null && service?.tax_amount != null) {
+      const basePrice = (service?.discounted_amount != null ? service.discounted_amount : (service?.amount || 0)) * splitMultiplier;
+      const taxAmount = (service.tax_amount || 0) * splitMultiplier;
+      const totalPrice = (service.total_amount || 0) * splitMultiplier;
+      const appliedTaxRate = service.tax_rate != null ? parseFloat(service.tax_rate) : fallbackTaxRate;
+      return {
+        basePrice,
+        taxAmount,
+        totalPrice,
+        isFromInvoice: true,
+        matchingInvoicesCount: 0,
+        appliedTaxRate,
+        taxDetails: service.tax_details || undefined,
+        paidAmount: (service.paid_amount || 0) * splitMultiplier,
+        refundedAmount: (service.refunded_amount || 0) * splitMultiplier,
+        invoiceStatus: service.invoice_status || service.status,
+        originalPrice: service.original_amount ? service.original_amount * splitMultiplier : undefined,
+        discountAmount: service.original_amount && service.original_amount > basePrice ? (service.original_amount - basePrice) * splitMultiplier : undefined,
+      };
+    }
+
+    const basePrice = (service?.discounted_amount != null ? service.discounted_amount : (service?.amount || 0)) * splitMultiplier;
     const taxAmount = basePrice * (fallbackTaxRate / 100);
     const totalPrice = basePrice + taxAmount;
     return {
@@ -705,14 +771,21 @@ export function getServiceActualInvoicePricing({
     return parseFloat(item.amount) || ((parseFloat(item.quantity) || 1) * (parseFloat(item.unit_price) || 0));
   };
 
-  // Determine effective tax rate from invoices
-  let taxRate = fallbackTaxRate;
-  for (const inv of invoicePool) {
-    if (inv?.tax_rate != null && parseFloat(inv.tax_rate) > 0) {
-      taxRate = parseFloat(inv.tax_rate);
-      break;
+  const isDedicatedServiceInvoice = (inv: any) => {
+    if (!inv) return false;
+    const notes = (inv.notes || "").toLowerCase();
+    if (notes.includes("consolidated")) return false;
+    if (notes.includes("service invoice")) {
+      return !inv.items || inv.items.length === 0 || inv.items.some(isMatchingItem);
     }
-  }
+    if (serviceName && notes.includes(serviceName.toLowerCase())) return true;
+    if (Array.isArray(inv.items) && inv.items.length > 0) {
+      const positiveItems = inv.items.filter((i: any) => getItemAmount(i) > 0);
+      if (positiveItems.length === 1 && isMatchingItem(positiveItems[0])) return true;
+      if (inv.items.every((i: any) => isMatchingItem(i) || getItemAmount(i) < 0)) return true;
+    }
+    return false;
+  };
 
   const isAgent = userType === "agent" || isCoAgentUser;
 
@@ -737,18 +810,32 @@ export function getServiceActualInvoicePricing({
     const agentInvoices = invoicePool.filter(matchesThisAgent);
     const targetInvoices = agentInvoices.length > 0 ? agentInvoices : invoicePool;
 
-    // Prefer individual invoice for this service if one exists
-    const singleSvcInv = targetInvoices.find(
-      (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
-    );
+    // Prefer dedicated service invoice
+    const singleSvcInv = targetInvoices.find(isDedicatedServiceInvoice);
     const chosenInvoice = singleSvcInv || targetInvoices.find((inv) => inv.items?.some(isMatchingItem));
 
-    if (chosenInvoice && Array.isArray(chosenInvoice.items)) {
-      if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
-        const basePrice = parseFloat(singleSvcInv.subtotal);
-        const invTaxRate = singleSvcInv.tax_rate != null && parseFloat(singleSvcInv.tax_rate) > 0 ? parseFloat(singleSvcInv.tax_rate) : taxRate;
+    if (chosenInvoice) {
+      if (singleSvcInv) {
+        const basePrice = parseFloat(singleSvcInv.subtotal || "0");
+        const invTaxRate = singleSvcInv.tax_rate != null && parseFloat(singleSvcInv.tax_rate) > 0 ? parseFloat(singleSvcInv.tax_rate) : fallbackTaxRate;
         const taxAmount = singleSvcInv.tax_amount != null && parseFloat(singleSvcInv.tax_amount) > 0 ? parseFloat(singleSvcInv.tax_amount) : basePrice * (invTaxRate / 100);
         const totalPrice = singleSvcInv.total != null && parseFloat(singleSvcInv.total) > 0 ? parseFloat(singleSvcInv.total) : basePrice + taxAmount;
+        
+        let originalPrice: number | undefined;
+        let discountAmount: number | undefined;
+        let discountDescription: string | undefined;
+
+        if (Array.isArray(singleSvcInv.items)) {
+          const posSum = singleSvcInv.items.filter((i: any) => getItemAmount(i) > 0).reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+          const negItems = singleSvcInv.items.filter((i: any) => getItemAmount(i) < 0);
+          const negSum = negItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+          if (negSum > 0) {
+            originalPrice = posSum;
+            discountAmount = negSum;
+            discountDescription = negItems[0]?.description;
+          }
+        }
+
         return {
           basePrice,
           taxAmount,
@@ -756,15 +843,81 @@ export function getServiceActualInvoicePricing({
           isFromInvoice: true,
           matchingInvoicesCount: 1,
           appliedTaxRate: invTaxRate,
+          taxDetails: singleSvcInv.tax_details && Object.keys(singleSvcInv.tax_details).length > 0 ? singleSvcInv.tax_details : undefined,
+          paidAmount: parseFloat(singleSvcInv.paid_amount || "0"),
+          refundedAmount: parseFloat(singleSvcInv.refunded_amount || "0"),
+          invoiceStatus: singleSvcInv.status,
+          originalPrice,
+          discountAmount,
+          discountDescription,
         };
       }
 
-      const matchingItems = chosenInvoice.items.filter(isMatchingItem);
-      if (matchingItems.length > 0) {
-        const netBasePrice = matchingItems.reduce((sum: number, item: any) => sum + getItemAmount(item), 0);
-        if (netBasePrice > 0) {
-          const invTaxRate = chosenInvoice.tax_rate != null && parseFloat(chosenInvoice.tax_rate) > 0 ? parseFloat(chosenInvoice.tax_rate) : taxRate;
-          const taxAmount = netBasePrice * (invTaxRate / 100);
+      // From multi-service or consolidated invoice
+      if (Array.isArray(chosenInvoice.items)) {
+        const matchingItems = chosenInvoice.items.filter(isMatchingItem);
+        if (matchingItems.length > 0) {
+          const posMatching = matchingItems.filter((i: any) => getItemAmount(i) > 0);
+          const posAmount = posMatching.reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+          const directNegItems = matchingItems.filter((i: any) => getItemAmount(i) < 0);
+          let discountAmt = directNegItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+          let discountDesc = directNegItems[0]?.description;
+
+          // If no direct discount items on this service, check global discount items on invoice
+          if (discountAmt === 0) {
+            const allPosSum = chosenInvoice.items.filter((i: any) => getItemAmount(i) > 0).reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+            const allNegItems = chosenInvoice.items.filter((i: any) => getItemAmount(i) < 0);
+            const allNegSum = allNegItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+            if (allNegSum > 0 && allPosSum > 0 && posAmount > 0) {
+              const ratio = posAmount / allPosSum;
+              discountAmt = Math.round(allNegSum * ratio * 100) / 100;
+              discountDesc = allNegItems[0]?.description;
+            }
+          }
+
+          const netBasePrice = Math.max(0, posAmount - discountAmt);
+          const invTaxRate = chosenInvoice.tax_rate != null && parseFloat(chosenInvoice.tax_rate) > 0 ? parseFloat(chosenInvoice.tax_rate) : fallbackTaxRate;
+          
+          let taxAmount = 0;
+          let taxDetails: Record<string, { rate?: number; amount?: number }> | undefined;
+
+          // Check if items have item-level tax amounts
+          const itemTaxSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.tax_amount || "0") || 0), 0);
+          const itemGstSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.gst_amount || "0") || 0), 0);
+          const itemPstSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.pst_amount || "0") || 0), 0);
+
+          if (itemTaxSum > 0) {
+            const scale = posAmount > 0 ? netBasePrice / posAmount : 1;
+            taxAmount = Math.round(itemTaxSum * scale * 100) / 100;
+            taxDetails = {};
+            if (itemGstSum > 0) {
+              taxDetails["GST"] = {
+                rate: chosenInvoice.tax_details?.GST?.rate ?? 11,
+                amount: Math.round(itemGstSum * scale * 100) / 100,
+              };
+            }
+            if (itemPstSum > 0) {
+              taxDetails["PST"] = {
+                rate: chosenInvoice.tax_details?.PST?.rate ?? 7,
+                amount: Math.round(itemPstSum * scale * 100) / 100,
+              };
+            }
+          } else {
+            taxAmount = Math.round(netBasePrice * (invTaxRate / 100) * 100) / 100;
+            if (chosenInvoice.tax_details) {
+              taxDetails = {};
+              Object.entries(chosenInvoice.tax_details).forEach(([k, v]: [string, any]) => {
+                const r = parseFloat(v?.rate || 0);
+                if (r > 0) {
+                  taxDetails![k] = {
+                    rate: r,
+                    amount: Math.round(netBasePrice * (r / 100) * 100) / 100,
+                  };
+                }
+              });
+            }
+          }
+
           const totalPrice = netBasePrice + taxAmount;
           return {
             basePrice: netBasePrice,
@@ -773,19 +926,23 @@ export function getServiceActualInvoicePricing({
             isFromInvoice: true,
             matchingInvoicesCount: 1,
             appliedTaxRate: invTaxRate,
+            taxDetails: taxDetails && Object.keys(taxDetails).length > 0 ? taxDetails : undefined,
+            originalPrice: discountAmt > 0 ? posAmount : undefined,
+            discountAmount: discountAmt > 0 ? discountAmt : undefined,
+            discountDescription: discountDesc,
+            invoiceStatus: chosenInvoice.status,
           };
         }
       }
     }
   } else {
-    // ADMIN VIEW: sum of both / all split invoices (70% + 30% = 100%)
+    // ADMIN VIEW: sum across matching split invoices (e.g. Primary Agent + Co-Agent = 100%)
     const matchingInvoices = invoicePool.filter((inv) =>
       Array.isArray(inv?.items) && inv.items.some(isMatchingItem)
     );
 
     if (matchingInvoices.length > 0) {
       // Group matching invoices by unique agent.
-      // An agent is uniquely identified by uuid, email, agent_type, or invoice id.
       const agentMap = new Map<string, any[]>();
 
       matchingInvoices.forEach((inv) => {
@@ -809,49 +966,183 @@ export function getServiceActualInvoicePricing({
       });
 
       let combinedBasePrice = 0;
+      let combinedTaxAmount = 0;
+      let combinedTotalPrice = 0;
+      let combinedPaidAmount = 0;
+      let combinedRefundedAmount = 0;
+      let combinedOriginalPrice = 0;
+      let combinedDiscountAmount = 0;
+      let discountDescription: string | undefined;
+      const combinedTaxDetails: Record<string, { rate?: number; amount?: number }> = {};
       let matches = 0;
+      let primaryStatus = "";
 
-      // For each distinct agent, pick their best matching invoice (prefer single-service invoice over multi-service/consolidated)
+      // For each distinct agent, pick their best matching invoice (prefer dedicated single-service invoice over consolidated)
       agentMap.forEach((agentInvs) => {
-        const singleSvcInv = agentInvs.find(
-          (inv) => (!inv.notes?.toLowerCase().includes("consolidated") || inv.items?.length === 1) && inv.items?.some(isMatchingItem)
-        );
-        const chosenInv = singleSvcInv || agentInvs[0];
-        if (chosenInv && Array.isArray(chosenInv.items)) {
+        const singleSvcInv = agentInvs.find(isDedicatedServiceInvoice);
+        const chosenInv = singleSvcInv || agentInvs.find((inv) => inv.items?.some(isMatchingItem)) || agentInvs[0];
+
+        if (chosenInv) {
           if (singleSvcInv && parseFloat(singleSvcInv.subtotal || "0") > 0) {
-            combinedBasePrice += parseFloat(singleSvcInv.subtotal);
+            const sub = parseFloat(singleSvcInv.subtotal || "0");
+            const tax = singleSvcInv.tax_amount != null && parseFloat(singleSvcInv.tax_amount) > 0
+              ? parseFloat(singleSvcInv.tax_amount)
+              : sub * (parseFloat(singleSvcInv.tax_rate || fallbackTaxRate.toString()) / 100);
+            const tot = singleSvcInv.total != null && parseFloat(singleSvcInv.total) > 0
+              ? parseFloat(singleSvcInv.total)
+              : sub + tax;
+
+            combinedBasePrice += sub;
+            combinedTaxAmount += tax;
+            combinedTotalPrice += tot;
+            combinedPaidAmount += parseFloat(singleSvcInv.paid_amount || "0");
+            combinedRefundedAmount += parseFloat(singleSvcInv.refunded_amount || "0");
+            if (!primaryStatus) primaryStatus = singleSvcInv.status;
+
+            if (Array.isArray(singleSvcInv.items)) {
+              const posSum = singleSvcInv.items.filter((i: any) => getItemAmount(i) > 0).reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+              const negItems = singleSvcInv.items.filter((i: any) => getItemAmount(i) < 0);
+              const negSum = negItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+              if (negSum > 0) {
+                combinedOriginalPrice += posSum;
+                combinedDiscountAmount += negSum;
+                if (!discountDescription) discountDescription = negItems[0]?.description;
+              }
+            }
+
+            if (singleSvcInv.tax_details && typeof singleSvcInv.tax_details === "object") {
+              Object.entries(singleSvcInv.tax_details).forEach(([k, v]: [string, any]) => {
+                const amt = parseFloat(v?.amount || 0);
+                const r = v?.rate ?? 0;
+                if (!combinedTaxDetails[k]) {
+                  combinedTaxDetails[k] = { rate: r, amount: amt };
+                } else {
+                  combinedTaxDetails[k].amount = Math.round(((combinedTaxDetails[k].amount || 0) + amt) * 100) / 100;
+                }
+              });
+            }
+
             matches++;
-          } else {
+          } else if (Array.isArray(chosenInv.items)) {
             const matchingItems = chosenInv.items.filter(isMatchingItem);
             if (matchingItems.length > 0) {
-              const netAmount = matchingItems.reduce((sum: number, item: any) => sum + getItemAmount(item), 0);
-              if (netAmount > 0) {
-                combinedBasePrice += netAmount;
-                matches++;
+              const posMatching = matchingItems.filter((i: any) => getItemAmount(i) > 0);
+              const posAmount = posMatching.reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+              const directNegItems = matchingItems.filter((i: any) => getItemAmount(i) < 0);
+              let discountAmt = directNegItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+              let discDesc = directNegItems[0]?.description;
+
+              if (discountAmt === 0) {
+                const allPosSum = chosenInv.items.filter((i: any) => getItemAmount(i) > 0).reduce((sum: number, i: any) => sum + getItemAmount(i), 0);
+                const allNegItems = chosenInv.items.filter((i: any) => getItemAmount(i) < 0);
+                const allNegSum = allNegItems.reduce((sum: number, i: any) => sum + Math.abs(getItemAmount(i)), 0);
+                if (allNegSum > 0 && allPosSum > 0 && posAmount > 0) {
+                  const ratio = posAmount / allPosSum;
+                  discountAmt = Math.round(allNegSum * ratio * 100) / 100;
+                  discDesc = allNegItems[0]?.description;
+                }
               }
+
+              const netBasePrice = Math.max(0, posAmount - discountAmt);
+              const invTaxRate = chosenInv.tax_rate != null && parseFloat(chosenInv.tax_rate) > 0 ? parseFloat(chosenInv.tax_rate) : fallbackTaxRate;
+              
+              let taxAmount = 0;
+              const itemTaxSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.tax_amount || "0") || 0), 0);
+              const itemGstSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.gst_amount || "0") || 0), 0);
+              const itemPstSum = matchingItems.reduce((sum: number, i: any) => sum + (parseFloat(i.pst_amount || "0") || 0), 0);
+
+              if (itemTaxSum > 0) {
+                const scale = posAmount > 0 ? netBasePrice / posAmount : 1;
+                taxAmount = Math.round(itemTaxSum * scale * 100) / 100;
+                if (itemGstSum > 0) {
+                  const amt = Math.round(itemGstSum * scale * 100) / 100;
+                  const k = "GST";
+                  const r = chosenInv.tax_details?.GST?.rate ?? 11;
+                  combinedTaxDetails[k] = { rate: r, amount: ((combinedTaxDetails[k]?.amount || 0) + amt) };
+                }
+                if (itemPstSum > 0) {
+                  const amt = Math.round(itemPstSum * scale * 100) / 100;
+                  const k = "PST";
+                  const r = chosenInv.tax_details?.PST?.rate ?? 7;
+                  combinedTaxDetails[k] = { rate: r, amount: ((combinedTaxDetails[k]?.amount || 0) + amt) };
+                }
+              } else {
+                taxAmount = Math.round(netBasePrice * (invTaxRate / 100) * 100) / 100;
+                if (chosenInv.tax_details) {
+                  Object.entries(chosenInv.tax_details).forEach(([k, v]: [string, any]) => {
+                    const r = parseFloat(v?.rate || 0);
+                    if (r > 0) {
+                      const amt = Math.round(netBasePrice * (r / 100) * 100) / 100;
+                      combinedTaxDetails[k] = { rate: r, amount: ((combinedTaxDetails[k]?.amount || 0) + amt) };
+                    }
+                  });
+                }
+              }
+
+              combinedBasePrice += netBasePrice;
+              combinedTaxAmount += taxAmount;
+              combinedTotalPrice += (netBasePrice + taxAmount);
+              if (discountAmt > 0) {
+                combinedOriginalPrice += posAmount;
+                combinedDiscountAmount += discountAmt;
+                if (!discountDescription) discountDescription = discDesc;
+              }
+              if (!primaryStatus) primaryStatus = chosenInv.status;
+              matches++;
             }
           }
         }
       });
 
       if (matches > 0 && combinedBasePrice > 0) {
-        const taxAmount = combinedBasePrice * (taxRate / 100);
-        const totalPrice = combinedBasePrice + taxAmount;
+        combinedBasePrice = Math.round(combinedBasePrice * 100) / 100;
+        combinedTaxAmount = Math.round(combinedTaxAmount * 100) / 100;
+        combinedTotalPrice = Math.round((combinedTotalPrice || (combinedBasePrice + combinedTaxAmount)) * 100) / 100;
+        const effectiveRate = combinedBasePrice > 0 ? Math.round((combinedTaxAmount / combinedBasePrice) * 10000) / 100 : fallbackTaxRate;
+
         return {
           basePrice: combinedBasePrice,
-          taxAmount,
-          totalPrice,
+          taxAmount: combinedTaxAmount,
+          totalPrice: combinedTotalPrice,
           isFromInvoice: true,
           matchingInvoicesCount: matches,
-          appliedTaxRate: taxRate,
+          appliedTaxRate: effectiveRate,
+          taxDetails: Object.keys(combinedTaxDetails).length > 0 ? combinedTaxDetails : undefined,
+          paidAmount: Math.round(combinedPaidAmount * 100) / 100,
+          refundedAmount: Math.round(combinedRefundedAmount * 100) / 100,
+          invoiceStatus: primaryStatus,
+          originalPrice: combinedDiscountAmount > 0 ? combinedOriginalPrice : undefined,
+          discountAmount: combinedDiscountAmount > 0 ? combinedDiscountAmount : undefined,
+          discountDescription,
         };
       }
     }
   }
 
-  // Fallback if no matching invoice items were found
+  // Fallback to service fields (e.g. from /billing API) if no matching invoice items were found
+  if (service?.total_amount != null && service?.tax_amount != null) {
+    const basePrice = (service?.discounted_amount != null ? service.discounted_amount : (service?.amount || 0)) * splitMultiplier;
+    const taxAmount = (service.tax_amount || 0) * splitMultiplier;
+    const totalPrice = (service.total_amount || 0) * splitMultiplier;
+    const appliedTaxRate = service.tax_rate != null ? parseFloat(service.tax_rate) : fallbackTaxRate;
+    return {
+      basePrice,
+      taxAmount,
+      totalPrice,
+      isFromInvoice: true,
+      matchingInvoicesCount: 0,
+      appliedTaxRate,
+      taxDetails: service.tax_details || undefined,
+      paidAmount: (service.paid_amount || 0) * splitMultiplier,
+      refundedAmount: (service.refunded_amount || 0) * splitMultiplier,
+      invoiceStatus: service.invoice_status || service.status,
+      originalPrice: service.original_amount ? service.original_amount * splitMultiplier : undefined,
+      discountAmount: service.original_amount && service.original_amount > basePrice ? (service.original_amount - basePrice) * splitMultiplier : undefined,
+    };
+  }
+
   const basePrice = (service?.discounted_amount != null ? service.discounted_amount : (service?.amount || 0)) * splitMultiplier;
-  const taxAmount = basePrice * (taxRate / 100);
+  const taxAmount = basePrice * (fallbackTaxRate / 100);
   const totalPrice = basePrice + taxAmount;
   return {
     basePrice,
@@ -859,6 +1150,6 @@ export function getServiceActualInvoicePricing({
     totalPrice,
     isFromInvoice: false,
     matchingInvoicesCount: 0,
-    appliedTaxRate: taxRate,
+    appliedTaxRate: fallbackTaxRate,
   };
 }
