@@ -421,7 +421,7 @@ export async function CalculateRealtimeTaxPreview(
   // Fallback to public route
   try {
     const response = await api.post("/public/tax-preview", {
-      org_slug: request.org_slug || "bc-floor-plans",
+      ...(request.org_slug ? { org_slug: request.org_slug } : {}),
       ...request,
     });
     const resData = response.data?.data ?? response.data;

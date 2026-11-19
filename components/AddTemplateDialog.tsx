@@ -39,6 +39,7 @@ import EmailEditorCanvasWrapper from "./EmailEditorCanvasWrapper";
 import { interpolateTemplate } from "@/lib/email-templates";
 import {
   EmailTemplate,
+  EmailTemplatePayload,
   CreateTemplate,
   UpdateTemplate,
   GetBladePreview,
@@ -50,6 +51,7 @@ import {
 } from "@/app/dashboard/global-settings/signatures";
 import SignatureCreatorDialog from "./SignatureCreatorDialog";
 import DynamicTagsSidebar from "./DynamicTagsSidebar";
+import { usePermissions } from "@/app/hooks/usePermissions";
 import {
   DEFAULT_DYNAMIC_TAGS,
   getTagDescription as getTagDescHelper,
@@ -60,6 +62,9 @@ interface Props {
   setOpen: (open: boolean) => void;
   onSuccess: () => void;
   initialData?: EmailTemplate | null;
+  presetEventType?: string | null;
+  presetRole?: RecipientRole | null;
+  selectedOrgId?: string | null;
 }
 
 export interface EventMetadata {
@@ -93,8 +98,8 @@ export const EVENT_METADATA: Record<string, EventMetadata> = {
   slot_booked: {
     label: "Appointment Scheduled (Slot Booked)",
     description: "Sent when a specific service appointment slot is assigned to a vendor.",
-    allowedRoles: ["admin", "agent", "vendor"],
-    defaultRoles: ["admin", "vendor"],
+    allowedRoles: ["vendor"],
+    defaultRoles: ["vendor"],
   },
   slot_cancelled: {
     label: "Appointment Cancelled",
@@ -387,10 +392,16 @@ const AddTemplateDialog: React.FC<Props> = ({
   setOpen,
   onSuccess,
   initialData,
+  presetEventType,
+  presetRole,
+  selectedOrgId,
 }) => {
   const { userType, organizationId } = useAppContext();
+  const { isSuperAdmin } = usePermissions();
   const { organization } = useOrganization();
   const { appliedSettings, organizations } = useWhiteLabel();
+
+  const [targetOrgUuid, setTargetOrgUuid] = useState<string | null>(null);
 
   const userInfo = useMemo(() => {
     try {
@@ -403,13 +414,14 @@ const AddTemplateDialog: React.FC<Props> = ({
   }, []);
 
   const currentOrgObj = useMemo(() => {
+    const activeUuid = targetOrgUuid || organizationId;
     return (
-      organizations?.find((o) => o.uuid === organizationId) ||
+      organizations?.find((o) => o.uuid === activeUuid) ||
       organization ||
       userInfo?.organization ||
       null
     );
-  }, [organizations, organizationId, organization, userInfo]);
+  }, [organizations, targetOrgUuid, organizationId, organization, userInfo]);
 
   const orgName = currentOrgObj?.name || organization?.name || "BC Floor Plans";
   const orgLogo =
@@ -476,6 +488,25 @@ const AddTemplateDialog: React.FC<Props> = ({
   // Track the default design content for the currently loaded event type
   const defaultDesignRef = React.useRef<string | null>(null);
 
+  // Guard to run initialization strictly ONCE per dialog open and prevent infinite re-renders
+  const initializedRef = React.useRef<boolean>(false);
+
+  // Keep a mutable ref of live form values so handleLoadBladeTemplate is stable and never triggers re-renders
+  const formValuesRef = React.useRef({
+    type,
+    recipientRoles,
+    title,
+    initialData,
+    organizationId: targetOrgUuid || organizationId,
+  });
+  formValuesRef.current = {
+    type,
+    recipientRoles,
+    title,
+    initialData,
+    organizationId: targetOrgUuid || organizationId,
+  };
+
   // Confirmation dialog state (reusing @/components/ConfirmationDialog)
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -497,82 +528,195 @@ const AddTemplateDialog: React.FC<Props> = ({
     onConfirm: () => {},
   });
 
-  useEffect(() => {
-    if (open) {
-      setPreviewMode("edit");
-      if (initialData) {
-        const initTitle = initialData.title || "";
-        const initType = initialData.event_type || initialData.type || "";
-        const initTags = initialData.tags || [];
-        const initContent = initialData.content || "";
-        const initActive =
-          initialData.is_active !== undefined ? initialData.is_active : true;
-        const eventMeta = initType ? EVENT_METADATA[initType] : null;
-        let initRoles =
-          Array.isArray(initialData.recipient_type) &&
-          initialData.recipient_type.length > 0
-            ? initialData.recipient_type
-            : (eventMeta?.defaultRoles || (["agent"] as RecipientRole[]));
-
-        if (eventMeta) {
-          const valid = initRoles.filter((r) => eventMeta.allowedRoles.includes(r));
-          initRoles = valid.length > 0 ? valid : eventMeta.defaultRoles;
-        }
-
-        setTitle(initTitle);
-        setType(initType);
-        setTags(initTags);
-        setContent(initContent);
-        setIsActive(initActive);
-        setRecipientRoles(initRoles);
-
-        initialSnapshotRef.current = {
-          title: initTitle,
-          type: initType,
-          content: initContent,
-          recipientRoles: initRoles,
-          isActive: initActive,
-          tags: initTags,
-        };
-      } else {
-        setTitle("");
-        setType("");
-        setTags([]);
-        setTagInput("");
-        setContent("");
-        setRecipientRoles(["agent"]);
-        setIsActive(true);
-        setAvailableVariables([]);
-
-        initialSnapshotRef.current = {
-          title: "",
-          type: "",
-          content: "",
-          recipientRoles: ["agent"],
-          isActive: true,
-          tags: [],
-        };
+  // Load default blade template for selected event - stable callback with no reactive state dependencies
+  const handleLoadBladeTemplate = useCallback(
+    async (
+      selectedType?: string,
+      roleOverride?: string,
+      forceTitleUpdate: boolean = false,
+    ) => {
+      const targetType = selectedType || formValuesRef.current.type;
+      if (!targetType) {
+        toast.error("Please select a template type first");
+        return;
       }
-      defaultDesignRef.current = null;
 
-      // Fetch signatures
-      const fetchSigs = async () => {
-        if (!organizationId) return;
-        setFetchingSigs(true);
-        try {
-          const res = await GetSignatures(organizationId);
+      const role =
+        roleOverride || formValuesRef.current.recipientRoles[0] || "agent";
+      setLoadingBlade(true);
+      try {
+        const res = await GetBladePreview(targetType, role, undefined, {
+          loadDefault: true,
+          organizationId: formValuesRef.current.organizationId || undefined,
+        });
+        if (res.success && res.data) {
+          const data = res.data;
+          const newContent = data.content || "";
+          setContent(newContent);
+          defaultDesignRef.current = newContent;
+          setEditorKey((prev) => prev + 1);
+
+          if (data.variables && Array.isArray(data.variables)) {
+            setAvailableVariables(data.variables);
+          }
+
+          // Load default subject title with dynamic variables
+          const defaultTitleCandidate = data.subject || data.event_label || "";
+          const curTitle = formValuesRef.current.title;
+          const isDefaultTitle =
+            !curTitle.trim() ||
+            REGISTERED_EVENTS.some(
+              (e) => e.label === curTitle || e.value === curTitle,
+            ) ||
+            curTitle.includes("{{") ||
+            curTitle === data.event_label;
+
+          if (
+            defaultTitleCandidate &&
+            (forceTitleUpdate ||
+              isDefaultTitle ||
+              !formValuesRef.current.initialData)
+          ) {
+            setTitle(defaultTitleCandidate);
+          }
+
+          // Keep initial snapshot aligned with loaded default content
+          initialSnapshotRef.current = {
+            title: defaultTitleCandidate || curTitle,
+            type: targetType,
+            content: newContent,
+            recipientRoles: [role as RecipientRole],
+            isActive: true,
+            tags: [],
+          };
+        } else {
+          toast.error(res.message || "Failed to load default template");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load default blade template");
+      } finally {
+        setLoadingBlade(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      initializedRef.current = false;
+      return;
+    }
+
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    setPreviewMode("edit");
+    if (initialData) {
+      const initTitle = initialData.title || "";
+      const initType = initialData.event_type || initialData.type || "";
+      const initTags = initialData.tags || [];
+      const initContent = initialData.content || "";
+      const initActive =
+        initialData.is_active !== undefined ? initialData.is_active : true;
+      const eventMeta = initType ? EVENT_METADATA[initType] : null;
+      let initRoles =
+        Array.isArray(initialData.recipient_type) &&
+        initialData.recipient_type.length > 0
+          ? initialData.recipient_type
+          : (eventMeta?.defaultRoles || (["agent"] as RecipientRole[]));
+
+      if (eventMeta) {
+        const valid = initRoles.filter((r) => eventMeta.allowedRoles.includes(r));
+        initRoles = valid.length > 0 ? valid : eventMeta.defaultRoles;
+      }
+
+      setTitle(initTitle);
+      setType(initType);
+      setTags(initTags);
+      setContent(initContent);
+      setIsActive(initActive);
+      setRecipientRoles(initRoles);
+      const initOrgUuid = initialData.organization?.uuid || (initialData as any).organization_uuid || (initialData.organization_id ? String(initialData.organization_id) : null);
+      setTargetOrgUuid(initOrgUuid || selectedOrgId || organizationId || null);
+
+      initialSnapshotRef.current = {
+        title: initTitle,
+        type: initType,
+        content: initContent,
+        recipientRoles: initRoles,
+        isActive: initActive,
+        tags: initTags,
+      };
+    } else if (presetEventType) {
+      setTargetOrgUuid(selectedOrgId || organizationId || (organizations?.[0]?.uuid ?? null));
+      const targetType = presetEventType;
+      const meta = EVENT_METADATA[targetType];
+      const validRole =
+        presetRole || (meta?.defaultRoles?.[0] as RecipientRole) || "agent";
+      const defaultTitleCandidate = meta
+        ? `${meta.label} (${validRole.toUpperCase()})`
+        : `Template - ${validRole}`;
+
+      setTitle(defaultTitleCandidate);
+      setType(targetType);
+      setTags([]);
+      setTagInput("");
+      setContent("");
+      setRecipientRoles([validRole as RecipientRole]);
+      setIsActive(true);
+      setAvailableVariables([]);
+
+      initialSnapshotRef.current = {
+        title: defaultTitleCandidate,
+        type: targetType,
+        content: "",
+        recipientRoles: [validRole as RecipientRole],
+        isActive: true,
+        tags: [],
+      };
+
+      // Automatically load default Blade design for this preset event & role
+      handleLoadBladeTemplate(targetType, validRole, true);
+    } else {
+      setTargetOrgUuid(selectedOrgId || organizationId || (organizations?.[0]?.uuid ?? null));
+      setTitle("");
+      setType("");
+      setTags([]);
+      setTagInput("");
+      setContent("");
+      setRecipientRoles(["agent"]);
+      setIsActive(true);
+      setAvailableVariables([]);
+
+      initialSnapshotRef.current = {
+        title: "",
+        type: "",
+        content: "",
+        recipientRoles: ["agent"],
+        isActive: true,
+        tags: [],
+      };
+    }
+    defaultDesignRef.current = null;
+
+    // Fetch signatures
+    if (organizationId) {
+      setFetchingSigs(true);
+      GetSignatures(organizationId)
+        .then((res) => {
           if (res.status !== false && res.data) {
             setSignatures(res.data);
           }
-        } catch (err) {
+        })
+        .catch((err) => {
           console.error("Failed to fetch signatures for template creator", err);
-        } finally {
+        })
+        .finally(() => {
           setFetchingSigs(false);
-        }
-      };
-      fetchSigs();
+        });
     }
-  }, [open, initialData, organizationId]);
+  }, [open, initialData, presetEventType, presetRole, organizationId, handleLoadBladeTemplate]);
 
   // Check if form has unsaved modifications
   const hasUnsavedChanges = useCallback(() => {
@@ -623,66 +767,6 @@ const AddTemplateDialog: React.FC<Props> = ({
       setOpen(false);
     }
   }, [hasUnsavedChanges, setOpen]);
-
-  // Load default blade template for selected event
-  const handleLoadBladeTemplate = useCallback(
-    async (
-      selectedType?: string,
-      roleOverride?: string,
-      forceTitleUpdate: boolean = false,
-    ) => {
-      const targetType = selectedType || type;
-      if (!targetType) {
-        toast.error("Please select a template type first");
-        return;
-      }
-
-      const role = roleOverride || recipientRoles[0] || "agent";
-      setLoadingBlade(true);
-      try {
-        const res = await GetBladePreview(targetType, role, undefined, {
-          loadDefault: true,
-          organizationId: organizationId || undefined,
-        });
-        if (res.success && res.data) {
-          const data = res.data;
-          const newContent = data.content || "";
-          setContent(newContent);
-          defaultDesignRef.current = newContent;
-          setEditorKey((prev) => prev + 1);
-
-          if (data.variables && Array.isArray(data.variables)) {
-            setAvailableVariables(data.variables);
-          }
-
-          // Load default subject title with dynamic variables
-          const defaultTitleCandidate = data.subject || data.event_label || "";
-          const isDefaultTitle =
-            !title.trim() ||
-            REGISTERED_EVENTS.some(
-              (e) => e.label === title || e.value === title,
-            ) ||
-            title.includes("{{") ||
-            title === data.event_label;
-
-          if (
-            defaultTitleCandidate &&
-            (forceTitleUpdate || isDefaultTitle || !initialData)
-          ) {
-            setTitle(defaultTitleCandidate);
-          }
-        } else {
-          toast.error(res.message || "Failed to load default template");
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to load default blade template");
-      } finally {
-        setLoadingBlade(false);
-      }
-    },
-    [type, recipientRoles, title, initialData, organizationId],
-  );
 
   // User clicks "Load Default" (or "Reload Default Design")
   const handleLoadDefaultClick = () => {
@@ -868,7 +952,7 @@ const AddTemplateDialog: React.FC<Props> = ({
 
     setLoading(true);
     try {
-      const payload = {
+      const payload: EmailTemplatePayload = {
         title,
         type,
         event_type: type,
@@ -876,9 +960,10 @@ const AddTemplateDialog: React.FC<Props> = ({
         tags: tags.length > 0 ? tags : null,
         is_active: isActive,
         content,
+        organization_id: targetOrgUuid || formValuesRef.current.organizationId || undefined,
       };
 
-      if (initialData) {
+      if (initialData?.uuid) {
         const res = await UpdateTemplate(initialData.uuid, payload);
         if (res.success !== false) {
           toast.success("Template updated successfully");
@@ -996,7 +1081,13 @@ const AddTemplateDialog: React.FC<Props> = ({
         <DialogHeader className="px-8 py-3.5 flex-shrink-0 bg-white z-20 border-b border-[#EEEEEE]">
           <DialogTitle className="flex justify-between items-center text-[#4290E9] uppercase text-[20px] font-[700] tracking-tight">
             <span>
-              {initialData ? "Edit Email Template" : "Create Email Template"}
+              {initialData?.uuid
+                ? "Edit Custom Template"
+                : presetEventType
+                ? "Edit Default Template"
+                : initialData
+                ? "Edit Email Template"
+                : "Create Email Template"}
             </span>
             <button
               type="button"
@@ -1014,6 +1105,33 @@ const AddTemplateDialog: React.FC<Props> = ({
           className="flex flex-col flex-1 overflow-hidden text-[#666666]"
         >
           <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-4 flex flex-col gap-4">
+            {/* Super Admin Organization Selector */}
+            {isSuperAdmin && (
+              <div className="flex flex-col gap-1.5 text-sm">
+                <Label htmlFor="template-org" className="font-semibold text-gray-700">
+                  Organization <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={targetOrgUuid || ""}
+                  onValueChange={(val) => setTargetOrgUuid(val)}
+                >
+                  <SelectTrigger
+                    id="template-org"
+                    className="h-[44px] w-full bg-white border-[#DDDDDD] focus:border-[#4290E9] focus:ring-1 focus:ring-[#4290E9] transition-all rounded-md"
+                  >
+                    <SelectValue placeholder="Select Organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations?.map((org) => (
+                      <SelectItem key={org.uuid} value={org.uuid}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Row 1: Template Title (Full width for extra content & variables) */}
             <div className="flex flex-col gap-1.5 text-sm">
               <Label htmlFor="title" className="font-semibold text-gray-700">

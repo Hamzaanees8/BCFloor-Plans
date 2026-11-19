@@ -17,11 +17,20 @@ import {
   RecipientRole,
 } from "@/app/dashboard/global-settings/templates";
 
+export interface DefaultPreviewInfo {
+  eventType: string;
+  role: RecipientRole;
+  subject?: string;
+  fullHtml?: string;
+  content?: string;
+}
+
 interface TemplatePreviewDialogProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  template: EmailTemplate | null;
-  onEdit?: (template: EmailTemplate) => void;
+  template?: EmailTemplate | null;
+  defaultPreview?: DefaultPreviewInfo | null;
+  onEdit?: (template: EmailTemplate | null) => void;
 }
 
 const DUMMY_PREVIEW_VALUES: Record<string, string> = {
@@ -173,6 +182,8 @@ export default function TemplatePreviewDialog({
   open,
   setOpen,
   template,
+  defaultPreview,
+  onEdit,
 }: TemplatePreviewDialogProps) {
   const { organizationId } = useAppContext();
   const { organization } = useOrganization();
@@ -189,33 +200,46 @@ export default function TemplatePreviewDialog({
   }, []);
 
   const currentOrgObj = useMemo(() => {
+    const templateOrgUuid = template?.organization?.uuid || (template as any)?.organization_uuid;
+    const templateOrgId = template?.organization_id;
     return (
+      (templateOrgUuid ? organizations?.find((o) => o.uuid === templateOrgUuid) : null) ||
+      (templateOrgId ? organizations?.find((o) => o.id === templateOrgId) : null) ||
       organizations?.find((o) => o.uuid === organizationId) ||
       organization ||
       userInfo?.organization ||
       null
     );
-  }, [organizations, organizationId, organization, userInfo]);
+  }, [template, organizations, organizationId, organization, userInfo]);
 
   const [activeRole, setActiveRole] = useState<RecipientRole>("agent");
 
   // Determine available roles for this template
   const availableRoles = useMemo<RecipientRole[]>(() => {
+    if (defaultPreview) {
+      return [defaultPreview.role];
+    }
     if (!template) return ["agent"];
     if (Array.isArray(template.recipient_type) && template.recipient_type.length > 0) {
       return template.recipient_type;
     }
     return ["agent", "vendor", "admin"];
-  }, [template]);
+  }, [template, defaultPreview]);
 
   // Set default active role when template opens
   useEffect(() => {
-    if (open && template) {
-      if (availableRoles.length > 0 && !availableRoles.includes(activeRole)) {
-        setActiveRole(availableRoles[0]);
+    if (open) {
+      if (defaultPreview) {
+        if (activeRole !== defaultPreview.role) {
+          setActiveRole(defaultPreview.role);
+        }
+      } else if (template) {
+        if (availableRoles.length > 0 && !availableRoles.includes(activeRole)) {
+          setActiveRole(availableRoles[0]);
+        }
       }
     }
-  }, [open, template, availableRoles, activeRole]);
+  }, [open, template, defaultPreview, availableRoles, activeRole]);
 
   // 1. Comprehensive Organization Name resolution (supports Whitelabel)
   const orgName = useMemo(() => {
@@ -351,7 +375,25 @@ export default function TemplatePreviewDialog({
 
   // Render preview document identically to AddTemplateDialog (Create Template Popup)
   const renderedHtml = useMemo(() => {
-    if (!open || !template) return "";
+    if (!open) return "";
+
+    // 1. If viewing a server-rendered default Blade preview
+    if (defaultPreview) {
+      if (defaultPreview.fullHtml) {
+        return defaultPreview.fullHtml;
+      }
+      return buildMasterHtml(
+        defaultPreview.content ||
+          "<p style='color:#888; text-align:center;'>Default template loaded.</p>",
+        {
+          name: orgName,
+          logoUrl: orgLogo,
+          primaryColor: orgPrimaryColor,
+        },
+      );
+    }
+
+    if (!template) return "";
 
     let rawHtml =
       template.content ||
@@ -375,14 +417,23 @@ export default function TemplatePreviewDialog({
       logoUrl: orgLogo,
       primaryColor: orgPrimaryColor,
     });
-  }, [open, template, currentPreviewValues, orgName, orgLogo, orgPrimaryColor]);
-
-  if (!template) return null;
-
-  const interpolatedSubject = interpolateTemplate(
-    template.title,
+  }, [
+    open,
+    template,
+    defaultPreview,
     currentPreviewValues,
-  );
+    orgName,
+    orgLogo,
+    orgPrimaryColor,
+  ]);
+
+  if (!template && !defaultPreview) return null;
+
+  const interpolatedSubject = defaultPreview
+    ? defaultPreview.subject || `${defaultPreview.eventType} (${defaultPreview.role.toUpperCase()})`
+    : template
+    ? interpolateTemplate(template.title, currentPreviewValues)
+    : "";
 
   const recipientEmailDisplay =
     activeRole === "vendor"
@@ -398,13 +449,22 @@ export default function TemplatePreviewDialog({
         <DialogHeader className="px-6 py-3.5 flex-shrink-0 bg-white z-20 border-b border-[#E5E7EB]">
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-gray-500 text-xs flex-shrink-0">
                   Subject:
                 </span>
                 <DialogTitle className="text-sm sm:text-base font-bold text-gray-900 truncate">
                   {interpolatedSubject}
                 </DialogTitle>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    template
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "bg-gray-100 text-gray-600 border border-gray-200"
+                  }`}
+                >
+                  {template ? "Custom Template" : "Default Template"}
+                </span>
               </div>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-gray-500">
                 <div>
@@ -468,15 +528,30 @@ export default function TemplatePreviewDialog({
             Rendering preview with realistic dummy data & active organization
             branding.
           </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setOpen(false)}
-            className="h-8 px-4 text-xs font-semibold cursor-pointer"
-          >
-            Close
-          </Button>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setOpen(false);
+                  onEdit(template || null);
+                }}
+                className="h-8 px-4 text-xs font-semibold bg-[#4290E9] hover:bg-[#357ac8] text-white cursor-pointer"
+              >
+                {template ? "Edit Custom Template" : "Edit Default Template"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+              className="h-8 px-4 text-xs font-semibold cursor-pointer"
+            >
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

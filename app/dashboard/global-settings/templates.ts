@@ -11,6 +11,7 @@ export interface EmailTemplatePayload {
     sort_order?: number;
     is_active?: boolean;
     content: string;
+    organization_id?: number | string | null;
 }
 
 export interface EmailTemplate {
@@ -25,6 +26,12 @@ export interface EmailTemplate {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    organization_id?: number | null;
+    organization?: {
+        id?: number;
+        uuid?: string;
+        name: string;
+    } | null;
 }
 
 export interface BladePreviewData {
@@ -51,7 +58,12 @@ export interface BladePreviewData {
     } | null;
 }
 
-export async function GetTemplates(params?: { event_type?: string; recipient_type?: string; is_active?: boolean }) {
+export async function GetTemplates(params?: {
+    event_type?: string;
+    recipient_type?: string;
+    is_active?: boolean;
+    organization_id?: string | number;
+}) {
     const response = await api.get(`/email-templates`, { params });
     const data = await response.data;
     return data;

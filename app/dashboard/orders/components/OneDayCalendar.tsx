@@ -308,6 +308,7 @@ export function getRequiredTravelBufferInfo(
   selectedSlots: Slot[] = [],
   calendarEvents: CalendarEvent[] = [],
   targetTimezone?: string,
+  currentServiceUuid?: string,
 ): TravelBufferInfo {
   const serviceSlotsNeeded = Math.ceil(serviceDurationMins / 15);
   const serviceEnd = candidateStart.add(serviceDurationMins, "minute");
@@ -365,7 +366,10 @@ export function getRequiredTravelBufferInfo(
     ?.filter(
       (s) =>
         (s?.vendor_id === vendorId || s?.vendor?.uuid === vendorId) &&
-        s?.date === date,
+        s?.date === date &&
+        (!currentServiceUuid ||
+          (s.service_id !== currentServiceUuid &&
+            String(s.service_id) !== String(currentServiceUuid))),
     )
     .forEach((s) => {
       const bStart = dayjs(`${s.date}T${s.start_time}`);
@@ -836,6 +840,7 @@ export function getVendorValidStartSlots(
       selectedSlots,
       calendarEvents,
       targetTimezone,
+      currentServiceUuid,
     );
 
     if (!travelInfo.isValid) continue;
@@ -1023,6 +1028,216 @@ export function getVendorBreakOverlapInfo(
   }
 
   return null;
+}
+
+export interface AdminBreakEvaluation {
+  hasBreak: boolean;
+  isShorterDuration: boolean;
+  preBreakMinutes: number;
+  breakMinutes: number;
+  postBreakMinutes: number;
+  totalWorkingMinutes: number;
+  requiredDurationMinutes: number;
+  deficitMinutes: number;
+  breakStartStr: string;
+  breakEndStr: string;
+  breakLabel: string;
+  totalSpanMinutes: number;
+  proposedSlots: { start: string; end: string }[];
+}
+
+/**
+ * Evaluates whether a proposed start time encounters a vendor break (lunch or additional break)
+ * before the full service duration is satisfied, and determines:
+ * - Case 1: Full service duration achievable by extending across break (Service Duration + Break Time)
+ * - Case 2: Shorter service duration (available working slots before/after break are less than required duration)
+ */
+export function getAdminBreakSpannedSlots(
+  vendor: VendorData,
+  date: string,
+  startISO: string,
+  requiredDurationMinutes: number,
+  events?: Slots[],
+  targetTimezone?: string,
+): AdminBreakEvaluation | null {
+  if (!vendor || !date || !startISO || requiredDurationMinutes <= 0) {
+    return null;
+  }
+
+  const breaks: { start: dayjs.Dayjs; end: dayjs.Dayjs; label: string }[] = [];
+  const tz = targetTimezone || "America/Vancouver";
+  const vendorTz = vendor.work_hours?.timezone || tz;
+
+  if (vendor.work_hours) {
+    const convertedWH = convertVendorWorkHoursToPropertyTimezone(
+      date,
+      vendor.work_hours,
+      vendorTz,
+      tz,
+    );
+    const dayOfWeek = dayjs(date).format("ddd").toLowerCase();
+    const daySchedule = convertedWH?.work_days?.find(
+      (d) => d.day === dayOfWeek,
+    );
+    const bStartStr =
+      (daySchedule as any)?.break_start || convertedWH?.break_start;
+    const bEndStr =
+      (daySchedule as any)?.break_end || convertedWH?.break_end;
+    if (bStartStr && bEndStr) {
+      const bStart = dayjs(`${date}T${bStartStr}`);
+      const bEnd = dayjs(`${date}T${bEndStr}`);
+      if (bEnd.isAfter(bStart)) {
+        breaks.push({
+          start: bStart,
+          end: bEnd,
+          label: `${bStart.format("h:mm A")} – ${bEnd.format("h:mm A")}`,
+        });
+      }
+    }
+  }
+
+  const convertedBreaks = convertVendorBreaksToPropertyTimezone(
+    date,
+    vendor.additional_breaks || [],
+    vendorTz,
+    tz,
+  );
+
+  (convertedBreaks || []).forEach((brk) => {
+    if (brk.start_time && brk.end_time) {
+      const bStart = dayjs(`${date}T${brk.start_time}`);
+      const bEnd = dayjs(`${date}T${brk.end_time}`);
+      if (bEnd.isAfter(bStart)) {
+        breaks.push({
+          start: bStart,
+          end: bEnd,
+          label: `${bStart.format("h:mm A")} – ${bEnd.format("h:mm A")}`,
+        });
+      }
+    }
+  });
+
+  const requiredSlots = Math.ceil(requiredDurationMinutes / 15);
+  let cur = dayjs(startISO);
+  const endOfDay = dayjs(`${date}T23:59:59`);
+
+  const preBreakSlots: { start: string; end: string }[] = [];
+  const breakSlots: { start: string; end: string }[] = [];
+  const postBreakSlots: { start: string; end: string }[] = [];
+
+  let workingCount = 0;
+  let breakEncountered = false;
+
+  for (let i = 0; i < 96 && cur.isBefore(endOfDay); i++) {
+    const nxt = cur.add(15, "minute");
+    const slotObj = {
+      start: cur.toISOString(),
+      end: nxt.toISOString(),
+    };
+
+    const matchingBreak = breaks.find((b) => {
+      return (
+        (cur.isSameOrAfter(b.start) && cur.isBefore(b.end)) ||
+        (nxt.isAfter(b.start) && nxt.isSameOrBefore(b.end)) ||
+        (cur.isBefore(b.start) && nxt.isAfter(b.end))
+      );
+    });
+
+    const calEvent = events?.find((e) =>
+      dayjs(e.start).isSame(cur),
+    );
+    const isBreakClass = calEvent?.className?.includes("slot-vendor-break");
+
+    const isBreak = Boolean(matchingBreak || isBreakClass);
+
+    if (isBreak) {
+      if (workingCount < requiredSlots) {
+        breakEncountered = true;
+        breakSlots.push(slotObj);
+        cur = nxt;
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    const isBooked = calEvent?.className?.includes("slot-booked");
+    const isExt = calEvent?.className?.includes("slot-external-event");
+    const isUnavail = calEvent?.className?.includes("slot-unavailable");
+    const isTravel = calEvent?.className?.includes("slot-travel-adjustment");
+
+    if (isBooked || isExt || isUnavail || isTravel) {
+      break;
+    }
+
+    if (breakEncountered) {
+      postBreakSlots.push(slotObj);
+      workingCount++;
+      if (workingCount >= requiredSlots) {
+        break;
+      }
+    } else {
+      preBreakSlots.push(slotObj);
+      workingCount++;
+      if (workingCount >= requiredSlots) {
+        break;
+      }
+    }
+
+    cur = nxt;
+  }
+
+  if (!breakEncountered) {
+    return {
+      hasBreak: false,
+      isShorterDuration: false,
+      preBreakMinutes: preBreakSlots.length * 15,
+      breakMinutes: 0,
+      postBreakMinutes: 0,
+      totalWorkingMinutes: preBreakSlots.length * 15,
+      requiredDurationMinutes,
+      deficitMinutes: 0,
+      breakStartStr: "",
+      breakEndStr: "",
+      breakLabel: "",
+      totalSpanMinutes: preBreakSlots.length * 15,
+      proposedSlots: preBreakSlots,
+    };
+  }
+
+  const preBreakMinutes = preBreakSlots.length * 15;
+  const breakMinutes = breakSlots.length * 15;
+  const postBreakMinutes = postBreakSlots.length * 15;
+  const totalWorkingMinutes = preBreakMinutes + postBreakMinutes;
+  const totalSpanMinutes =
+    (preBreakSlots.length + breakSlots.length + postBreakSlots.length) * 15;
+  const isShorterDuration = totalWorkingMinutes < requiredDurationMinutes;
+  const deficitMinutes = Math.max(0, requiredDurationMinutes - totalWorkingMinutes);
+
+  const bStart = breakSlots.length > 0 ? dayjs(breakSlots[0].start) : null;
+  const bEnd = breakSlots.length > 0 ? dayjs(breakSlots[breakSlots.length - 1].end) : null;
+  const breakStartStr = bStart ? bStart.format("HH:mm:ss") : "";
+  const breakEndStr = bEnd ? bEnd.format("HH:mm:ss") : "";
+  const breakLabel =
+    bStart && bEnd
+      ? `${bStart.format("h:mm A")} – ${bEnd.format("h:mm A")}`
+      : "Vendor Break";
+
+  return {
+    hasBreak: true,
+    isShorterDuration,
+    preBreakMinutes,
+    breakMinutes,
+    postBreakMinutes,
+    totalWorkingMinutes,
+    requiredDurationMinutes,
+    deficitMinutes,
+    breakStartStr,
+    breakEndStr,
+    breakLabel,
+    totalSpanMinutes,
+    proposedSlots: [...preBreakSlots, ...breakSlots, ...postBreakSlots],
+  };
 }
 
 
@@ -1460,17 +1675,21 @@ export default function OneDayCalendar({
     );
   }, [servicesData, service]);
 
-  // Book-through-lunch confirmation dialog state (admin only)
-  const [showConfirmLunchOverlap, setShowConfirmLunchOverlap] = useState(false);
-  const [pendingLunchOverlap, setPendingLunchOverlap] = useState<{
+  // Vendor Break Override confirmation dialog state (admin only)
+  const [showConfirmBreakOverride, setShowConfirmBreakOverride] = useState(false);
+  const [pendingBreakOverride, setPendingBreakOverride] = useState<{
     vendor: VendorData;
     slots: { start: string; end: string }[];
-    lunchLabel: string;
+    breakLabel: string;
     preBreakMinutes: number;
     breakMinutes: number;
     postBreakMinutes: number;
+    totalWorkingMinutes: number;
     requiredDurationMinutes: number;
-    forceProceed: boolean;
+    deficitMinutes: number;
+    totalSpanMinutes: number;
+    isShorterDuration: boolean;
+    forceProceed?: boolean;
   } | null>(null);
 
   const handleConfirmUnbookSlot = async () => {
@@ -3124,7 +3343,15 @@ export default function OneDayCalendar({
           !(isSpecialServiceClick && vendorHasNextBookingFlag);
 
         const otherSlotsForDate = selectedSlots.filter(
-          (s: Slot) => s.service_id !== service.uuid && s.date === targetDate,
+          (s: Slot) =>
+            s.service_id !== service.uuid &&
+            String(s.service_id) !== String(service.id) &&
+            s.date === targetDate,
+        );
+        const selectedSlotsWithoutCurrentService = selectedSlots.filter(
+          (s: Slot) =>
+            s.service_id !== service.uuid &&
+            String(s.service_id) !== String(service.id),
         );
 
         let validResult: ValidStartSlotResult;
@@ -3159,7 +3386,7 @@ export default function OneDayCalendar({
             allowBookingThroughLunch,
             shouldEnforceForVendor,
             service.uuid,
-            selectedSlots,
+            selectedSlotsWithoutCurrentService,
             15,
             isTwilightSvc,
             currentServiceClick?.is_travel_required !== false,
@@ -3198,7 +3425,7 @@ export default function OneDayCalendar({
             allowBookingThroughLunch,
             shouldEnforceForVendor,
             service.uuid,
-            selectedSlots,
+            selectedSlotsWithoutCurrentService,
             15,
             isTwilightSvc,
             currentServiceClick?.is_travel_required !== false,
@@ -3271,7 +3498,46 @@ export default function OneDayCalendar({
       return { slots: [] as string[], isValid: false };
     }
 
-    if (alreadySelectedCount === 0) {
+    const allowBookingThroughLunch =
+      portalSettings?.allow_booking_through_lunch ?? false;
+
+    if (userType === "admin" && allowBookingThroughLunch) {
+      const currentServiceSlotsForHover = selectedSlots.filter(
+        (slot: Slot) =>
+          slot.service_id === service.uuid ||
+          String(slot.service_id) === String(service.id),
+      );
+      const currentAssignedVendorId =
+        currentServiceSlotsForHover.length > 0
+          ? currentServiceSlotsForHover[0].vendor?.uuid ||
+            currentServiceSlotsForHover[0].vendor_id
+          : null;
+
+      const targetVendor = currentAssignedVendorId
+        ? vendorsData.find((v) => v.uuid === currentAssignedVendorId)
+        : vendorsData.find((v) => selectedVendors.includes(v.uuid ?? "")) ||
+          vendorsData[0];
+
+      if (targetVendor) {
+        const breakEval = getAdminBreakSpannedSlots(
+          targetVendor,
+          currentDate,
+          hoveredSlotStart,
+          requiredDurationForHover,
+          events,
+          propertyTimezone,
+        );
+
+        if (breakEval && breakEval.hasBreak) {
+          return {
+            slots: breakEval.proposedSlots.map((s) => s.start),
+            isValid: !breakEval.isShorterDuration,
+          };
+        }
+      }
+    }
+
+    if (alreadySelectedCount === 0 || isAgent) {
       const matching = getMatchingVendorsForClick(
         hoveredSlotStart,
         currentDate,
@@ -3310,6 +3576,11 @@ export default function OneDayCalendar({
     selectedSlots,
     getMatchingVendorsForClick,
     currentDate,
+    isAgent,
+    userType,
+    vendorsData,
+    selectedVendors,
+    propertyTimezone,
   ]);
 
   const prevDateRef = React.useRef<string>(currentDate);
@@ -3506,6 +3777,17 @@ export default function OneDayCalendar({
       if (isVendorBreak || isTravelAdjustment || isUnavailable || isExternalEvent) {
         return;
       }
+    }
+
+    const allowBookingThroughLunch =
+      portalSettings?.allow_booking_through_lunch ?? false;
+
+    // For Admin: Vendor Break is only clickable/overridable when allow_booking_through_lunch is enabled in Portal Settings
+    if (isAdmin && isVendorBreak && !allowBookingThroughLunch) {
+      toast.info(
+        "Booking through vendor breaks is disabled. Enable 'Allow appointments to book through lunch time' in Portal Settings to override breaks.",
+      );
+      return;
     }
 
     // For Admin: external event click when schedule override is OFF informs the admin
@@ -3709,6 +3991,48 @@ export default function OneDayCalendar({
       );
       if (candidateMatches.length === 0) {
         if (isAdmin) {
+          const targetVendor = currentAssignedVendorId
+            ? vendorsData.find((v) => v.uuid === currentAssignedVendorId)
+            : vendorsData.find((v) => selectedVendors.includes(v.uuid ?? "")) ||
+              vendorsData[0];
+
+          if (targetVendor) {
+            const breakEval = getAdminBreakSpannedSlots(
+              targetVendor,
+              selectedDate,
+              clicked.start,
+              requiredDuration,
+              events,
+              propertyTimezone,
+            );
+
+            if (breakEval && breakEval.hasBreak) {
+              if (allowBookingThroughLunch) {
+                setPendingBreakOverride({
+                  vendor: targetVendor,
+                  slots: breakEval.proposedSlots,
+                  breakLabel: breakEval.breakLabel,
+                  preBreakMinutes: breakEval.preBreakMinutes,
+                  breakMinutes: breakEval.breakMinutes,
+                  postBreakMinutes: breakEval.postBreakMinutes,
+                  totalWorkingMinutes: breakEval.totalWorkingMinutes,
+                  requiredDurationMinutes: breakEval.requiredDurationMinutes,
+                  deficitMinutes: breakEval.deficitMinutes,
+                  totalSpanMinutes: breakEval.totalSpanMinutes,
+                  isShorterDuration: breakEval.isShorterDuration,
+                  forceProceed: true,
+                });
+                setShowConfirmBreakOverride(true);
+                return;
+              } else {
+                toast.error(
+                  `There are not ${requiredDuration} min consecutive available slots before the vendor's break. Enable 'Allow appointments to book through lunch time' in Portal Settings to book through breaks.`,
+                );
+                return;
+              }
+            }
+          }
+
           const overrideSlots = getAdminOverrideSlots(
             clicked.start,
             requiredSlots,
@@ -3746,6 +4070,50 @@ export default function OneDayCalendar({
     }
 
     const matching = getMatchingVendorsForClick(clicked.start, selectedDate);
+    if (isAdmin && !forceProceed) {
+      const targetVendor = currentAssignedVendorId
+        ? vendorsData.find((v) => v.uuid === currentAssignedVendorId)
+        : vendorsData.find((v) => selectedVendors.includes(v.uuid ?? "")) ||
+          vendorsData[0];
+
+      if (targetVendor) {
+        const breakEval = getAdminBreakSpannedSlots(
+          targetVendor,
+          selectedDate,
+          clicked.start,
+          requiredDuration,
+          events,
+          propertyTimezone,
+        );
+
+        if (breakEval && breakEval.hasBreak) {
+          if (allowBookingThroughLunch) {
+            setPendingBreakOverride({
+              vendor: targetVendor,
+              slots: breakEval.proposedSlots,
+              breakLabel: breakEval.breakLabel,
+              preBreakMinutes: breakEval.preBreakMinutes,
+              breakMinutes: breakEval.breakMinutes,
+              postBreakMinutes: breakEval.postBreakMinutes,
+              totalWorkingMinutes: breakEval.totalWorkingMinutes,
+              requiredDurationMinutes: breakEval.requiredDurationMinutes,
+              deficitMinutes: breakEval.deficitMinutes,
+              totalSpanMinutes: breakEval.totalSpanMinutes,
+              isShorterDuration: breakEval.isShorterDuration,
+              forceProceed: true,
+            });
+            setShowConfirmBreakOverride(true);
+            return;
+          } else {
+            toast.error(
+              `There are not ${requiredDuration} min consecutive available slots before the vendor's break. Enable 'Allow appointments to book through lunch time' in Portal Settings to book through breaks.`,
+            );
+            return;
+          }
+        }
+      }
+    }
+
     if (matching.length === 0) {
       if (isAdmin) {
         const adminVendor =
@@ -3755,6 +4123,20 @@ export default function OneDayCalendar({
               (v.uuid && selectedVendors.includes(v.uuid)),
           ) || vendorsData[0];
         if (adminVendor) {
+          const breakEval = getAdminBreakSpannedSlots(
+            adminVendor,
+            selectedDate,
+            clicked.start,
+            requiredDuration,
+            events,
+            propertyTimezone,
+          );
+          if (breakEval?.hasBreak && !allowBookingThroughLunch) {
+            toast.error(
+              `There are not ${requiredDuration} min consecutive available slots before the vendor's break. Enable 'Allow appointments to book through lunch time' in Portal Settings to book through breaks.`,
+            );
+            return;
+          }
           const overrideSlots = getAdminOverrideSlots(
             clicked.start,
             requiredSlots,
@@ -3921,30 +4303,35 @@ export default function OneDayCalendar({
     await onEventClick(info, true);
   };
 
-  // ── Book-Through-Lunch confirm handler ──────────────────────────────────────
-  const handleConfirmLunchOverlap = async () => {
-    if (!pendingLunchOverlap) return;
-    const { vendor, slots, forceProceed } = pendingLunchOverlap;
-    setPendingLunchOverlap(null);
-    setShowConfirmLunchOverlap(false);
-    await handleAssignVendor(vendor, slots, forceProceed);
+  // ── Book-Through-Lunch / Vendor Break Override confirm handler ──────────────
+  const handleConfirmBreakOverride = async () => {
+    if (!pendingBreakOverride) return;
+    const { vendor, slots } = pendingBreakOverride;
+    setPendingBreakOverride(null);
+    setShowConfirmBreakOverride(false);
+    await handleAssignVendor(vendor, slots, true);
   };
 
   /**
-   * Wraps handleAssignVendor with a lunch-overlap confirmation check.
-   * Only fires for admin when allow_booking_through_lunch is ON and
-   * the proposed slots span the vendor's lunch break.
+   * Wraps handleAssignVendor with a vendor break override check for Admin.
+   * Prompts admin with Case 1 (Full Duration + Break Time) or Case 2 (Shorter Duration Warning)
+   * if a break intervenes before the service duration is complete.
    */
   const assignVendorWithLunchCheck = async (
     vendor: VendorData,
     proposed: { start: string; end: string }[],
     forceProceed = false,
   ) => {
-    const allowBookingThroughLunchActive =
-      portalSettings?.allow_booking_through_lunch ?? false;
     const isAdmin = userType === "admin";
+    const allowBookingThroughLunch =
+      portalSettings?.allow_booking_through_lunch ?? false;
 
-    if (allowBookingThroughLunchActive && isAdmin && !forceProceed) {
+    if (
+      isAdmin &&
+      allowBookingThroughLunch &&
+      !forceProceed &&
+      proposed.length > 0
+    ) {
       const currentServiceDataForCheck = servicesData?.find(
         (s) => s.uuid === service.uuid || String(s.id) === String(service.id),
       );
@@ -3961,23 +4348,31 @@ export default function OneDayCalendar({
         activeSquareFootage,
       );
 
-      const overlap = getVendorBreakOverlapInfo(vendor, currentDate, proposed);
-      if (
-        overlap &&
-        overlap.spansBreak &&
-        overlap.preBreakMinutes < requiredDurationForCheck
-      ) {
-        setPendingLunchOverlap({
+      const breakEval = getAdminBreakSpannedSlots(
+        vendor,
+        currentDate,
+        proposed[0].start,
+        requiredDurationForCheck,
+        events,
+        propertyTimezone,
+      );
+
+      if (breakEval && breakEval.hasBreak) {
+        setPendingBreakOverride({
           vendor,
-          slots: proposed,
-          lunchLabel: overlap.lunchLabel,
-          preBreakMinutes: overlap.preBreakMinutes,
-          breakMinutes: overlap.breakMinutes,
-          postBreakMinutes: overlap.postBreakMinutes,
-          requiredDurationMinutes: requiredDurationForCheck,
-          forceProceed,
+          slots: breakEval.proposedSlots,
+          breakLabel: breakEval.breakLabel,
+          preBreakMinutes: breakEval.preBreakMinutes,
+          breakMinutes: breakEval.breakMinutes,
+          postBreakMinutes: breakEval.postBreakMinutes,
+          totalWorkingMinutes: breakEval.totalWorkingMinutes,
+          requiredDurationMinutes: breakEval.requiredDurationMinutes,
+          deficitMinutes: breakEval.deficitMinutes,
+          totalSpanMinutes: breakEval.totalSpanMinutes,
+          isShorterDuration: breakEval.isShorterDuration,
+          forceProceed: true,
         });
-        setShowConfirmLunchOverlap(true);
+        setShowConfirmBreakOverride(true);
         return;
       }
     }
@@ -5028,22 +5423,37 @@ export default function OneDayCalendar({
         title="Trim / Unbook Slot?"
         description="Are you sure you want to trim this slot from the previously booked order? The updated schedule will be saved."
       />
-      {/* Book-Through-Lunch confirmation dialog — admin only */}
+      {/* Vendor Break Override confirmation dialog — admin only */}
       <ConfirmationDialog
-        open={showConfirmLunchOverlap}
+        open={showConfirmBreakOverride}
         setOpen={(open) => {
-          setShowConfirmLunchOverlap(open);
-          if (!open) setPendingLunchOverlap(null);
+          setShowConfirmBreakOverride(open);
+          if (!open) setPendingBreakOverride(null);
         }}
-        onConfirm={handleConfirmLunchOverlap}
+        onConfirm={handleConfirmBreakOverride}
         onCancel={() => {
-          setShowConfirmLunchOverlap(false);
-          setPendingLunchOverlap(null);
+          setShowConfirmBreakOverride(false);
+          setPendingBreakOverride(null);
         }}
-        showAgain={showAgain}
-        toggleShowAgain={() => setShowAgain((prev) => !prev)}
-        title="Book Through Lunch Time?"
-        description="The available time before the vendor's break is less than the required service duration and there is a break ahead. Do you want to book through lunch time? The break duration will be added to the appointment."
+        hideShowAgain={true}
+        title={
+          pendingBreakOverride?.isShorterDuration
+            ? "Vendor Break Ahead: Shorter Service Duration"
+            : "Vendor Break Between Slots: Override & Extend?"
+        }
+        description={
+          pendingBreakOverride
+            ? pendingBreakOverride.isShorterDuration
+              ? `The vendor has a scheduled break (${pendingBreakOverride.breakLabel}, ${pendingBreakOverride.breakMinutes} min) ahead. Only ${pendingBreakOverride.totalWorkingMinutes} min of service time is available across this window (${pendingBreakOverride.preBreakMinutes} min before break + ${pendingBreakOverride.postBreakMinutes} min after break), which is ${pendingBreakOverride.deficitMinutes} min less than the required ${pendingBreakOverride.requiredDurationMinutes} min service duration. Do you want to override the break and book these available slots with a shorter service duration of ${pendingBreakOverride.totalWorkingMinutes} min (total window: ${pendingBreakOverride.totalSpanMinutes} min including break)?`
+              : `The vendor has a scheduled break (${pendingBreakOverride.breakLabel}, ${pendingBreakOverride.breakMinutes} min) between the available slots. Available time before the break is only ${pendingBreakOverride.preBreakMinutes} min (required: ${pendingBreakOverride.requiredDurationMinutes} min). Do you want to override the break? Confirming will select slots equal to Service Duration + Break Time (${pendingBreakOverride.requiredDurationMinutes} min service + ${pendingBreakOverride.breakMinutes} min break = ${pendingBreakOverride.totalSpanMinutes} min total window).`
+            : ""
+        }
+        confirmText={
+          pendingBreakOverride?.isShorterDuration
+            ? "Book Shorter Duration"
+            : "Override & Book"
+        }
+        cancelText="Cancel"
       />
     </>
   );

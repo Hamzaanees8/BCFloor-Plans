@@ -316,6 +316,7 @@ const GlobalSettings = () => {
     const portalSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
     const tourSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
     const taxSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
+    const emailSettingsRef = useRef<{ save: () => Promise<void> } | null>(null);
 
     // Override overflow-x: hidden on ancestor elements that break sticky positioning
     useEffect(() => {
@@ -1419,6 +1420,17 @@ const GlobalSettings = () => {
                     >
                         Save Changes
                     </Button>
+                ) : activeTab === "Email Settings" ? (
+                    <Button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            emailSettingsRef.current?.save();
+                        }}
+                        className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] ${userType}-border ${userType}-bg text-[14px] md:text-[16px] font-[400] text-[#EEEEEE] flex gap-[5px] items-center justify-center hover:text-[#fff] hover-${userType}-bg `}
+                    >
+                        Save Changes
+                    </Button>
                 ) : activeTab === "Templates" || activeTab === "Email Logs" || activeTab === "QB Sync Logs" ? null : (
                     <Button
                         type="button"
@@ -1471,7 +1483,7 @@ const GlobalSettings = () => {
                     <EmailTemplatesSettings />
                 )}
                 {activeTab === "Email Settings" && userType === "admin" && (
-                    <EmailNotificationsSettings />
+                    <EmailNotificationsSettings ref={emailSettingsRef} />
                 )}
                 {activeTab === "Media Processing" && userType === "admin" && (
                     <MediaJobsTable userType={userType} />

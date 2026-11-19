@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { usePermissions } from "@/app/hooks/usePermissions";
 import DropdownActions from "./DropdownActions";
 import { EmailTemplate, GetTemplates, DeleteTemplate, UpdateTemplate } from "@/app/dashboard/global-settings/templates";
 import AddTemplateDialog from "./AddTemplateDialog";
@@ -15,16 +16,64 @@ import TemplatePreviewDialog from "./TemplatePreviewDialog";
 import { DateTime } from "luxon";
 import SignatureCreatorDialog from "./SignatureCreatorDialog";
 import { Signature, GetSignatures, DeleteSignature } from "@/app/dashboard/global-settings/signatures";
-import { GetCompany } from "@/app/dashboard/global-settings/global-settings";
+import { Organization, GetOrganizations, GetCompany } from "@/app/dashboard/global-settings/global-settings";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
+export const ORG_COLOR_PALETTE = [
+    "#2563EB", // Blue
+    "#7C3AED", // Violet
+    "#059669", // Emerald
+    "#D97706", // Amber
+    "#DC2626", // Red
+    "#0891B2", // Cyan
+    "#4F46E5", // Indigo
+    "#C026D3", // Fuchsia
+    "#EA580C", // Orange
+    "#0D9488", // Teal
+    "#9333EA", // Purple
+    "#475569", // Slate
+];
+
+export const getOrgColor = (orgKey?: string | number | null, orgList: Organization[] = []) => {
+    if (!orgKey) return "#6B7280";
+    if (orgList.length > 0) {
+        const index = orgList.findIndex(
+            (o) =>
+                o.uuid === orgKey ||
+                o.id === orgKey ||
+                String(o.id) === String(orgKey) ||
+                o.name.toLowerCase() === String(orgKey).toLowerCase()
+        );
+        if (index !== -1) {
+            return ORG_COLOR_PALETTE[index % ORG_COLOR_PALETTE.length];
+        }
+    }
+    const str = String(orgKey);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % ORG_COLOR_PALETTE.length;
+    return ORG_COLOR_PALETTE[idx];
+};
 
 const EmailTemplatesSettings = () => {
     const { userType, organizationId, setOrganizationId } = useAppContext();
-    const { appliedSettings } = useWhiteLabel();
+    const { appliedSettings, organizations: contextOrgs } = useWhiteLabel();
+    const { isSuperAdmin } = usePermissions();
     const role = (userType as string) || 'admin';
     const roleSettings = appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
 
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [signatures, setSignatures] = useState<Signature[]>([]);
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [selectedOrg, setSelectedOrg] = useState<string>("all");
     const [openAddDialog, setOpenAddDialog] = useState(false);
     const [openPreviewDialog, setOpenPreviewDialog] = useState(false);
     const [openSignatureDialog, setOpenSignatureDialog] = useState(false);
@@ -34,10 +83,29 @@ const EmailTemplatesSettings = () => {
     const [loading, setLoading] = useState(true);
     const [sigsLoading, setSigsLoading] = useState(true);
 
-    const fetchTemplates = useCallback(async () => {
+    useEffect(() => {
+        if (contextOrgs && contextOrgs.length > 0) {
+            setOrganizations(contextOrgs);
+        } else {
+            GetOrganizations()
+                .then((res) => {
+                    if (res.status && res.data) {
+                        setOrganizations(res.data);
+                    }
+                })
+                .catch((err) => console.error("Failed to load organizations:", err));
+        }
+    }, [contextOrgs]);
+
+    const fetchTemplates = useCallback(async (orgFilter?: string) => {
         setLoading(true);
         try {
-            const res = await GetTemplates();
+            const filterVal = orgFilter !== undefined ? orgFilter : selectedOrg;
+            const params: { organization_id?: string } = {};
+            if (filterVal && filterVal !== "all") {
+                params.organization_id = filterVal;
+            }
+            const res = await GetTemplates(params);
             if (res.success && res.data) {
                 setTemplates(res.data);
             } else {
@@ -49,7 +117,7 @@ const EmailTemplatesSettings = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [selectedOrg]);
 
     const fetchSignatures = useCallback(async (uuid: string) => {
         setSigsLoading(true);
@@ -69,7 +137,7 @@ const EmailTemplatesSettings = () => {
     }, []);
 
     useEffect(() => {
-        fetchTemplates();
+        fetchTemplates("all");
 
         const initSigs = async () => {
             let orgId = organizationId;
@@ -103,7 +171,7 @@ const EmailTemplatesSettings = () => {
             }
         };
         initSigs();
-    }, [fetchTemplates, fetchSignatures, organizationId, setOrganizationId]);
+    }, [fetchSignatures, organizationId, setOrganizationId]);
 
     const handleSignatureDelete = async (sigUuid: string) => {
         if (!organizationId) return;
@@ -156,7 +224,33 @@ const EmailTemplatesSettings = () => {
         {
             accessorKey: "title",
             header: "TITLE",
-            cell: ({ row }) => <div className="text-[#333333] font-semibold text-xs">{row.getValue("title")}</div>,
+            cell: ({ row }) => {
+                const title = row.getValue("title") as string;
+                const org = row.original.organization;
+                const matchedOrg = org || organizations.find(o => o.id === row.original.organization_id || o.uuid === (row.original as any)?.organization_uuid);
+                const orgName = matchedOrg?.name;
+                const orgKey = matchedOrg?.uuid || matchedOrg?.id || orgName;
+                const orgColor = getOrgColor(orgKey, organizations);
+                return (
+                    <div className="flex flex-col">
+                        <div className="text-[#333333] font-semibold text-xs">{title}</div>
+                        {orgName && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span
+                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: orgColor }}
+                                />
+                                <span
+                                    className="text-[11px] font-medium"
+                                    style={{ color: orgColor }}
+                                >
+                                    {orgName}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: "type",
@@ -352,8 +446,50 @@ const EmailTemplatesSettings = () => {
 
     return (
         <div className="w-full flex-col flex rounded-lg">
-            <div className="flex items-center justify-between w-full pb-4 px-4 py-4" style={{ backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg}, black 10%)` }}>
-                <p className={`text-[18px] font-semibold uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>TEMPLATES</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full pb-4 px-4 py-4 gap-4" style={{ backgroundColor: `color-mix(in srgb, ${roleSettings.pageBg}, black 10%)` }}>
+                <div className="flex flex-wrap items-center gap-4">
+                    <p className={`text-[18px] font-semibold uppercase ${userType === "admin" ? "[&>svg]:text-[#4290E9] text-[#4290E9]" : "[&>svg]:text-[#6BAE41] text-[#6BAE41]"}`}>TEMPLATES</p>
+                    {isSuperAdmin && (
+                        <div className="flex items-center gap-2">
+                            <Select
+                                value={selectedOrg}
+                                onValueChange={(val) => {
+                                    setSelectedOrg(val);
+                                    fetchTemplates(val);
+                                    if (val !== "all") {
+                                        fetchSignatures(val);
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="w-[180px] sm:w-[220px] h-9 bg-white text-xs border-gray-300 shadow-2xs font-medium">
+                                    <SelectValue placeholder="All Organizations" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />
+                                            <span>All Organizations</span>
+                                        </div>
+                                    </SelectItem>
+                                    {organizations.map((org) => {
+                                        const color = getOrgColor(org.uuid || org.id, organizations);
+                                        return (
+                                            <SelectItem key={org.uuid} value={org.uuid}>
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className="w-2 h-2 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                    <span>{org.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
                 <div className="flex items-center gap-x-6">
                     <div
                         onClick={() => {
@@ -407,8 +543,9 @@ const EmailTemplatesSettings = () => {
                     setOpenAddDialog(open);
                     if (!open) setTemplateToEdit(null);
                 }}
-                onSuccess={fetchTemplates}
+                onSuccess={() => fetchTemplates(selectedOrg)}
                 initialData={templateToEdit}
+                selectedOrgId={selectedOrg !== "all" ? selectedOrg : null}
             />
             <TemplatePreviewDialog
                 open={openPreviewDialog}

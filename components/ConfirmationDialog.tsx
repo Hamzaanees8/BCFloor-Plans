@@ -147,7 +147,7 @@ const ConfirmationDialog: React.FC<Props> = ({
 
         <DialogFooter className="flex flex-col md:flex-row md:justify-end gap-[10px] mt-2 font-alexandria">
           <DialogClose
-            className={`bg-white rounded-[8px] ${secondaryAction ? "w-full md:w-auto md:min-w-[110px] px-5 text-[15px] md:text-[16px]" : "w-full md:w-[170px] text-[20px]"} h-[44px] font-[400] ${userType}-text border ${userType}-border text-[#0078D4] hover-${userType}-bg ${userType}-button transition-colors cursor-pointer`}
+            className={`bg-white rounded-[8px] ${secondaryAction ? "w-full md:w-auto md:min-w-[110px] px-5 text-[15px] md:text-[16px]" : "w-full md:w-auto md:min-w-[140px] px-5 text-[15px] md:text-[16px]"} h-[44px] font-[400] ${userType}-text border ${userType}-border text-[#0078D4] hover-${userType}-bg ${userType}-button transition-colors cursor-pointer`}
             onClick={() => {
               if (onCancel) onCancel();
             }}
@@ -171,7 +171,7 @@ const ConfirmationDialog: React.FC<Props> = ({
             </Button>
           )}
           <Button
-            className={`${userType}-bg hover:opacity-90 text-white hover-${userType}-bg ${secondaryAction ? "w-full md:w-auto md:min-w-[140px] px-6 text-[15px] md:text-[16px]" : "w-full md:w-[170px] text-[20px]"} h-[44px] font-[400] transition-colors cursor-pointer`}
+            className={`${userType}-bg hover:opacity-90 text-white hover-${userType}-bg ${secondaryAction ? "w-full md:w-auto md:min-w-[140px] px-6 text-[15px] md:text-[16px]" : "w-full md:w-auto md:min-w-[140px] px-6 text-[15px] md:text-[16px]"} h-[44px] font-[400] transition-colors cursor-pointer whitespace-nowrap`}
             onClick={() => {
               onConfirm();
               setOpen(false);

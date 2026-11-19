@@ -60,6 +60,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         selectedAgentId,
         selectedListingId,
         setSelectedListingId,
+        selectedCurrentListing,
         setSelectedCurrentListing,
         agentNotes,
         coAgents,
@@ -119,8 +120,13 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     const newServices = isAddFlow ? selectedServices.filter(s => !s.service_uuid) : selectedServices;
     const oldServices = isAddFlow ? selectedServices.filter(s => !!s.service_uuid) : [];
 
-    const currentListing = listingsData.find(l => l.uuid === selectedListingId);
-    const sqFootage = Number(currentListing?.square_footage || tempPropertyData?.square_footage || 0);
+    const currentListing = listingsData.find(l => l.uuid === selectedListingId) || selectedCurrentListing;
+    const sqFootage = Number(
+        currentListing?.square_footage ||
+        selectedCurrentListing?.square_footage ||
+        tempPropertyData?.square_footage ||
+        0
+    );
 
     const getOriginalPrice = React.useCallback((sel: SelectedService) => {
         let originalPrice = Number(sel.price) || 0;
@@ -130,16 +136,19 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
             const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option_id || o.title === sel.optionName);
 
             if (catalogOption) {
-                if (
-                    (!catalogOption.sq_ft_range || String(catalogOption.sq_ft_range).trim() === '') &&
+                const isSqFtRateOption = (!catalogOption.sq_ft_range || String(catalogOption.sq_ft_range).trim() === '') &&
                     catalogOption.sq_ft_rate &&
-                    parseFloat(catalogOption.sq_ft_rate) > 0 &&
-                    sqFootage > 0
-                ) {
-                    const calculated = parseFloat(catalogOption.sq_ft_rate) * sqFootage;
-                    originalPrice = catalogOption.min_price
-                        ? Math.max(calculated, catalogOption.min_price)
-                        : calculated;
+                    parseFloat(String(catalogOption.sq_ft_rate)) > 0;
+
+                if (isSqFtRateOption) {
+                    if (sqFootage > 0) {
+                        const calculated = parseFloat(String(catalogOption.sq_ft_rate)) * sqFootage;
+                        originalPrice = catalogOption.min_price
+                            ? Math.max(calculated, catalogOption.min_price)
+                            : calculated;
+                    } else if (Number(sel.price) > 0) {
+                        originalPrice = Number(sel.price);
+                    }
                 } else if (Number(catalogOption.amount) > 0) {
                     originalPrice = Number(catalogOption.amount);
                 }
@@ -329,14 +338,21 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
                         effAmount = Math.max(0, origPrice - agentDeduction);
                     }
 
+                    const fullService = services.find(s => s.uuid === sel.uuid);
+                    const gstEnabled = fullService?.gst_enabled !== undefined ? Boolean(fullService.gst_enabled) : true;
+                    const pstEnabled = fullService?.pst_enabled !== undefined ? Boolean(fullService.pst_enabled) : false;
+
                     return {
                         amount: Number(effAmount.toFixed(2)),
                         is_taxable: true,
+                        service_id: sel.uuid,
+                        gst_enabled: gstEnabled,
+                        pst_enabled: pstEnabled,
                     };
                 });
 
                 const data = await CalculateRealtimeTaxPreview({
-                    org_slug: orgSlug || "bc-floor-plans",
+                    ...(orgSlug ? { org_slug: orgSlug } : {}),
                     property_province: propertyProvince,
                     property_country: propertyCountry,
                     items,
@@ -468,7 +484,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         const orderTotal = Math.max(0, rawOrigTotal - winningDiscountVal);
 
         setTotal(Number(orderTotal.toFixed(2)));
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, agentDiscount, setTotal, activePackage, listingsData, selectedListingId, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
+    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, agentDiscount, setTotal, activePackage, listingsData, selectedListingId, selectedCurrentListing, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
 
     const handleApplyDiscount = () => {
         if (!discountCode?.trim()) {
