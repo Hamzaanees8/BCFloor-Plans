@@ -30,10 +30,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, formatOrderDate, type BillingItem } from '@/app/dashboard/billing/billing'
-import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid } from '@/app/dashboard/invoice/invoice_api'
+import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid, DownloadInvoice } from '@/app/dashboard/invoice/invoice_api'
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
-import InvoicePdfDocument from '@/app/dashboard/invoice/components/InvoicePdfDocument'
-import DownloadInvoicePdf from '@/app/dashboard/invoice/components/DownloadInvoicePdf'
 import InvoiceDocument from '@/app/dashboard/invoice/components/InvoiceDocument'
 import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
@@ -198,12 +196,11 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
   }
 
   const handleDownload = async (invoice: any) => {
+    if (!invoice?.uuid) return
     setActionLoading(`download-${invoice.uuid}`)
     try {
-      const invoiceNumber = invoice.invoice_number || invoice.id
-      const fileName = `Invoice_${invoiceNumber}.pdf`
-      await DownloadInvoicePdf(`invoice-pdf-${invoice.uuid}`, fileName)
-      toast.success('Invoice PDF download started')
+      await DownloadInvoice(invoice.uuid, invoice.invoice_number || invoice.id)
+      toast.success('Invoice PDF downloaded successfully')
     } catch (err) {
       console.error('Failed to download PDF:', err)
       toast.error('Failed to download PDF')
@@ -561,16 +558,6 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                       </Button>
                     </div>
                   </CardContent>
-
-                  {/* Hidden high-accuracy PDF rendering block */}
-                  <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    <div id={`invoice-pdf-${invoice.uuid}`}>
-                      <InvoicePdfDocument
-                        invoice={invoice}
-                        roleSettings={roleSettings}
-                      />
-                    </div>
-                  </div>
                 </Card>
               );
             })
@@ -692,9 +679,25 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
                   </span>
                 </div>
 
-                <Button variant="ghost" size="icon" className="absolute right-0 top-0 md:static h-8 w-8 hover:bg-gray-100 rounded-full md:ml-4 shrink-0 transition-opacity hover:opacity-70" onClick={() => setViewingInvoiceDoc(null)}>
-                  <X className="h-5 w-5 text-gray-500" />
-                </Button>
+                <div className="absolute right-0 top-0 md:static flex items-center gap-1.5 md:ml-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs px-2.5 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] flex items-center gap-1.5 shadow-sm bg-white"
+                    disabled={actionLoading === `download-${viewingInvoiceDoc.uuid}`}
+                    onClick={() => handleDownload(viewingInvoiceDoc)}
+                  >
+                    {actionLoading === `download-${viewingInvoiceDoc.uuid}` ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    PDF
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-gray-100 rounded-full shrink-0 transition-opacity hover:opacity-70" onClick={() => setViewingInvoiceDoc(null)}>
+                    <X className="h-5 w-5 text-gray-500" />
+                  </Button>
+                </div>
               </DialogTitle>
             </DialogHeader>
             <div className="overflow-y-auto p-4 flex-1">

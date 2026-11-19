@@ -348,7 +348,7 @@ export interface ListingOrder {
     | "Completed"
     | "Cancelled"
     | "On Hold";
-    payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID" | "PARTIAL";
+    payment_status: "PAID" | "UNPAID" | "PARTIALLY_PAID" | "PARTIAL" | "REFUNDED" | string;
     property_address: string;
     property_location: string;
     vendor_address: string;
@@ -361,6 +361,8 @@ export interface ListingOrder {
     media_approval_required?: boolean;
     has_unapproved_media?: boolean;
     has_pending_approval?: boolean;
+    unapproved_files_count?: number;
+    pending_approval_service_uuid?: string;
     vendor?: any;
     tours?: {
         uuid?: string;

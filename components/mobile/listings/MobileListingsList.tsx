@@ -101,11 +101,13 @@ export default function MobileListingsList({
       return { label: 'N/A', color: 'bg-gray-100 text-gray-800 border-gray-200' };
     }
 
-    const status = latestOrder.payment_status;
+    const status = (latestOrder.payment_status || "").toUpperCase();
     if (status === 'PAID') {
       return { label: 'Paid', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
-    } else if (status === 'PARTIALLY_PAID') {
+    } else if (status === 'PARTIALLY_PAID' || status === 'PARTIAL') {
       return { label: 'Partially Paid', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+    } else if (status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') {
+      return { label: 'Refunded', color: 'bg-purple-100 text-purple-800 border-purple-200' };
     } else {
       return { label: 'Unpaid', color: 'bg-rose-100 text-rose-800 border-rose-200' };
     }
@@ -170,7 +172,7 @@ export default function MobileListingsList({
         // Build deep-link for admin badge → FileManager on the right service tab
         let approvalLink: string | null = null;
         if (approvalBadge && userType === 'admin' && latestOrder?.uuid) {
-          const serviceUuid = pendingApprovalMap?.get(latestOrder.uuid) || '';
+          const serviceUuid = latestOrder?.pending_approval_service_uuid || pendingApprovalMap?.get(latestOrder.uuid) || '';
           approvalLink = `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ''}`;
         }
 

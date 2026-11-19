@@ -37,6 +37,7 @@ import {
   PayInvoiceWithStripe,
   UpdateInvoiceExtraItems,
   UpdateInvoice,
+  DownloadInvoice,
 } from "../../invoice/invoice_api";
 import InvoiceDocument from "../../invoice/components/InvoiceDocument";
 import {
@@ -56,7 +57,7 @@ import { GetOneListing } from "../../listings/listing";
 import { Listings } from "@/lib/types";
 import SafeLink from "@/components/SafeLink";
 import { GetTourDefaultSettings } from "@/app/dashboard/global-settings/global-settings";
-import { Loader2, X, Edit2, Save, Trash2 } from "lucide-react";
+import { Loader2, X, Edit2, Save, Trash2, Download } from "lucide-react";
 import SendToClientModal from "./SendToClientModal";
 import { resolveServicePrice } from "@/lib/pricingUtils";
 import { isUserCoAgent } from "@/lib/permissions";
@@ -806,6 +807,21 @@ const FileManager = () => {
   const [isEditingInvoice, setIsEditingInvoice] = useState<boolean>(false);
   const [editingInvoiceData, setEditingInvoiceData] = useState<any>(null);
   const [isSavingInvoice, setIsSavingInvoice] = useState<boolean>(false);
+  const [downloadingInvoiceUuid, setDownloadingInvoiceUuid] = useState<string | null>(null);
+
+  const handleDownloadInvoice = async (inv: any) => {
+    if (!inv?.uuid) return;
+    setDownloadingInvoiceUuid(inv.uuid);
+    try {
+      await DownloadInvoice(inv.uuid, inv.invoice_number || inv.id);
+      toast.success("Invoice downloaded successfully");
+    } catch (err: any) {
+      console.error("Failed to download invoice:", err);
+      toast.error("Failed to download invoice");
+    } finally {
+      setDownloadingInvoiceUuid(null);
+    }
+  };
   const [currentListing, setCurrentListing] = useState<Listings | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -3397,6 +3413,19 @@ const FileManager = () => {
                               >
                                 View Invoice
                               </Button>
+                              <Button
+                                variant="outline"
+                                disabled={downloadingInvoiceUuid === invoice.uuid}
+                                onClick={() => handleDownloadInvoice(invoice)}
+                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5"
+                              >
+                                {downloadingInvoiceUuid === invoice.uuid ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Download className="h-3 w-3" />
+                                )}
+                                Download
+                              </Button>
                               {isAdmin &&
                                 !["paid", "void", "refunded"].includes(
                                   (invoice.status || "").toLowerCase(),
@@ -3420,6 +3449,8 @@ const FileManager = () => {
                               {userType !== "vendor" &&
                                 status !== "PAID" &&
                                 status !== "VOID" &&
+                                status !== "REFUNDED" &&
+                                status !== "PARTIALLY_REFUNDED" &&
                                 (currentUser?.uuid ===
                                 (invoice.agent?.uuid || invoice.agent_uuid) ? (
                                   (() => {
@@ -3583,6 +3614,21 @@ const FileManager = () => {
 
                     {/* Row 2: Action buttons underneath on the right side */}
                     <div className="flex items-center justify-end gap-2 w-full flex-wrap">
+                      {!isEditingInvoice && (
+                        <Button
+                          variant="outline"
+                          disabled={downloadingInvoiceUuid === viewingInvoice.uuid}
+                          onClick={() => handleDownloadInvoice(viewingInvoice)}
+                          className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                        >
+                          {downloadingInvoiceUuid === viewingInvoice.uuid ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                          Download PDF
+                        </Button>
+                      )}
                       {isAdmin &&
                         !["paid", "void", "refunded"].includes(
                           (viewingInvoice.status || "").toLowerCase(),

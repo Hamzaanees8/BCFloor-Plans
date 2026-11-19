@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,10 +8,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Printer, Download, Loader2, Edit2, Save, X, RotateCcw, CreditCard, Check, RefreshCw, Calendar, Trash2 } from 'lucide-react'
-import DownloadInvoicePdf from './DownloadInvoicePdf'
 import InvoiceDocument from './InvoiceDocument'
-import InvoicePdfDocument from './InvoicePdfDocument'
-import { UpdateInvoice } from '../invoice_api'
+import { UpdateInvoice, DownloadInvoice } from '../invoice_api'
 import RefundModal from './RefundModal'
 import DeleteInvoiceModal from './DeleteInvoiceModal'
 import { toast } from 'sonner'
@@ -43,6 +41,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     const [selectedPlanId, setSelectedPlanId] = useState<string>("6_months")
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+    const [downloading, setDownloading] = useState(false)
     const { userType } = useAppContext()
     const { appliedSettings } = useWhiteLabel()
     const role = (userType as string) || 'admin'
@@ -99,7 +98,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
         )
     );
 
-    const isPaid = invoice && ['paid', 'refunded'].includes((invoice.status || '').toLowerCase());
+    const isPaid = invoice && ['paid', 'refunded', 'partially_refunded', 'partial_refunded'].includes((invoice.status || '').toLowerCase());
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank');
@@ -126,10 +125,17 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
     }
 
     const handleDownload = async () => {
-        if (!invoice) return;
-        const invoiceNumber = invoice.invoice_number || invoice.id;
-        const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadInvoicePdf('invoice-pdf-content', fileName);
+        if (!invoice?.uuid) return;
+        setDownloading(true);
+        try {
+            await DownloadInvoice(invoice.uuid, invoice.invoice_number || invoice.id);
+            toast.success("Invoice downloaded successfully");
+        } catch (err) {
+            console.error("Failed to download invoice:", err);
+            toast.error("Failed to download invoice");
+        } finally {
+            setDownloading(false);
+        }
     }
 
     const handleSave = async () => {
@@ -493,8 +499,8 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                                                 <Trash2 className="h-4 w-4 mr-1" /> Delete
                                             </Button>
                                         )}
-                                        <Button variant="outline" size="sm" onClick={handleDownload} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 flex items-center gap-2 shadow-sm">
-                                            <Download className="h-4 w-4" /> Download PDF
+                                        <Button variant="outline" size="sm" disabled={downloading} onClick={handleDownload} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 flex items-center gap-2 shadow-sm">
+                                            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download PDF
                                         </Button>
                                         <Button variant="outline" size="sm" onClick={handlePrint} className="border-gray-300 text-gray-700 hover:bg-gray-700 hover:text-white hover:border-gray-700 shadow-sm">
                                             <Printer className="mr-2 h-4 w-4" /> Print
@@ -566,14 +572,6 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                         roleSettings={roleSettings}
                     />
                 )}
-
-                {/* Hidden PDF component for high-accuracy capture */}
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    <InvoicePdfDocument
-                        invoice={isEditing ? editData : invoice}
-                        roleSettings={roleSettings}
-                    />
-                </div>
 
                 <RefundModal 
                     isOpen={isRefundModalOpen}

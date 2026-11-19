@@ -16,9 +16,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
-import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
-import { PayInvoiceWithStripe } from "@/app/dashboard/invoice/invoice_api";
+import { DownloadInvoice, PayInvoiceWithStripe } from "@/app/dashboard/invoice/invoice_api";
 import { isRenewalInvoice, isMainInvoice, isInvoiceLinkedToService } from "@/app/dashboard/invoice/invoice_utils";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
@@ -144,10 +142,15 @@ export default function PrintRequestInvoiceModal({
   };
 
   const handleDownload = async () => {
-    if (!invoice) return;
-    const invoiceNumber = invoice.invoice_number || invoice.id;
-    const fileName = `Invoice_${invoiceNumber}.pdf`;
-    await DownloadInvoicePdf("invoice-pdf-content", fileName);
+    const targetUuid = invoice?.uuid || invoice?.id;
+    if (!targetUuid) return;
+    try {
+      await DownloadInvoice(targetUuid, invoice.invoice_number || invoice.id);
+      toast.success("Invoice downloaded successfully");
+    } catch (err: any) {
+      console.error("Failed to download invoice:", err);
+      toast.error(err?.message || "Failed to download invoice");
+    }
   };
 
   return (
@@ -275,16 +278,6 @@ export default function PrintRequestInvoiceModal({
             </div>
           )}
         </div>
-
-        {/* Hidden PDF component for high-accuracy capture */}
-        {invoice && (
-          <div style={{ position: "absolute", top: "-9999px", left: "-9999px" }}>
-            <InvoicePdfDocument
-              invoice={invoice}
-              roleSettings={roleSettings}
-            />
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

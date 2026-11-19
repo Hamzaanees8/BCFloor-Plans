@@ -48,8 +48,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
-import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+import { DownloadInvoice } from "@/app/dashboard/invoice/invoice_api";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1084,10 +1083,15 @@ const enrichModalInvoiceLines = (lines: any[]) => {
 
 function ViewInvoiceModal({ isOpen, onClose, invoice, onEdit, onDelete, onPay, onManualPay, triggerPaymentAction, roleSettings }: any) {
     const handleDownload = async () => {
-        if (!invoice) return;
-        const invoiceNumber = invoice.invoice_number || invoice.id;
-        const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadInvoicePdf('invoice-pdf-content', fileName);
+        const targetUuid = invoice?.uuid || invoice?.id;
+        if (!targetUuid) return;
+        try {
+            await DownloadInvoice(targetUuid, invoice.invoice_number || invoice.id);
+            toast.success("Invoice downloaded successfully");
+        } catch (err: any) {
+            console.error("Failed to download invoice:", err);
+            toast.error(err?.message || "Failed to download invoice");
+        }
     }
 
     // Map vendor invoice data to InvoiceDocument format
@@ -1188,14 +1192,6 @@ function ViewInvoiceModal({ isOpen, onClose, invoice, onEdit, onDelete, onPay, o
                         removeItem={() => { }}
                         updateTaxRate={() => { }}
                         setEditData={() => { }}
-                        roleSettings={roleSettings}
-                    />
-                </div>
-
-                {/* Hidden PDF component for high-accuracy capture */}
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                    <InvoicePdfDocument
-                        invoice={documentData}
                         roleSettings={roleSettings}
                     />
                 </div>

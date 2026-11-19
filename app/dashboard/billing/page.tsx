@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUser } from "@/context/UserContext";
 import { GetOrganizations } from "@/app/dashboard/global-settings/global-settings";
@@ -54,6 +54,7 @@ import {
   Save,
   Trash2,
   X,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -70,6 +71,7 @@ import {
   PayInvoiceWithStripe,
   MarkPaid,
   UpdateInvoice,
+  DownloadInvoice,
 } from "../invoice/invoice_api";
 import InvoiceDocument from "../invoice/components/InvoiceDocument";
 import { GetFilesData } from "../file-manager/file-manager";
@@ -211,6 +213,21 @@ const Page = () => {
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] =
     useState<any>(null);
   const [isRefundReceiptOpen, setIsRefundReceiptOpen] = useState(false);
+  const [downloadingInvoiceUuid, setDownloadingInvoiceUuid] = useState<string | null>(null);
+
+  const handleDownloadInvoice = async (inv: any) => {
+    if (!inv?.uuid) return;
+    setDownloadingInvoiceUuid(inv.uuid);
+    try {
+      await DownloadInvoice(inv.uuid, inv.invoice_number || inv.id);
+      toast.success("Invoice downloaded successfully");
+    } catch (err: any) {
+      console.error("Failed to download invoice:", err);
+      toast.error("Failed to download invoice");
+    } finally {
+      setDownloadingInvoiceUuid(null);
+    }
+  };
 
   // Tracks which service IDs have at least one media file, keyed by orderUuid
   const [rowServiceMedia, setRowServiceMedia] = useState<{
@@ -2239,44 +2256,83 @@ const Page = () => {
                                               Loading...
                                             </Button>
                                           ) : targetOrderInvoice ? (
-                                            <Button
-                                              onClick={() =>
-                                                handleInvoiceAction(
-                                                  billing,
-                                                  "view",
-                                                )
-                                              }
-                                              disabled={actionLoading !== null}
-                                              className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
-                                              onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor =
-                                                  roleSettings.pageTabColor;
-                                                e.currentTarget.style.color =
-                                                  "white";
-                                                e.currentTarget.style.borderColor =
-                                                  roleSettings.pageTabColor;
-                                              }}
-                                              onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor =
-                                                  "white";
-                                                e.currentTarget.style.color =
-                                                  "#666666";
-                                                e.currentTarget.style.borderColor =
-                                                  "#BBBBBB";
-                                              }}
-                                            >
-                                              {actionLoading?.id ===
-                                                billing.order_id &&
-                                              actionLoading?.action ===
-                                                "view" ? (
-                                                <>
-                                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                  Loading...
-                                                </>
-                                              ) : (
-                                                "Invoice"
-                                              )}
-                                            </Button>
+                                            <>
+                                              <Button
+                                                onClick={() =>
+                                                  handleInvoiceAction(
+                                                    billing,
+                                                    "view",
+                                                  )
+                                                }
+                                                disabled={actionLoading !== null}
+                                                className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
+                                                onMouseEnter={(e) => {
+                                                  e.currentTarget.style.backgroundColor =
+                                                    roleSettings.pageTabColor;
+                                                  e.currentTarget.style.color =
+                                                    "white";
+                                                  e.currentTarget.style.borderColor =
+                                                    roleSettings.pageTabColor;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.currentTarget.style.backgroundColor =
+                                                    "white";
+                                                  e.currentTarget.style.color =
+                                                    "#666666";
+                                                  e.currentTarget.style.borderColor =
+                                                    "#BBBBBB";
+                                                }}
+                                              >
+                                                {actionLoading?.id ===
+                                                  billing.order_id &&
+                                                actionLoading?.action ===
+                                                  "view" ? (
+                                                  <>
+                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                    Loading...
+                                                  </>
+                                                ) : (
+                                                  "Invoice"
+                                                )}
+                                              </Button>
+                                              <Button
+                                                onClick={() =>
+                                                  handleDownloadInvoice(
+                                                    targetOrderInvoice,
+                                                  )
+                                                }
+                                                disabled={
+                                                  downloadingInvoiceUuid ===
+                                                  targetOrderInvoice.uuid
+                                                }
+                                                className="h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center cursor-pointer gap-1.5"
+                                                title="Download Invoice PDF"
+                                                onMouseEnter={(e) => {
+                                                  e.currentTarget.style.backgroundColor =
+                                                    roleSettings.pageTabColor;
+                                                  e.currentTarget.style.color =
+                                                    "white";
+                                                  e.currentTarget.style.borderColor =
+                                                    roleSettings.pageTabColor;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.currentTarget.style.backgroundColor =
+                                                    "white";
+                                                  e.currentTarget.style.color =
+                                                    "#666666";
+                                                  e.currentTarget.style.borderColor =
+                                                    "#BBBBBB";
+                                                }}
+                                              >
+                                                {downloadingInvoiceUuid ===
+                                                targetOrderInvoice.uuid ? (
+                                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                  <Download className="h-3.5 w-3.5" />
+                                                )}
+                                                <span>Download PDF</span>
+                                              </Button>
+                                            </>
                                           ) : (
                                             <Button
                                               disabled
@@ -4097,6 +4153,22 @@ const Page = () => {
                                 View Invoice
                               </Button>
 
+                              <Button
+                                variant="outline"
+                                disabled={
+                                  downloadingInvoiceUuid === invoice.uuid
+                                }
+                                onClick={() => handleDownloadInvoice(invoice)}
+                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5"
+                              >
+                                {downloadingInvoiceUuid === invoice.uuid ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Download className="h-3 w-3" />
+                                )}
+                                Download
+                              </Button>
+
                               {isAdmin &&
                                 !["paid", "void", "refunded"].includes(
                                   (invoice.status || "").toLowerCase(),
@@ -4120,7 +4192,7 @@ const Page = () => {
 
                               {status !== "PAID" &&
                                 status !== "VOID" &&
-                                !isRefunded(status) &&
+                                !isRefunded(status) && !isPartiallyRefunded(status) &&
                                 selectedBilling && (
                                   <>
                                     {role === "admin" && (
@@ -4472,6 +4544,26 @@ const Page = () => {
 
               {/* Row 2: Action buttons under title on the right side */}
               <div className="flex items-center justify-end gap-2 w-full flex-wrap">
+                {!isEditingInvoice && (
+                  <Button
+                    variant="outline"
+                    disabled={
+                      downloadingInvoiceUuid === viewingInvoice.uuid
+                    }
+                    onClick={() =>
+                      handleDownloadInvoice(viewingInvoice)
+                    }
+                    className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                  >
+                    {downloadingInvoiceUuid ===
+                    viewingInvoice.uuid ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    Download PDF
+                  </Button>
+                )}
                 {isAdmin &&
                   !["paid", "void", "refunded"].includes(
                     (viewingInvoice.status || "").toLowerCase(),
@@ -4543,7 +4635,7 @@ const Page = () => {
 
                 {!isEditingInvoice &&
                   viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                  !isRefunded(viewingInvoice.status) &&
+                  !isRefunded(viewingInvoice.status) && !isPartiallyRefunded(viewingInvoice.status) &&
                   selectedBilling && (
                     <div className="flex items-center gap-2">
                       {role === "admin" && (
@@ -4833,6 +4925,26 @@ const Page = () => {
 
               {/* Row 2: Action buttons under title on the right side */}
               <div className="flex items-center justify-end gap-2 w-full flex-wrap">
+                {!isEditingInvoice && (
+                  <Button
+                    variant="outline"
+                    disabled={
+                      downloadingInvoiceUuid === serviceInvoicePopup.invoice.uuid
+                    }
+                    onClick={() =>
+                      handleDownloadInvoice(serviceInvoicePopup.invoice)
+                    }
+                    className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                  >
+                    {downloadingInvoiceUuid ===
+                    serviceInvoicePopup.invoice.uuid ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    Download PDF
+                  </Button>
+                )}
                 {isAdmin &&
                   !["paid", "void", "refunded"].includes(
                     (serviceInvoicePopup.invoice.status || "").toLowerCase(),

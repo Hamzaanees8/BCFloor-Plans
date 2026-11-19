@@ -3,7 +3,6 @@ import React, { useEffect, useState, useRef } from "react";
 import QuickViewCard, { AgentData } from "@/components/QuickViewCard";
 import Link from "next/link";
 import { DeleteListing, GetListing, UpdateListingStatus } from "./listing";
-import { GetFilesData } from "@/app/dashboard/file-manager/file-manager";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
@@ -101,16 +100,21 @@ const getPaymentStatus = (orders?: any[]) => {
     return { label: "N/A", color: "bg-gray-100 text-gray-800 border-gray-200" };
   }
 
-  const status = latestOrder.payment_status;
+  const status = (latestOrder.payment_status || "").toUpperCase();
   if (status === "PAID") {
     return {
       label: "Paid",
       color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     };
-  } else if (status === "PARTIALLY_PAID") {
+  } else if (status === "PARTIALLY_PAID" || status === "PARTIAL") {
     return {
       label: "Partially Paid",
       color: "bg-amber-100 text-amber-800 border-amber-200",
+    };
+  } else if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED") {
+    return {
+      label: "Refunded",
+      color: "bg-purple-100 text-purple-800 border-purple-200",
     };
   } else {
     return {
@@ -153,8 +157,19 @@ const Page = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTour, setFilterTour] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
-  // Maps orderUuid -> first unapproved serviceUuid (for deep-linking admin into the right FM tab)
-  const [pendingApprovalMap, setPendingApprovalMap] = useState<Map<string, string>>(new Map());
+  // Maps orderUuid -> first unapproved serviceUuid (computed in memory from listingsData)
+  const pendingApprovalMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const listing of listingsData) {
+      for (const order of listing.orders || []) {
+        if (order.has_pending_approval && order.uuid) {
+          map.set(order.uuid, order.pending_approval_service_uuid || "");
+        }
+      }
+    }
+    return map;
+  }, [listingsData]);
+
   // Derived Set so checkMediaApprovalStatus can still do a fast lookup
   const pendingOrderUuids = React.useMemo(
     () => new Set(pendingApprovalMap.keys()),
@@ -239,89 +254,6 @@ const Page = () => {
         setLoading(false);
       });
   }, []);
-
-  // FileManager-style check: fetch tour files per order and look for unapproved files
-  // Mirrors exactly: filesData.files.filter(f => !f.is_admin_approved)
-  useEffect(() => {
-    if (!listingsData.length) return;
-    if (userType !== "admin" && userType !== "vendor" && userType !== "") return;
-
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    // Collect latest order UUID per listing (only active orders to reduce calls)
-    const activeStatuses = new Set(["Processing", "In Progress", "Pending", "Completed"]);
-    const ordersToCheck: { orderUuid: string; listingUuid: string; listingOrders: any[] }[] = [];
-
-    for (const listing of listingsData) {
-      const orders = listing.orders || [];
-      const latest = [...orders].sort(
-        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      )[0];
-      if (latest?.uuid && activeStatuses.has(latest.order_status)) {
-        ordersToCheck.push({ orderUuid: latest.uuid, listingUuid: listing.uuid || "", listingOrders: orders });
-      }
-    }
-
-    if (!ordersToCheck.length) return;
-
-    const isFileUnapproved = (f: any) => {
-      return (
-        f.is_admin_approved === false ||
-        f.is_admin_approved === 0 ||
-        f.is_admin_approved === "0" ||
-        f.is_admin_approved === "false" ||
-        (!f.is_admin_approved && f.is_admin_approved !== undefined)
-      );
-    };
-
-    Promise.all(
-      ordersToCheck.map(async ({ orderUuid, listingOrders }) => {
-        try {
-          const res = await GetFilesData(token, orderUuid);
-          if (!res?.data) return null;
-          const tours: any[] = Array.isArray(res.data) ? res.data : [res.data];
-          // Same check as FileManager: !f.is_admin_approved
-          // Also capture the first unapproved service UUID for deep-linking
-          for (const tour of tours) {
-            for (const f of tour.files || []) {
-              if (isFileUnapproved(f)) {
-                let serviceUuid = f.service?.uuid || "";
-                if (!serviceUuid && f.service_id) {
-                  for (const order of listingOrders) {
-                    const servicesList = order.order_services || order.services || [];
-                    const matched = servicesList.find((os: any) => 
-                      os.service_id === f.service_id || 
-                      os.service?.id === f.service_id ||
-                      Number(os.service_id) === Number(f.service_id) ||
-                      Number(os.service?.id) === Number(f.service_id)
-                    );
-                    if (matched?.service?.uuid) {
-                      serviceUuid = matched.service.uuid;
-                      break;
-                    }
-                  }
-                }
-                if (!serviceUuid && (f.service_id || f.service?.id)) {
-                  serviceUuid = String(f.service_id || f.service?.id);
-                }
-                return { orderUuid, serviceUuid };
-              }
-            }
-          }
-          return null;
-        } catch {
-          return null;
-        }
-      })
-    ).then((results) => {
-      const map = new Map<string, string>();
-      for (const r of results) {
-        if (r) map.set(r.orderUuid, r.serviceUuid);
-      }
-      setPendingApprovalMap(map);
-    });
-  }, [listingsData, userType]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -740,7 +672,7 @@ const Page = () => {
         const latestOrder = getLatestOrder(listing.orders);
         let approvalLink: string | null = null;
         if (approvalBadge && userType === "admin" && latestOrder?.uuid) {
-          const serviceUuid = pendingApprovalMap?.get(latestOrder.uuid) || "";
+          const serviceUuid = latestOrder?.pending_approval_service_uuid || pendingApprovalMap?.get(latestOrder.uuid) || "";
           approvalLink = `/dashboard/file-manager/${latestOrder.uuid}?listingId=${listing.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ""}`;
         }
         return (

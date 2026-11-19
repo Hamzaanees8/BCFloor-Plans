@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import {
   Accordion,
   AccordionContent,
@@ -2232,7 +2232,7 @@ function Page() {
                                   <Edit2 className="mr-1.5 h-3.5 w-3.5" /> Edit
                                 </Button>
                               )}
-                            {status !== "PAID" && status !== "VOID" && (
+                            {status !== "PAID" && status !== "VOID" && status !== "REFUNDED" && status !== "PARTIALLY_REFUNDED" && (
                               currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid) ? (
                                 <Button
                                   onClick={() => {

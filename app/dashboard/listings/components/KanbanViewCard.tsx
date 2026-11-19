@@ -71,11 +71,13 @@ const getPaymentStatus = (orders?: any[]) => {
     return { label: "N/A", color: "bg-gray-100/90 text-gray-800 border-gray-200" };
   }
 
-  const status = latestOrder.payment_status;
+  const status = (latestOrder.payment_status || "").toUpperCase();
   if (status === "PAID") {
     return { label: "Paid", color: "bg-emerald-100/90 text-emerald-800 border-emerald-200" };
-  } else if (status === "PARTIALLY_PAID") {
+  } else if (status === "PARTIALLY_PAID" || status === "PARTIAL") {
     return { label: "Partially Paid", color: "bg-amber-100/90 text-amber-800 border-amber-200" };
+  } else if (status === "REFUNDED" || status === "PARTIALLY_REFUNDED") {
+    return { label: "Refunded", color: "bg-purple-100/90 text-purple-800 border-purple-200" };
   } else {
     return { label: "Unpaid", color: "bg-rose-100/90 text-rose-800 border-rose-200" };
   }
@@ -143,7 +145,7 @@ const KanbanViewCard = ({ data, type = 'listing', onQuickView, pendingApprovalMa
       (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     )[0];
     if (latest?.uuid) {
-      const serviceUuid = pendingApprovalMap?.get(latest.uuid) || "";
+      const serviceUuid = latest.pending_approval_service_uuid || pendingApprovalMap?.get(latest.uuid) || "";
       approvalLink = `/dashboard/file-manager/${latest.uuid}?listingId=${listingData.uuid}${serviceUuid ? `&serviceId=${serviceUuid}` : ''}`;
     }
   }

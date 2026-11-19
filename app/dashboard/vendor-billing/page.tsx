@@ -42,8 +42,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
-import InvoicePdfDocument from "@/app/dashboard/invoice/components/InvoicePdfDocument";
-import DownloadInvoicePdf from "@/app/dashboard/invoice/components/DownloadInvoicePdf";
+import { DownloadInvoice } from "@/app/dashboard/invoice/invoice_api";
 import { useIsMobile } from "@/hooks/use-mobile";
 import MobileVendorEarnings from "@/components/mobile/vendor/MobileVendorEarnings";
 import MobileAdminVendorBilling from "@/components/mobile/vendor-billing/MobileAdminVendorBilling";
@@ -3251,10 +3250,15 @@ const Page = () => {
                     <Button
                       size="sm"
                       onClick={async () => {
-                        if (!viewingInvoice) return;
-                        const invoiceNumber = viewingInvoice.invoice_number || viewingInvoice.id;
-                        const fileName = `Invoice_${invoiceNumber}.pdf`;
-                        await DownloadInvoicePdf('invoice-pdf-content', fileName);
+                        const targetUuid = viewingInvoice?.uuid || viewingInvoice?.id;
+                        if (!targetUuid) return;
+                        try {
+                          await DownloadInvoice(targetUuid, viewingInvoice.invoice_number || viewingInvoice.id);
+                          toast.success("Invoice downloaded successfully");
+                        } catch (err: any) {
+                          console.error("Failed to download invoice:", err);
+                          toast.error(err?.message || "Failed to download invoice");
+                        }
                       }}
                       className="h-8 px-3 text-xs font-semibold text-white hover:brightness-90 hover:!text-white rounded-[6px] border-none shadow-sm gap-1.5 transition-all cursor-pointer"
                       style={{ backgroundColor: roleSettings.pageTabColor }}
@@ -3330,26 +3334,6 @@ const Page = () => {
                     setEditData={() => {}}
                     roleSettings={roleSettings}
                   />
-
-                  {/* Hidden PDF component for high-accuracy capture */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-9999px",
-                      left: "-9999px",
-                    }}
-                  >
-                    <InvoicePdfDocument
-                      invoice={{
-                        ...viewingInvoice,
-                        items: enrichInvoiceLines(
-                          viewingInvoice.lines || [],
-                          orderData,
-                        ),
-                      }}
-                      roleSettings={roleSettings}
-                    />
-                  </div>
 
                   {/* Warning if no lines */}
                   {(!viewingInvoice.lines ||

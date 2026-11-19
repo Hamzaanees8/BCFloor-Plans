@@ -1,15 +1,13 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { GetInvoice, MarkPaid, UpdateInvoice } from '../invoice_api'
+import { GetInvoice, MarkPaid, UpdateInvoice, DownloadInvoice } from '../invoice_api'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
 import { useAppContext } from '@/app/context/AppContext'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Download, Loader2, Edit2, Save, X, CreditCard, RotateCcw, Trash2 } from 'lucide-react'
-import DownloadInvoicePdf from '../components/DownloadInvoicePdf'
 import InvoiceDocument from '../components/InvoiceDocument'
-import InvoicePdfDocument from '../components/InvoicePdfDocument'
 import RefundModal from '../components/RefundModal'
 import RefundReceiptModal from '../components/RefundReceiptModal'
 import DeleteInvoiceModal from '../components/DeleteInvoiceModal'
@@ -37,6 +35,7 @@ const InvoicePreviewPage = () => {
     const [showAgain, setShowAgain] = useState(true)
     const [selectedRefundPayment, setSelectedRefundPayment] = useState<any>(null)
     const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+    const [downloading, setDownloading] = useState(false)
 
     useEffect(() => {
         const stored = localStorage.getItem(STORAGE_KEY_PAYMENT);
@@ -75,10 +74,17 @@ const InvoicePreviewPage = () => {
     }
 
     const handleDownload = async () => {
-        if (!invoice) return;
-        const invoiceNumber = invoice.invoice_number || invoice.id;
-        const fileName = `Invoice_${invoiceNumber}.pdf`;
-        await DownloadInvoicePdf('invoice-pdf-content', fileName);
+        if (!invoice?.uuid) return;
+        setDownloading(true);
+        try {
+            await DownloadInvoice(invoice.uuid, invoice.invoice_number || invoice.id);
+            toast.success("Invoice downloaded successfully");
+        } catch (err) {
+            console.error("Failed to download invoice:", err);
+            toast.error("Failed to download invoice");
+        } finally {
+            setDownloading(false);
+        }
     }
 
     const getProvince = () => {
@@ -431,6 +437,7 @@ const InvoicePreviewPage = () => {
                             )}
                             <Button
                                 variant="outline"
+                                disabled={downloading}
                                 className="border-[1px] text-[14px] md:text-[16px] font-[400] h-[35px] md:h-[44px] px-6 rounded-[6px] hover:brightness-110"
                                 style={{
                                     backgroundColor: roleSettings.pageBg,
@@ -439,7 +446,7 @@ const InvoicePreviewPage = () => {
                                 }}
                                 onClick={handleDownload}
                             >
-                                <Download className="mr-2 h-4 w-4" /> Download PDF
+                                {downloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />} Download PDF
                             </Button>
                         </>
                     )}
@@ -526,13 +533,7 @@ const InvoicePreviewPage = () => {
                 </div>
             )}
 
-            {/* Hidden PDF component for high-accuracy capture */}
-            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
-                <InvoicePdfDocument
-                    invoice={isEditing ? editData : invoice}
-                    roleSettings={roleSettings}
-                />
-            </div>
+            {/* Modals */}
 
             <RefundModal
                 isOpen={isRefundModalOpen}

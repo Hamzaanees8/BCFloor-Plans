@@ -1199,7 +1199,8 @@ const GlobalSettings = () => {
         try {
             const response = await RetryQuickBookSync();
             if (response.success) {
-                toast.success(`Sync retry completed: ${response.data?.success || 0} succeeded, ${response.data?.failed || 0} failed.`);
+                const count = response.data?.queued ?? response.data?.total ?? response.data?.success ?? 0;
+                toast.success(`Sync retry queued: ${count} invoice(s) dispatched to background queue.`);
                 const queueResp = await GetQuickBookSyncQueue();
                 if (queueResp.success) {
                     setQbQueueInfo(queueResp.data);
