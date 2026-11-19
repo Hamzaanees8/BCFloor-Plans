@@ -705,6 +705,8 @@ export function getServiceActualInvoicePricing({
       const taxAmount = (service.tax_amount || 0) * splitMultiplier;
       const totalPrice = (service.total_amount || 0) * splitMultiplier;
       const appliedTaxRate = service.tax_rate != null ? parseFloat(service.tax_rate) : fallbackTaxRate;
+      const originalPrice = service.original_amount ? service.original_amount * splitMultiplier : (service.amount && service.discounted_amount && service.amount > service.discounted_amount ? service.amount * splitMultiplier : undefined);
+      const discountAmount = originalPrice && originalPrice > basePrice ? originalPrice - basePrice : undefined;
       return {
         basePrice,
         taxAmount,
@@ -716,8 +718,8 @@ export function getServiceActualInvoicePricing({
         paidAmount: (service.paid_amount || 0) * splitMultiplier,
         refundedAmount: (service.refunded_amount || 0) * splitMultiplier,
         invoiceStatus: service.invoice_status || service.status,
-        originalPrice: service.original_amount ? service.original_amount * splitMultiplier : undefined,
-        discountAmount: service.original_amount && service.original_amount > basePrice ? (service.original_amount - basePrice) * splitMultiplier : undefined,
+        originalPrice,
+        discountAmount,
       };
     }
 
@@ -775,10 +777,10 @@ export function getServiceActualInvoicePricing({
     if (!inv) return false;
     const notes = (inv.notes || "").toLowerCase();
     if (notes.includes("consolidated")) return false;
-    if (notes.includes("service invoice")) {
-      return !inv.items || inv.items.length === 0 || inv.items.some(isMatchingItem);
-    }
     if (serviceName && notes.includes(serviceName.toLowerCase())) return true;
+    if (notes.includes("service invoice")) {
+      return Array.isArray(inv.items) && inv.items.length > 0 && inv.items.some(isMatchingItem);
+    }
     if (Array.isArray(inv.items) && inv.items.length > 0) {
       const positiveItems = inv.items.filter((i: any) => getItemAmount(i) > 0);
       if (positiveItems.length === 1 && isMatchingItem(positiveItems[0])) return true;
@@ -836,6 +838,11 @@ export function getServiceActualInvoicePricing({
           }
         }
 
+        const rawPaid = parseFloat(singleSvcInv.paid_amount || "0");
+        const rawRefunded = parseFloat(singleSvcInv.refunded_amount || "0");
+        const paidAmount = isPaidOrSucceeded(singleSvcInv.status) && rawPaid === 0 ? totalPrice : rawPaid;
+        const refundedAmount = isRefunded(singleSvcInv.status) && rawRefunded === 0 ? (paidAmount > 0 ? paidAmount : totalPrice) : rawRefunded;
+
         return {
           basePrice,
           taxAmount,
@@ -844,8 +851,8 @@ export function getServiceActualInvoicePricing({
           matchingInvoicesCount: 1,
           appliedTaxRate: invTaxRate,
           taxDetails: singleSvcInv.tax_details && Object.keys(singleSvcInv.tax_details).length > 0 ? singleSvcInv.tax_details : undefined,
-          paidAmount: parseFloat(singleSvcInv.paid_amount || "0"),
-          refundedAmount: parseFloat(singleSvcInv.refunded_amount || "0"),
+          paidAmount,
+          refundedAmount,
           invoiceStatus: singleSvcInv.status,
           originalPrice,
           discountAmount,
@@ -938,7 +945,7 @@ export function getServiceActualInvoicePricing({
   } else {
     // ADMIN VIEW: sum across matching split invoices (e.g. Primary Agent + Co-Agent = 100%)
     const matchingInvoices = invoicePool.filter((inv) =>
-      Array.isArray(inv?.items) && inv.items.some(isMatchingItem)
+      (Array.isArray(inv?.items) && inv.items.some(isMatchingItem)) || isDedicatedServiceInvoice(inv)
     );
 
     if (matchingInvoices.length > 0) {
@@ -992,11 +999,16 @@ export function getServiceActualInvoicePricing({
               ? parseFloat(singleSvcInv.total)
               : sub + tax;
 
+            const paid = parseFloat(singleSvcInv.paid_amount || "0");
+            const ref = parseFloat(singleSvcInv.refunded_amount || "0");
+            const finalPaid = isPaidOrSucceeded(singleSvcInv.status) && paid === 0 ? tot : paid;
+            const finalRefunded = isRefunded(singleSvcInv.status) && ref === 0 ? (finalPaid > 0 ? finalPaid : tot) : ref;
+
             combinedBasePrice += sub;
             combinedTaxAmount += tax;
             combinedTotalPrice += tot;
-            combinedPaidAmount += parseFloat(singleSvcInv.paid_amount || "0");
-            combinedRefundedAmount += parseFloat(singleSvcInv.refunded_amount || "0");
+            combinedPaidAmount += finalPaid;
+            combinedRefundedAmount += finalRefunded;
             if (!primaryStatus) primaryStatus = singleSvcInv.status;
 
             if (Array.isArray(singleSvcInv.items)) {
