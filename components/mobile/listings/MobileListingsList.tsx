@@ -101,13 +101,17 @@ export default function MobileListingsList({
       return { label: 'N/A', color: 'bg-gray-100 text-gray-800 border-gray-200' };
     }
 
-    const status = (latestOrder.payment_status || "").toUpperCase();
-    if (status === 'PAID') {
+    const orderStatus = (latestOrder.order_status || "").trim();
+    const status = (latestOrder.payment_status || "").toUpperCase().trim();
+
+    if (orderStatus === "Cancelled" || status === "CANCELLED") {
+      return { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-200' };
+    } else if (status === 'REFUNDED') {
+      return { label: 'Refunded', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+    } else if (status === 'PAID') {
       return { label: 'Paid', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
     } else if (status === 'PARTIALLY_PAID' || status === 'PARTIAL') {
-      return { label: 'Partially Paid', color: 'bg-amber-100 text-amber-800 border-amber-200' };
-    } else if (status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') {
-      return { label: 'Refunded', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+      return { label: 'Partially Paid', color: 'bg-[#DC9600] text-white border-[#DC9600]' };
     } else {
       return { label: 'Unpaid', color: 'bg-rose-100 text-rose-800 border-rose-200' };
     }

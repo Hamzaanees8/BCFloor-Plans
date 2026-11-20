@@ -96,11 +96,23 @@ export async function PayInvoiceWithStripe(
     paymentMode?: 'on_behalf' | 'self',
     payerUuid?: string
 ) {
+    const total = Number(invoice.total) || 0;
+    const paidAmount = Number(invoice.paid_amount) || 0;
+    const refundedAmount = Number(invoice.refunded_amount) || 0;
+    const netPaid = Math.max(0, paidAmount - refundedAmount);
+    const remainingBalance = Math.max(0, Math.round((total - netPaid) * 100) / 100);
+
+    if (['paid', 'refunded', 'partially_refunded', 'partial_refunded'].includes(invoice.status?.toLowerCase()) || (total > 0 && remainingBalance <= 0)) {
+        throw new Error('This invoice cannot be paid.');
+    }
+
+    const amountToPay = (netPaid > 0 && remainingBalance > 0) ? remainingBalance : (remainingBalance > 0 ? remainingBalance : total);
+
     const body: any = {
         agent_uuid: invoice.agent?.uuid || order.agent?.uuid || order.agent_uuid, // allow fallback
         url: redirectUrl,
-        amount: invoice.total,
-        currency: 'cad', // default, could use invoice.currency if needed
+        amount: amountToPay,
+        currency: (invoice.currency || 'cad').toLowerCase(),
         order_id: order.id,
         invoice_uuid: invoice.uuid,
         description: `Payment for Invoice #${invoice.invoice_number || invoice.id}`,

@@ -305,6 +305,13 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                 }
             }
 
+            const total = Number(invoice.total) || 0;
+            const paid = Number(invoice.paid_amount) || 0;
+            const refunded = Number(invoice.refunded_amount) || 0;
+            const netPaid = Math.max(0, paid - refunded);
+            const remaining = Math.max(0, Math.round((total - netPaid) * 100) / 100);
+            const amountToMark = (netPaid > 0 && remaining > 0) ? remaining : total;
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/invoices/${invoice.uuid}/markPaid`, {
                 method: 'POST',
                 headers: {
@@ -312,7 +319,7 @@ const InvoiceModal = ({ uuid, isOpen, onClose }: InvoiceModalProps) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    amount: invoice.total,
+                    amount: amountToMark,
                     payment_method: 'manual',
                 }),
             }).then(r => r.json());

@@ -232,12 +232,21 @@ const InvoicePreviewPage = () => {
     }
 
     const handleMarkPaid = async () => {
+        const getAmountToMark = () => {
+            const total = Number(invoice.total) || 0;
+            const paid = Number(invoice.paid_amount) || 0;
+            const refunded = Number(invoice.refunded_amount) || 0;
+            const netPaid = Math.max(0, paid - refunded);
+            const remaining = Math.max(0, Math.round((total - netPaid) * 100) / 100);
+            return (netPaid > 0 && remaining > 0) ? remaining : total;
+        };
+
         const executeMarkPaid = async () => {
             const token = localStorage.getItem('token')
             if (!token) return
 
             try {
-                await MarkPaid(invoice.uuid, invoice.total)
+                await MarkPaid(invoice.uuid, getAmountToMark())
                 toast.success('Invoice marked as paid')
                 fetchInvoice() // Refresh
             } catch {
@@ -253,12 +262,21 @@ const InvoicePreviewPage = () => {
     }
 
     const onConfirmMarkPaid = () => {
+        const getAmountToMark = () => {
+            const total = Number(invoice.total) || 0;
+            const paid = Number(invoice.paid_amount) || 0;
+            const refunded = Number(invoice.refunded_amount) || 0;
+            const netPaid = Math.max(0, paid - refunded);
+            const remaining = Math.max(0, Math.round((total - netPaid) * 100) / 100);
+            return (netPaid > 0 && remaining > 0) ? remaining : total;
+        };
+
         const executeMarkPaid = async () => {
             const token = localStorage.getItem('token')
             if (!token) return
 
             try {
-                await MarkPaid(invoice.uuid, invoice.total)
+                await MarkPaid(invoice.uuid, getAmountToMark())
                 toast.success('Invoice marked as paid')
                 fetchInvoice() // Refresh
             } catch {

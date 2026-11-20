@@ -99,6 +99,7 @@ const Page = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const headerRef = useRef<HTMLDivElement>(null);
+  const processedSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -1205,7 +1206,6 @@ const Page = () => {
   ]);
 
   const handlePaymentSuccess = useCallback(async () => {
-    toast.success("Payment processed successfully! Updating records...");
     await loadBillings();
     if (expandedRow) {
       await fetchOrderInvoices(expandedRow);
@@ -1227,10 +1227,11 @@ const Page = () => {
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
-    if (!sessionId) return;
+    if (!sessionId || processedSessionIdRef.current === sessionId) return;
+    processedSessionIdRef.current = sessionId;
 
     const processStripePayment = async () => {
-      toast.info("Processing your payment, please wait...");
+      const loadingToastId = toast.loading("Processing your payment, please wait...");
 
       try {
         const response = await fetch(
@@ -1253,6 +1254,7 @@ const Page = () => {
 
         toast.success(
           "Payment processed successfully! This tab will close automatically.",
+          { id: loadingToastId },
         );
 
         if (typeof window !== "undefined") {
@@ -1278,6 +1280,7 @@ const Page = () => {
           error instanceof Error
             ? error.message || "Unable to verify payment session."
             : "Unable to verify payment session.",
+          { id: loadingToastId },
         );
       }
     };
@@ -1927,10 +1930,15 @@ const Page = () => {
                     : billing.grand_total != null
                       ? billing.grand_total
                       : subtotalVal + taxAmount;
+                const isRowOrderRefunded =
+                  isRefunded(billing.status) ||
+                  isRefunded(primaryInvoice?.status);
+                const safeTotalPaid = Math.max(0, billing.total_paid || 0);
+                const rawRemaining = rowGrandTotal - safeTotalPaid;
                 const rowRemaining =
-                  billing.status === "paid"
+                  billing.status === "paid" || isRowOrderRefunded || rawRemaining <= 0.02
                     ? 0
-                    : Math.max(0, rowGrandTotal - (billing.total_paid || 0));
+                    : Math.max(0, rawRemaining);
 
                 const splitInfo = getBillingSplitInfo(billing);
                 const isCoAgentUser =
@@ -1945,9 +1953,12 @@ const Page = () => {
                   : 1;
 
                 const displayGrandTotal = rowGrandTotal * splitMultiplier;
-                const displayTotalPaid =
-                  (billing.total_paid || 0) * splitMultiplier;
-                const displayRemaining = rowRemaining * splitMultiplier;
+                const displayTotalPaid = isRowOrderRefunded
+                  ? 0
+                  : safeTotalPaid * splitMultiplier;
+                const displayRemaining = isRowOrderRefunded
+                  ? 0
+                  : rowRemaining * splitMultiplier;
 
                 return (
                   <React.Fragment key={billing.order_uuid}>
@@ -2169,14 +2180,15 @@ const Page = () => {
                           0,
                           grandTotalVal - totalRefunded,
                         );
+                        const safeRowTotalPaid = Math.max(0, billing.total_paid || 0);
+                        const rawRowRemaining = effectiveGrandTotal - safeRowTotalPaid;
                         const displayRemaining =
                           isOrderPaid ||
-                          (actualOrderCancelled && !hasCancellationFee)
+                          isOrderRefunded ||
+                          (actualOrderCancelled && !hasCancellationFee) ||
+                          rawRowRemaining <= 0.02
                             ? 0
-                            : Math.max(
-                                0,
-                                effectiveGrandTotal - (billing.total_paid || 0),
-                              );
+                            : Math.max(0, rawRowRemaining);
                         // Agent media restriction: for Pay All, ALL services must have media
                         const serviceMediaSet =
                           rowServiceMedia[billing.order_uuid];
@@ -2200,11 +2212,16 @@ const Page = () => {
                           agentMediaRestriction &&
                           servicesWithoutMedia.length > 0;
 
+                        const isPartiallyRefundedOrder =
+                          isPartiallyRefunded(billing.status) ||
+                          isPartiallyRefunded(primaryInvoice?.status);
+
                         const shouldShowPayAll =
                           displayRemaining > 0 &&
                           (!isOrderCancelledOrVoid || hasCancellationFee) &&
                           !isOrderPaid &&
-                          !isOrderRefunded;
+                          !isOrderRefunded &&
+                          !isPartiallyRefundedOrder;
                         const hasInvoice = orderInvoices.length > 0;
 
                         return (
@@ -2816,7 +2833,9 @@ const Page = () => {
                                               </span>
                                               <span className="font-semibold text-[#6BAE41]">
                                                 {(
-                                                  (billing.total_paid || 0) *
+                                                  (isOrderRefunded
+                                                    ? 0
+                                                    : Math.max(0, billing.total_paid || 0)) *
                                                   splitMultiplier
                                                 ).toLocaleString("en-US", {
                                                   style: "currency",
@@ -3049,7 +3068,10 @@ const Page = () => {
                                               Total Paid
                                             </span>
                                             <span className="font-semibold text-[#6BAE41]">
-                                              {billing.total_paid.toLocaleString(
+                                              {(isOrderRefunded
+                                                ? 0
+                                                : Math.max(0, billing.total_paid || 0)
+                                              ).toLocaleString(
                                                 "en-US",
                                                 {
                                                   style: "currency",
