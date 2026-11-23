@@ -17,7 +17,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { toast } from 'sonner';
 
 import Link from 'next/link';
-import { getEffectiveServiceDuration } from "../../orders/utils/serviceTimeUtils";
+import { getEffectiveServiceDuration, getVendorServiceTimeAdjustment } from "../../orders/utils/serviceTimeUtils";
 // interface Notes {
 //     name: string;
 //     note: string;
@@ -76,7 +76,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
     // const [additionalServices, setAdditionalServices] = useState<
     //     { serviceId: number; optionId: string | null; price: string }[]
     // >([]);
-    const { setCalendarServices, calendarServices, servicesData, OrderServices, setOrderServices, selectedSlots, setSelectedSlots } = useOrderContext();
+    const { setCalendarServices, calendarServices, servicesData, OrderServices, setOrderServices, selectedSlots, setSelectedSlots, vendorsData } = useOrderContext();
     useEffect(() => {
         // This was a problematic useEffect without dependencies
         // setCalendarServices(calendarServices)
@@ -307,10 +307,23 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
             const serviceData = servicesData.find((sd) => sd.uuid === srv.uuid || sd.id === srv.id);
             const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
 
-            const requiredDuration = getEffectiveServiceDuration(productOption?.service_duration, hasValidSqFt ? sqFt : undefined);
             const serviceSlots = selectedSlots.filter((slot) =>
                 String(slot.service_id) === String(srv.uuid) ||
                 (srv.id && String(slot.service_id) === String(srv.id))
+            );
+            const assignedVendorId = serviceSlots[0]?.vendor?.uuid || serviceSlots[0]?.vendor_id;
+            const assignedVendor = assignedVendorId ? vendorsData.find((v) => v.uuid === assignedVendorId) : undefined;
+            const vendorAdjustment = getVendorServiceTimeAdjustment(
+                assignedVendor,
+                serviceData || srv.uuid,
+                productOption || srv.optionId
+            );
+
+            const requiredDuration = getEffectiveServiceDuration(
+                productOption,
+                serviceData,
+                hasValidSqFt ? sqFt : undefined,
+                vendorAdjustment
             );
             const allocatedDuration = serviceSlots.length * 15;
 
@@ -332,7 +345,7 @@ function EditAppointmentTab({ currentOrder, serviceId, agentData, notes, setNote
         }
 
         setInvalidServices(newInvalidServices);
-    }, [OrderServices, calendarServices, servicesData, selectedSlots, squareFootage]);
+    }, [OrderServices, calendarServices, servicesData, selectedSlots, squareFootage, vendorsData]);
 
     return (
         <Accordion

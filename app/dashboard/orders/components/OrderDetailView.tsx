@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Order } from "../../orders/page";
 import { Agent } from "@/lib/types";
 import { toast } from "sonner";
-import { GetServices } from "../../orders/orders";
+import { GetServices, GetVendors } from "../../orders/orders";
 import WarningIcon from "@/components/Icons";
 import { useAppContext } from "@/app/context/AppContext";
 import { EditOrder } from "../../calendar/calendar";
@@ -25,7 +25,7 @@ import EditAppointmentTab from "../../calendar/components/EditAppointmentTab";
 import EditSquareFootage from "../../calendar/components/EditSquareFootage";
 import { isSqFtInRange } from "@/lib/pricingUtils";
 import { Services } from "../../services/page";
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks } from "../utils/serviceTimeUtils";
+import { getEffectiveServiceDuration, getVendorServiceTimeAdjustment, splitSlotInto15MinChunks } from "../utils/serviceTimeUtils";
 import { UpdatePropertySquareFootage } from "../../listings/listing";
 
 interface OrderDetailViewProps {
@@ -143,22 +143,32 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
         }
     };
 
-    const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices, isLoading, setIsLoading, servicesData: contextServicesData, setServicesData: setContextServicesData } = useOrderContext();
+    const { calendarServices, selectedSlots, OrderServices, setOrderServices, setSelectedSlots, setCalendarServices, isLoading, setIsLoading, servicesData: contextServicesData, setServicesData: setContextServicesData, vendorsData, setVendorsData } = useOrderContext();
 
 
     useEffect(() => {
         const token = localStorage.getItem("token");
 
-        if (!token || contextServicesData.length > 0) {
+        if (!token) {
             return;
         }
 
-        GetServices(token)
-            .then((data) => {
-                setContextServicesData(data.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [contextServicesData.length, setContextServicesData]);
+        if (contextServicesData.length === 0) {
+            GetServices(token)
+                .then((data) => {
+                    setContextServicesData(data.data);
+                })
+                .catch((err) => console.log(err.message));
+        }
+
+        if (vendorsData.length === 0) {
+            GetVendors(token)
+                .then((data) => {
+                    setVendorsData(Array.isArray(data?.data) ? data.data : []);
+                })
+                .catch((err) => console.log(err.message));
+        }
+    }, [contextServicesData.length, setContextServicesData, vendorsData.length, setVendorsData]);
 
     useEffect(() => {
         if (open && currentOrder) {
@@ -364,8 +374,24 @@ export default function OrderDetailView({ open, onClose, orderId, serviceId, ord
             const serviceData = contextServicesData.find((sd: Services) => sd.uuid === srv.uuid);
             const productOption = serviceData?.product_options?.find((opt) => opt.uuid === srv.optionId);
 
-            const requiredDuration = getEffectiveServiceDuration(productOption, serviceData, hasValidSqFt ? sqFt : undefined);
-            const serviceSlots = selectedSlots.filter((slot) => slot.service_id === srv.uuid);
+            const serviceSlots = selectedSlots.filter((slot) =>
+                slot.service_id === srv.uuid ||
+                (serviceData?.id && String(slot.service_id) === String(serviceData.id))
+            );
+            const assignedVendorId = serviceSlots[0]?.vendor?.uuid || serviceSlots[0]?.vendor_id;
+            const assignedVendor = assignedVendorId ? vendorsData.find((v) => v.uuid === assignedVendorId) : undefined;
+            const vendorAdjustment = getVendorServiceTimeAdjustment(
+                assignedVendor,
+                serviceData || srv.uuid,
+                productOption || srv.optionId
+            );
+
+            const requiredDuration = getEffectiveServiceDuration(
+                productOption,
+                serviceData,
+                hasValidSqFt ? sqFt : undefined,
+                vendorAdjustment
+            );
             const allocatedDuration = serviceSlots.length * 15;
 
             // Check if service has any slots in the past

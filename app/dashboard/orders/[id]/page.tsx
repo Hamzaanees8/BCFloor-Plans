@@ -102,7 +102,18 @@ export interface VendorData {
   };
   addresses?: VendorAddress[];
   vendor_services: {
-    service: { uuid: string };
+    uuid?: string;
+    service_id?: number | string;
+    service?: { id?: number | string; uuid: string; name?: string };
+    options?: {
+      uuid?: string;
+      option_id?: number | string;
+      option_uuid?: string;
+      vendor_adjustment_time?: number | string | null;
+      adjustment_time?: number | string | null;
+      product_option?: { id?: number | string; uuid?: string; title?: string } | null;
+      productOption?: { id?: number | string; uuid?: string; title?: string } | null;
+    }[];
   }[];
   coordinates: string[];
   company: { vendor_id: string };

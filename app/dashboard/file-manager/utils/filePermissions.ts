@@ -5,9 +5,9 @@
  * 
  * Business Rules:
  * - Admins and vendors: always allowed to download their files
- * - Agents: can only download if:
- *   1. Service is paid OR Order is paid, AND
- *   2. File is marked as paid OR complimentary (complimentary requires payment first)
+ * - Agents and sub-accounts: can only download if:
+ *   1. Service is not cancelled or media-access-revoked, AND
+ *   2. Service/Order is PAID OR media is explicitly released (release_media_before_payment / media_access === true)
  *   3. File is approved by agent (is_agent_approved = true) if required
  *   4. File is visible (is_show = true)
  *   5. File is not deleted
@@ -16,8 +16,8 @@
  * not that the file is free before payment.
  */
 
-import { Files } from '../FileManagerContext';
-import { Order, OrderService } from '../../orders/page';
+import type { Files } from '../FileManagerContext';
+import type { Order, OrderService } from '../../orders/page';
 
 export interface PermissionCheckParams {
   file: Files | null | undefined;
@@ -26,6 +26,113 @@ export interface PermissionCheckParams {
   userType?: string;
   requiresAgentApproval?: boolean;
 }
+
+export interface BookingDownloadStatus {
+  isCancelled: boolean;
+  isRevoked: boolean;
+  isRefunded: boolean;
+  isActuallyPaid: boolean;
+  isMediaReleased: boolean;
+  isDownloadReady: boolean;
+}
+
+/**
+ * Determine whether a user type represents privileged staff (admin/superadmin/vendor).
+ * Sub-accounts such as agent_admin, assistant, co_agent, or unhydrated empty strings
+ * are treated with agent payment restrictions.
+ */
+export const isAdminOrVendorUser = (userType?: string): boolean => {
+  const normalized = (userType || '').toLowerCase();
+  return (
+    normalized === 'admin' ||
+    normalized === 'superadmin' ||
+    normalized === 'super_admin' ||
+    normalized === 'vendor'
+  );
+};
+
+/**
+ * Single source of truth for actual payment / media-release status of a booking or order,
+ * independent of the logged-in user's role.
+ */
+export const getBookingDownloadStatus = (
+  booking?: any | null,
+  orderData?: Order | null,
+): BookingDownloadStatus => {
+  const bookingStatus = String(
+    booking?.status || (booking?.service as any)?.status || '',
+  )
+    .toLowerCase()
+    .trim();
+  const isCancelled = bookingStatus === 'cancelled';
+
+  const mediaAccess =
+    booking?.media_access !== undefined && booking?.media_access !== null
+      ? booking.media_access
+      : (booking?.service as any)?.media_access;
+  const isRevoked = mediaAccess === false;
+
+  const bookingPaymentStatus = String(booking?.payment_status || '')
+    .toUpperCase()
+    .trim();
+  const orderPaymentStatus = String(orderData?.payment_status || '')
+    .toUpperCase()
+    .trim();
+
+  const isRefunded =
+    bookingPaymentStatus === 'REFUNDED' ||
+    (orderPaymentStatus === 'REFUNDED' && bookingPaymentStatus !== 'PAID');
+
+  const isActuallyPaid =
+    !isCancelled &&
+    !isRevoked &&
+    !isRefunded &&
+    (bookingPaymentStatus === 'PAID' || orderPaymentStatus === 'PAID');
+
+  const isMediaReleased =
+    !isCancelled &&
+    !isRevoked &&
+    (Boolean(orderData?.release_media_before_payment) || mediaAccess === true);
+
+  const isDownloadReady = isActuallyPaid || isMediaReleased;
+
+  return {
+    isCancelled,
+    isRevoked,
+    isRefunded,
+    isActuallyPaid,
+    isMediaReleased,
+    isDownloadReady,
+  };
+};
+
+const hasBookingFields = (svc: any): boolean =>
+  Boolean(
+    svc &&
+      ('payment_status' in svc ||
+        'media_access' in svc ||
+        'order_id' in svc ||
+        'service_id' in svc),
+  );
+
+const resolveOrderService = (
+  file: Files,
+  currentService?: any,
+  orderData?: Order | null,
+): any => {
+  if (hasBookingFields(currentService)) {
+    return currentService;
+  }
+  const targetUuid = currentService?.uuid || file.service?.uuid;
+  const targetId = currentService?.id ?? file.service?.id ?? file.service_id;
+  return orderData?.services?.find(
+    (s: OrderService) =>
+      (targetUuid && (s.service?.uuid === targetUuid || s.uuid === targetUuid)) ||
+      (targetId != null &&
+        (String(s.service_id) === String(targetId) ||
+          String(s.service?.id) === String(targetId))),
+  );
+};
 
 /**
  * Check if a user can download a specific file
@@ -52,11 +159,11 @@ export const canDownloadFile = (params: PermissionCheckParams): boolean => {
   if (file.is_show === false) return false;
 
   // Admins and vendors can always download
-  if (userType !== 'agent') {
+  if (isAdminOrVendorUser(userType)) {
     return true;
   }
 
-  // For agents, stricter checks required
+  // For agents and sub-accounts, stricter checks required
   return isAgentFileDownloadAllowed({
     file,
     currentService,
@@ -107,15 +214,10 @@ export const isAgentFileDownloadAllowed = ({
  * Check if payment authorization is valid for the file
  * 
  * Business Logic:
- * - If service.media_access === true: file is authorized (even if payment_status is REFUNDED)
- * - If service.media_access === false: file access is blocked
- * - If service.media_access == null: fallback to payment_status check (service or order is PAID)
- * - File must also be marked as is_paid OR is_complimentary
- * 
- * @param file - File object
- * @param currentService - Current service (optional, expects payment_status and media_access property)
- * @param orderData - Order data (optional)
- * @returns true if payment is authorized, false otherwise
+ * - Cancelled or media_access === false: locked
+ * - release_media_before_payment === true or media_access === true: authorized
+ * - Matched booking present: service or order must be PAID (and not refunded)
+ * - No matched booking: fallback to order PAID or file.is_paid (when not refunded)
  */
 export const isPaymentAuthorizationValid = ({
   file,
@@ -128,45 +230,26 @@ export const isPaymentAuthorizationValid = ({
 }): boolean => {
   if (!file) return false;
 
-  // Rule 0: Admin explicitly released media before payment
-  if (orderData?.release_media_before_payment) {
-    return true;
-  }
+  const matchedService = resolveOrderService(file, currentService, orderData);
+  const status = getBookingDownloadStatus(matchedService, orderData);
 
-  // Find the matching service for this file
-  const matchedService = currentService || (file.service && orderData?.services?.find(
-    (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
-  ));
-
-  const mediaAccess = matchedService?.media_access !== undefined && matchedService?.media_access !== null
-    ? matchedService.media_access
-    : (matchedService?.service as any)?.media_access;
-
-  // Rule 1: true -> always accessible
-  if (mediaAccess === true) {
-    return true;
-  }
-
-  // Rule 2: false -> always locked
-  if (mediaAccess === false) {
+  if (status.isCancelled || status.isRevoked) {
     return false;
   }
 
-  // File must be marked as paid or complimentary
-  if (!file.is_paid && !file.is_complimentary) {
+  if (status.isMediaReleased) {
+    return true;
+  }
+
+  if (matchedService) {
+    return status.isActuallyPaid;
+  }
+
+  if (status.isRefunded) {
     return false;
   }
 
-  // Rule 3: null / undefined -> fallback to checking if service or order is PAID
-  const isServicePaid =
-    currentService?.payment_status === 'PAID' ||
-    (file.service && orderData?.services?.some(
-      (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
-    ));
-
-  const isOrderPaid = orderData?.payment_status === 'PAID';
-
-  return isServicePaid || isOrderPaid;
+  return status.isActuallyPaid || Boolean(file.is_paid);
 };
 
 /**
@@ -184,43 +267,33 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
 
   if (file.is_show === false) return 'File is hidden';
 
-  if (userType === 'agent') {
+  if (!isAdminOrVendorUser(userType)) {
     if (requiresAgentApproval && file.is_agent_approved === false) return 'File requires approval';
 
-    // If admin released media before payment, bypass payment restriction reason
-    if (orderData?.release_media_before_payment) {
-      return '';
+    const matchedService = resolveOrderService(file, currentService, orderData);
+    const status = getBookingDownloadStatus(matchedService, orderData);
+
+    if (status.isCancelled) {
+      return 'Service has been cancelled';
     }
 
-    const matchedService = currentService || (file.service && orderData?.services?.find(
-      (s: OrderService) => s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id
-    ));
-
-    const mediaAccess = matchedService?.media_access !== undefined && matchedService?.media_access !== null
-      ? matchedService.media_access
-      : (matchedService?.service as any)?.media_access;
-
-    if (mediaAccess === true) {
-      return '';
-    }
-
-    if (mediaAccess === false) {
+    if (status.isRevoked) {
       return 'Media access has been revoked';
     }
 
-    if (!file.is_paid && !file.is_complimentary) {
-      return 'File is not available for download';
+    if (status.isMediaReleased) {
+      return '';
     }
 
-    const isServicePaid =
-      currentService?.payment_status === 'PAID' ||
-      (file.service && orderData?.services?.some(
-        (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
-      ));
+    if (status.isRefunded) {
+      return 'Service has been refunded';
+    }
 
-    const isOrderPaid = orderData?.payment_status === 'PAID';
+    const isPaid = matchedService
+      ? status.isActuallyPaid
+      : status.isActuallyPaid || Boolean(file.is_paid);
 
-    if (!isServicePaid && !isOrderPaid) {
+    if (!isPaid) {
       return 'Service payment required';
     }
   }

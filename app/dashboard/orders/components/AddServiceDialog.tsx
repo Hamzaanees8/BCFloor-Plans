@@ -21,6 +21,7 @@ import { GetServices, GetPackages } from "../../services/services";
 import { GetVendors } from "../orders";
 import {
   getEffectiveServiceDuration,
+  getVendorServiceTimeAdjustment,
   isServiceRequiringTravel,
   splitSlotInto15MinChunks,
 } from "../utils/serviceTimeUtils";
@@ -70,6 +71,7 @@ export default function AddServiceDialog({
     servicesData,
     setServicesData,
     setPackagesData,
+    vendorsData,
     setVendorsData,
     resetOrderData,
     tempPropertyData,
@@ -269,18 +271,32 @@ export default function AddServiceDialog({
           (opt.id && String(opt.id) === String((service as any).option_id))
       );
 
-      const requiredDuration = getEffectiveServiceDuration(
-        productOption,
-        globalService,
-        squareFootage
-      );
-
       const serviceSlots = selectedSlots.filter(
         (s) =>
           s.service_id === serviceUuid ||
           String(s.service_id) === String(serviceUuid) ||
           (service.id && String(s.service_id) === String(service.id))
       );
+      const assignedVendorId =
+        serviceSlots[0]?.vendor?.uuid ||
+        serviceSlots[0]?.vendor_id ||
+        (service as any).vendor_id;
+      const assignedVendor = assignedVendorId
+        ? vendorsData.find((v) => v.uuid === assignedVendorId)
+        : undefined;
+      const vendorAdjustment = getVendorServiceTimeAdjustment(
+        assignedVendor,
+        globalService || service,
+        productOption || (service as any).option_id
+      );
+
+      const requiredDuration = getEffectiveServiceDuration(
+        productOption,
+        globalService,
+        squareFootage,
+        vendorAdjustment
+      );
+
       const currentDuration = serviceSlots.length * 15;
 
       const isInvalid =
@@ -306,7 +322,7 @@ export default function AddServiceDialog({
 
     setInvalidServices(newInvalidServices);
     return newInvalidServices.length === 0;
-  }, [newServices, servicesData, selectedSlots, tempPropertyData, selectedCurrentListing, orderData, role]);
+  }, [newServices, servicesData, selectedSlots, tempPropertyData, selectedCurrentListing, orderData, role, vendorsData]);
 
   const handleSaveServices = async () => {
     if (!orderData) return;

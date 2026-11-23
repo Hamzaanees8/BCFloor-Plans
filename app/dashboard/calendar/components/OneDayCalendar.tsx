@@ -1,6 +1,6 @@
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import dayjs from "dayjs";
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -22,7 +22,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { Order } from '../../orders/page';
 import { toast } from 'sonner';
 import { Services } from '../../services/page';
-import { getEffectiveServiceDuration } from '../../orders/utils/serviceTimeUtils';
+import { getEffectiveServiceDuration, getVendorServiceTimeAdjustment } from '../../orders/utils/serviceTimeUtils';
 import { getDistanceColor } from './Schedule';
 import { Loader2 } from 'lucide-react';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
@@ -232,15 +232,48 @@ export default function OneDayCalendar({
   // Effective square footage: prop first, then context fallback
   const effectiveSquareFootage = squareFootage ?? tempPropertyData?.square_footage ?? selectedCurrentListing?.square_footage;
 
-  const currentServiceForBorder = servicesData?.find((s) => isSameService(s.uuid, service.service));
-  const productOptionForBorder = currentServiceForBorder?.product_options?.find(
-    (option: any) => option.uuid === (service.option_id || service.option?.uuid)
+  const getServiceDurationForVendor = useCallback(
+    (vendor?: VendorData | null) => {
+      const matchedService = servicesData?.find(
+        (s) =>
+          isSameService(s.uuid, service.service) ||
+          (service.service?.id !== undefined && String(s.id) === String(service.service.id))
+      );
+      const optId = service.option_id || service.option?.uuid;
+      const matchedOption = matchedService?.product_options?.find(
+        (opt: any) =>
+          (optId && opt.uuid === optId) ||
+          (optId && opt.id !== undefined && String(opt.id) === String(optId))
+      );
+      const vendorAdjustment = getVendorServiceTimeAdjustment(
+        vendor,
+        matchedService || service.service || service,
+        matchedOption || optId
+      );
+      const duration = getEffectiveServiceDuration(
+        matchedOption || (service.option as any),
+        matchedService || (service.service as any),
+        effectiveSquareFootage,
+        vendorAdjustment
+      );
+      return {
+        duration,
+        slotsCount: Math.max(1, Math.ceil(duration / 15)),
+        vendorAdjustment,
+        matchedService,
+        matchedOption,
+      };
+    },
+    [servicesData, service, effectiveSquareFootage]
   );
-  const requiredDurationForBorder = getEffectiveServiceDuration(
-    productOptionForBorder,
-    currentServiceForBorder,
-    effectiveSquareFootage
-  );
+
+  const borderAssignedSlot = selectedSlots.find(s => isSameService(s.service_id, service.service));
+  const borderVendorId =
+    borderAssignedSlot?.vendor?.uuid ||
+    borderAssignedSlot?.vendor_id ||
+    (selectedVendors.length === 1 ? selectedVendors[0] : undefined);
+  const borderVendor = borderVendorId ? vendors.find(v => v.uuid === borderVendorId) : undefined;
+  const requiredDurationForBorder = getServiceDurationForVendor(borderVendor).duration;
   const requiredSlotsCountForBorder = Math.ceil(requiredDurationForBorder / 15);
 
   const hasSelectedSlotsForBorder = selectedSlots.some(s => isSameService(s.service_id, service.service));
@@ -380,13 +413,6 @@ export default function OneDayCalendar({
 
     // Check if this service does not require travel (full-day availability regardless of work hours)
     const isNoTravelRequired = currentServiceDataForSlots?.is_travel_required === false;
-    const productOptionForSlots = currentServiceDataForSlots?.product_options?.find((option: any) => option.uuid === service.option_id);
-    const requiredDurationForSlots = getEffectiveServiceDuration(
-      productOptionForSlots,
-      currentServiceDataForSlots,
-      squareFootage
-    );
-    const requiredSlotsCountForService = Math.max(1, Math.ceil(requiredDurationForSlots / 15));
     const isFloorPlan = isFloorPlanService(service.title, service.service.uuid, service.service.id, servicesData);
     const isMatterport = isMatterportService(service.title, service.service.uuid, service.service.id, servicesData);
     // Services where allow_next_booking should be enforced (like floor plan)
@@ -395,6 +421,8 @@ export default function OneDayCalendar({
     filteredVendors.forEach(vendor => {
       const vendorId = vendor.uuid ?? '';
       if (!vendorId) return;
+
+      const { slotsCount: requiredSlotsCountForService } = getServiceDurationForVendor(vendor);
 
       const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
       // For special services (floor plan / matterport), enforce next_booking_slot_only per-vendor
@@ -561,9 +589,10 @@ export default function OneDayCalendar({
         let maxRecommended = 1;
 
         if (isTwilightService) {
-          const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-          const reqDur = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
-          maxRecommended = Math.ceil(reqDur / 15) || 1;
+          const firstRecommendedVendor = availableVendorIds.length > 0
+            ? vendors.find(v => v.uuid === availableVendorIds[0])
+            : undefined;
+          maxRecommended = getServiceDurationForVendor(firstRecommendedVendor).slotsCount || 1;
         }
 
         if (availableSlotsCount < maxRecommended && (recommendTimeMap[calendarIdx] === 1 || isTwilightService)) {
@@ -588,7 +617,7 @@ export default function OneDayCalendar({
 
     setEvents(finalSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, scheduleOverride, twilightData, servicesData, effectiveSquareFootage, propertyTimezone, AllBookedSlots, orderData]);
+  }, [vendors, currentDate, selectedVendors, selectedSlots, service.service.uuid, service.service.id, recommendTimeMap, calendarIdx, scheduleOverrideMap, scheduleOverride, twilightData, servicesData, effectiveSquareFootage, propertyTimezone, AllBookedSlots, orderData, getServiceDurationForVendor]);
 
   // Reset scroll ref when service or date changes
   useEffect(() => {
@@ -675,10 +704,18 @@ export default function OneDayCalendar({
     const selectedDate = dayjs(info.event.start).format('YYYY-MM-DD');
 
     // Duration enforcement: compute how many consecutive slots to select
-    const currentServiceData = servicesData?.find(s => isSameService(s.uuid, service.service));
-    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-    const requiredDuration = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
-    const requiredSlots = Math.ceil(requiredDuration / 15);
+    const existingOnDateSlot = selectedSlots.find(
+      slot => isSameService(slot.service_id, service.service) && slot.date === selectedDate
+    );
+    const existingClickVendorId = existingOnDateSlot?.vendor?.uuid || existingOnDateSlot?.vendor_id;
+    const activeClickVendorId =
+      existingClickVendorId && selectedVendors.includes(existingClickVendorId)
+        ? existingClickVendorId
+        : selectedVendors.length === 1
+          ? selectedVendors[0]
+          : existingClickVendorId || null;
+    const activeClickVendor = activeClickVendorId ? vendors.find(v => v.uuid === activeClickVendorId) : undefined;
+    const { duration: requiredDuration, slotsCount: requiredSlots } = getServiceDurationForVendor(activeClickVendor);
 
     const isAlreadySelected = selectedSlots.find(slot => {
       const sidMatch = slot.service_id === service.service.uuid || String(slot.service_id) === String(service.service.id);
@@ -800,6 +837,8 @@ export default function OneDayCalendar({
       vendors.forEach((vendor) => {
         if (!vendor.uuid || !selectedVendors.includes(vendor.uuid)) return false;
 
+        const { slotsCount: vendorRequiredSlots } = getServiceDurationForVendor(vendor);
+
         const vendorHasNextBookingFlag = isNextBookingSlotOnlyEnabled(vendor);
         const shouldEnforceForVendor = isSpecialServiceClick ? vendorHasNextBookingFlag : true;
         const useFullDayClick = isNoTravelClick
@@ -831,7 +870,7 @@ export default function OneDayCalendar({
             otherSlotsForDate as unknown as MinimalSlot[],
             [],
             [],
-            requiredSlots,
+            vendorRequiredSlots,
             allowBookingThroughLunch,
             shouldEnforceForVendor,
             service.service.uuid,
@@ -862,7 +901,7 @@ export default function OneDayCalendar({
             otherSlotsForDate as unknown as MinimalSlot[],
             convertedBreaks,
             vendor.calendar_events || [],
-            requiredSlots,
+            vendorRequiredSlots,
             allowBookingThroughLunch,
             shouldEnforceForVendor,
             service.service.uuid,
@@ -955,9 +994,7 @@ export default function OneDayCalendar({
     setShowVendorModal(false);
 
     // Warn if over-selecting
-    const currentServiceData = servicesData?.find(s => s.uuid === service.service.uuid);
-    const productOption = currentServiceData?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-    const requiredDuration = getEffectiveServiceDuration(productOption, currentServiceData, effectiveSquareFootage);
+    const requiredDuration = getServiceDurationForVendor(vendor).duration;
     const selDate = dayjs(slots[0].start).format('YYYY-MM-DD');
     const existingCount = selectedSlots.filter(s => isSameService(s.service_id, service.service) && s.date === selDate).length;
     const newTotal = (existingCount + slots.length) * 15;
@@ -1145,6 +1182,11 @@ export default function OneDayCalendar({
                     .map(vendor => {
                       const distance = vendor.uuid ? vendorDistances?.[vendor.uuid] : undefined;
                       const color = getDistanceColor(distance);
+                      const {
+                        duration: vendorModalDuration,
+                        slotsCount: requiredSlotsForModal,
+                        vendorAdjustment: vendorModalAdj,
+                      } = getServiceDurationForVendor(vendor);
                       return (
                         <li
                           key={vendor.uuid}
@@ -1165,9 +1207,6 @@ export default function OneDayCalendar({
 
                             const selDate = dayjs(clickedSlot.start).format('YYYY-MM-DD');
                             const otherSlotsForDate = selectedSlots.filter(s => !isSameService(s.service_id, service.service) && s.date === selDate);
-                            const productOption = currentServiceDataForModal?.product_options?.find(opt => opt.uuid === (service.option_id || service.option?.uuid));
-                            const reqDuration = getEffectiveServiceDuration(productOption, currentServiceDataForModal, effectiveSquareFootage);
-                            const requiredSlotsForModal = Math.max(1, Math.ceil(reqDuration / 15));
 
                             let validResult: ValidStartSlotResult;
                             if (useFullDayModal) {
@@ -1251,6 +1290,11 @@ export default function OneDayCalendar({
                         >
                           <span style={{ backgroundColor: color }} className="flex h-[16px] w-[5px]"></span>
                           <span className="text-[14px] truncate">{vendor.first_name} {vendor.last_name}</span>
+                          {vendorModalAdj !== 0 && (
+                            <span className="text-blue-600 text-[11px] font-medium shrink-0">
+                              ({vendorModalDuration} min)
+                            </span>
+                          )}
                           {distance !== undefined && (
                             <span className="text-gray-500 text-[12px] ml-auto">
                               ({distance < 60 ? `${Math.round(distance)} min` : `${Math.floor(distance / 60)}h ${Math.round(distance % 60)}m`})
