@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { GetPublicTours } from '@/app/agent/agent';
+import { GetAgentTours, GetPublicTours } from '@/app/agent/agent';
 import { Tour } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { List } from 'lucide-react';
@@ -63,7 +63,14 @@ const Page = () => {
     useEffect(() => {
         setLoading(true);
         setError(false);
-        GetPublicTours()
+        const hasToken =
+            typeof window !== 'undefined' &&
+            Boolean(localStorage.getItem('token') || localStorage.getItem('agentToken'));
+        const fetchTours = hasToken
+            ? GetAgentTours({ publishedOnly: true })
+            : GetPublicTours();
+
+        fetchTours
             .then((data) => {
                 setToursData(Array.isArray(data.data) ? data.data : []);
             })
@@ -78,7 +85,7 @@ const Page = () => {
 
     // Mobile view for tours
     if (isMobile) {
-        return <MobileAgentTours />;
+        return <MobileAgentTours tours={toursData} loading={loading} />;
     }
 
     const filteredTours = toursData.filter((tour) => {
