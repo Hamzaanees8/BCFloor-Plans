@@ -310,7 +310,7 @@ const ServicesFrom = () => {
     ]);
   };
   const handleAddRow = () => {
-    setAddOns([...addOns, { title: "", amount: 0 }]);
+    setAddOns((prev) => [...prev, { title: "", amount: 0 }]);
   };
   function updateOption(index: number, newData: ProductOption) {
     const newOptions = [...options];
@@ -634,22 +634,21 @@ const ServicesFrom = () => {
       };
     });
   };
-  const handleDeleteAddOn = (uuid?: string) => {
-    if (!currentService) return;
-
-    const updatedOptions = (currentService.service_add_ons || []).filter(
-      (option) => {
-        return !(uuid && option.uuid === uuid);
-      },
-    );
-
+  const handleDeleteAddOn = (uuid?: string, idx?: number) => {
     setCurrentService((prev) => {
       if (!prev) return prev;
+      const updatedAddOns = (prev.service_add_ons || []).filter((addon, i) => {
+        if (uuid && addon.uuid) {
+          return addon.uuid !== uuid;
+        }
+        return i !== idx;
+      });
       return {
         ...prev,
-        service_add_ons: updatedOptions,
+        service_add_ons: updatedAddOns,
       };
     });
+    setIsDirty(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -788,7 +787,7 @@ const ServicesFrom = () => {
         ];
 
         const cleanedAddOns = combinedAddOns
-          .filter((addon) => addon.title?.trim() !== "")
+          .filter((addon) => !!addon.title && addon.title.trim() !== "")
           .map((addon) => ({
             ...addon,
             amount: parseFloat(String(addon.amount ?? 0)) || 0,
@@ -2490,159 +2489,167 @@ Product Options{" "}
                                 </TableCell>
                               </TableRow>
                             </TableHeader>
-                            {currentService?.service_add_ons.map((opt, idx) => (
-                              <TableRow className="py-4" key={idx}>
-                                <TableCell>
-                                  <Label className=" text-[15px] font-[400] text-[#666666] pl-[7px]">
-                                    {opt?.title}
-                                  </Label>
-                                </TableCell>
+                            <TableBody>
+                              {(currentService?.service_add_ons || []).map((opt, idx) => (
+                                <TableRow className="py-4" key={opt.uuid || `saved-${idx}`}>
+                                  <TableCell>
+                                    <Label className=" text-[15px] font-[400] text-[#666666] pl-[7px]">
+                                      {opt?.title}
+                                    </Label>
+                                  </TableCell>
 
-                                <TableCell className="flex justify-between items-center px-[20px]">
-                                  <Label className=" text-[15px] font-[400] text-[#666666]">
-                                    ${Number(opt?.amount || 0).toFixed(2)} CAD
-                                  </Label>
-                                  <DropdownActions
-                                    options={[
-                                      {
-                                        label: "Edit",
-                                        onClick: () => {
-                                          const { ...rest } = opt;
-                                          setAddOns((prev) => {
-                                            const emptyIndex = prev.findIndex(
-                                              (row) =>
-                                                !row.title &&
-                                                (!row.amount ||
-                                                  row.amount === 0),
-                                            );
+                                  <TableCell className="flex justify-between items-center px-[20px]">
+                                    <Label className=" text-[15px] font-[400] text-[#666666]">
+                                      ${Number(opt?.amount || 0).toFixed(2)} CAD
+                                    </Label>
+                                    <DropdownActions
+                                      options={[
+                                        {
+                                          label: "Edit",
+                                          onClick: () => {
+                                            const { ...rest } = opt;
+                                            setAddOns((prev) => {
+                                              const emptyIndex = prev.findIndex(
+                                                (row) =>
+                                                  !row.title &&
+                                                  (!row.amount ||
+                                                    row.amount === 0),
+                                              );
 
-                                            const newOption = {
-                                              ...rest,
-                                              title: opt.title ?? "",
-                                              amount: opt.amount ?? 0,
-                                            };
+                                              const newOption = {
+                                                ...rest,
+                                                title: opt.title ?? "",
+                                                amount: opt.amount ?? 0,
+                                              };
 
-                                            // If an empty row is found, replace it
-                                            if (emptyIndex !== -1) {
-                                              const updated = [...prev];
-                                              updated[emptyIndex] = newOption;
-                                              return updated;
-                                            }
+                                              // If an empty row is found, replace it
+                                              if (emptyIndex !== -1) {
+                                                const updated = [...prev];
+                                                updated[emptyIndex] = newOption;
+                                                return updated;
+                                              }
 
-                                            // Else, add new row
-                                            return [...prev, newOption];
-                                          });
+                                              // Else, add new row
+                                              return [...prev, newOption];
+                                            });
 
-                                          const updatedOptions = (
-                                            currentService.service_add_ons || []
-                                          ).filter((option) => {
-                                            return !(
-                                              opt.uuid &&
-                                              option.uuid === opt.uuid
-                                            );
-                                          });
-
-                                          setCurrentService((prev) => {
-                                            if (!prev) return prev;
-                                            return {
-                                              ...prev,
-                                              service_add_ons: updatedOptions,
-                                            };
-                                          });
+                                            setCurrentService((prev) => {
+                                              if (!prev) return prev;
+                                              const updatedOptions = (
+                                                prev.service_add_ons || []
+                                              ).filter((option, i) => {
+                                                if (opt.uuid && option.uuid) {
+                                                  return option.uuid !== opt.uuid;
+                                                }
+                                                return i !== idx;
+                                              });
+                                              return {
+                                                ...prev,
+                                                service_add_ons: updatedOptions,
+                                              };
+                                            });
+                                            setIsDirty(true);
+                                          },
                                         },
-                                      },
-                                      {
-                                        label: "Delete",
-                                        onClick: () =>
-                                          handleDeleteAddOn(opt.uuid),
-                                      },
-                                    ]}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            {addOns.map((addOn, index) => (
-                              <TableRow key={index}>
-                                <TableCell>
-                                  <Input
-                                    className="h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]"
-                                    placeholder="Enter Add On title"
-                                    value={addOn.title}
-                                    onChange={(e) => {
-                                      const newAddOns = [...addOns];
-                                      newAddOns[index].title = e.target.value;
-                                      setAddOns(newAddOns);
-                                    }}
-                                  />
-                                  {fieldErrors[
-                                    `add_ons.${
-                                      (currentService?.service_add_ons?.length ?? 0) + index
-                                    }.title`
-                                  ] && (
-                                    <p className="text-red-500 text-[10px] mt-1">
-                                      {
-                                        fieldErrors[
-                                          `add_ons.${
-                                            (currentService?.service_add_ons?.length ?? 0) + index
-                                          }.title`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
-                                </TableCell>
-                                <TableCell className="">
-                                  <div className="w-full flex justify-between items-center">
+                                        {
+                                          label: "Delete",
+                                          onClick: () =>
+                                            handleDeleteAddOn(opt.uuid, idx),
+                                        },
+                                      ]}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              {addOns.map((addOn, index) => (
+                                <TableRow key={addOn.uuid || `draft-${index}`}>
+                                  <TableCell>
                                     <Input
                                       className="h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]"
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      placeholder="0.00"
-                                      value={
-                                        addOn.amount === undefined || addOn.amount === null ? "" : addOn.amount
-                                      }
+                                      placeholder="Enter Add On title"
+                                      value={addOn.title}
                                       onChange={(e) => {
                                         const val = e.target.value;
-                                        const newAddOns = [...addOns];
-                                        newAddOns[index].amount = val;
-                                        setAddOns(newAddOns);
+                                        setAddOns((prev) =>
+                                          prev.map((row, i) =>
+                                            i === index
+                                              ? { ...row, title: val }
+                                              : row,
+                                          ),
+                                        );
                                       }}
                                     />
-                                    {addOns.length > 1 && !addOn.uuid && (
+                                    {fieldErrors[
+                                      `add_ons.${
+                                        (currentService?.service_add_ons?.length ?? 0) + index
+                                      }.title`
+                                    ] && (
+                                      <p className="text-red-500 text-[10px] mt-1">
+                                        {
+                                          fieldErrors[
+                                            `add_ons.${
+                                              (currentService?.service_add_ons?.length ?? 0) + index
+                                            }.title`
+                                          ][0]
+                                        }
+                                      </p>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="">
+                                    <div className="w-full flex justify-between items-center gap-2">
+                                      <Input
+                                        className="h-[42px] bg-[#EEEEEE] border border-[#BBBBBB]"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                        value={
+                                          addOn.amount === undefined || addOn.amount === null ? "" : addOn.amount
+                                        }
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setAddOns((prev) =>
+                                            prev.map((row, i) =>
+                                              i === index
+                                                ? { ...row, amount: val }
+                                                : row,
+                                            ),
+                                          );
+                                        }}
+                                      />
                                       <DropdownActions
                                         options={[
                                           {
                                             label: "Delete",
                                             onClick: () => {
-                                              const updatedAddons =
-                                                addOns?.filter(
-                                                  (_, i) => i !== index,
-                                                );
-                                              setAddOns(updatedAddons);
+                                              setAddOns((prev) =>
+                                                prev.filter((_, i) => i !== index),
+                                              );
+                                              setIsDirty(true);
                                             },
                                           },
                                         ]}
                                       />
+                                    </div>
+                                    {fieldErrors[
+                                      `add_ons.${
+                                        (currentService?.service_add_ons?.length ?? 0) + index
+                                      }.amount`
+                                    ] && (
+                                      <p className="text-red-500 text-[10px] mt-1">
+                                        {
+                                          fieldErrors[
+                                            `add_ons.${
+                                              (currentService?.service_add_ons?.length ?? 0) + index
+                                            }.amount`
+                                          ][0]
+                                        }
+                                      </p>
                                     )}
-                                  </div>
-                                  {fieldErrors[
-                                    `add_ons.${
-                                      (currentService?.service_add_ons?.length ?? 0) + index
-                                    }.amount`
-                                  ] && (
-                                    <p className="text-red-500 text-[10px] mt-1">
-                                      {
-                                        fieldErrors[
-                                          `add_ons.${
-                                            (currentService?.service_add_ons?.length ?? 0) + index
-                                          }.amount`
-                                        ][0]
-                                      }
-                                    </p>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
                           </Table>
                         </div>
                       )}
