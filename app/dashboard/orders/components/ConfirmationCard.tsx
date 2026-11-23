@@ -7,6 +7,15 @@ import { SelectedService } from "./Services";
 import { isServiceRequiringTravel } from "../utils/serviceTimeUtils";
 import React from "react";
 
+export interface ServiceDiscountInfo {
+    type: 'package' | 'agent' | 'code' | 'none';
+    name: string;
+    rateText: string;
+    savings: number;
+    originalPrice: number;
+    netPrice: number;
+}
+
 interface ConfirmationCardProps {
     title: string;
     service: Services;
@@ -15,9 +24,10 @@ interface ConfirmationCardProps {
         vendorName: string;
         timeRanges: string[];
     }[];
+    discountInfo?: ServiceDiscountInfo;
 }
 
-export default function ConfirmationCard({ title, service, selectedService, slotInfo }: ConfirmationCardProps) {
+export default function ConfirmationCard({ title, service, selectedService, slotInfo, discountInfo }: ConfirmationCardProps) {
     const {
         selectedOptions,
         customPrices,
@@ -37,15 +47,45 @@ export default function ConfirmationCard({ title, service, selectedService, slot
         <Card className="!w-full h-fit border-[#6BAE41] mt-[22px] bg-[#f5f5f5] border-2 rounded-[6px] px-2 py-4 text-[#333] gap-2">
             <CardContent className="p-0">
                 <div className="flex items-start justify-between mb-2">
-                    <div className="flex justify-between gap-2 w-full items-center">
-                        <div className="bg-[#6BAE41] p-1 w-6 h-6 flex justify-center items-center rounded-md">
-                            <Check className="text-white w-[20px] h-[20px]" />
+                    <div className="flex justify-between gap-3 w-full items-center">
+                        <div className="flex items-center gap-2.5">
+                            <div className="bg-[#6BAE41] p-1 w-6 h-6 flex justify-center items-center rounded-md shrink-0">
+                                <Check className="text-white w-[20px] h-[20px]" />
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-[16px] font-medium text-[#424242]">{title}{isCustom && (<span>: Custom</span>)}</p>
+                                {discountInfo && discountInfo.savings > 0 && (
+                                    discountInfo.type === 'package' ? (
+                                        <span className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
+                                            Package ({discountInfo.rateText})
+                                        </span>
+                                    ) : discountInfo.type === 'agent' ? (
+                                        <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                                            Agent ({discountInfo.rateText})
+                                        </span>
+                                    ) : discountInfo.type === 'code' ? (
+                                        <span className="text-[11px] font-semibold bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200 shrink-0">
+                                            Coupon ({discountInfo.rateText})
+                                        </span>
+                                    ) : null
+                                )}
+                            </div>
                         </div>
-                        <div className="text-[16px] font-normal text-[#424242] text-center">
-                            <p>{title}{isCustom && (<span>: Custom</span>)}</p>
-                        </div>
-                        <div className="text-[20px] font-[500] text-[#6BAE41]">
-                            {!isNaN(numericPrice) ? `$${numericPrice.toFixed(2)}` : "$0.00"}
+                        <div className="text-right shrink-0">
+                            {discountInfo && discountInfo.savings > 0 ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[13px] text-gray-400 line-through font-normal">
+                                        ${discountInfo.originalPrice.toFixed(2)}
+                                    </span>
+                                    <span className="text-[20px] font-[600] text-[#6BAE41]">
+                                        ${discountInfo.netPrice.toFixed(2)}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="text-[20px] font-[500] text-[#6BAE41]">
+                                    {!isNaN(numericPrice) ? `$${numericPrice.toFixed(2)}` : "$0.00"}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -716,7 +716,16 @@ const AddTemplateDialog: React.FC<Props> = ({
           setFetchingSigs(false);
         });
     }
-  }, [open, initialData, presetEventType, presetRole, organizationId, handleLoadBladeTemplate]);
+  }, [
+    open,
+    initialData,
+    presetEventType,
+    presetRole,
+    organizationId,
+    handleLoadBladeTemplate,
+    organizations,
+    selectedOrgId,
+  ]);
 
   // Check if form has unsaved modifications
   const hasUnsavedChanges = useCallback(() => {

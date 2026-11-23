@@ -1,1653 +1,1938 @@
-'use client'
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
-import Link from 'next/link';
-import { useOrderContext } from '../context/OrderContext';
-import { useWhiteLabel } from '@/app/context/Whitelabel';
-import { Role } from '@/app/context/whiteLabelConfig';
-import ConfirmationCard from './ConfirmationCard';
-import { Slot } from '../context/OrderContext';
-import { SelectedService } from './Services';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+"use client";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useOrderContext } from "../context/OrderContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { Role } from "@/app/context/whiteLabelConfig";
+import ConfirmationCard from "./ConfirmationCard";
+import { Slot } from "../context/OrderContext";
+import { SelectedService } from "./Services";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-import { Input } from '@/components/ui/input';
-import { Plus, File, Loader2 } from 'lucide-react';
-import { GetDiscount } from '../../global-settings/global-settings';
-import { CalculateRealtimeTaxPreview, RealtimeTaxPreviewResponseData } from '../../global-settings/tax-settings';
-import { toast } from 'sonner';
-import { Create, Edit, GetOneOrder, GetVendors, OrderPayload, CreateListings } from '../orders';
-import { isServiceRequiringTravel } from '../utils/serviceTimeUtils';
+import { Input } from "@/components/ui/input";
+import { Plus, File, Loader2 } from "lucide-react";
+import { GetDiscount } from "../../global-settings/global-settings";
+import {
+  CalculateRealtimeTaxPreview,
+  RealtimeTaxPreviewResponseData,
+} from "../../global-settings/tax-settings";
+import { toast } from "sonner";
+import {
+  Create,
+  Edit,
+  GetOneOrder,
+  GetVendors,
+  OrderPayload,
+  CreateListings,
+} from "../orders";
+import { isServiceRequiringTravel } from "../utils/serviceTimeUtils";
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useBookNowOrg } from '@/app/agent/book-now/context/BookNowOrgContext';
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useBookNowOrg } from "@/app/agent/book-now/context/BookNowOrgContext";
 
-
-import { VendorData } from '../[id]/page';
-import { Order, OrderService } from '../page';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { useAppContext } from '@/app/context/AppContext';
+import { VendorData } from "../[id]/page";
+import { Order, OrderService } from "../page";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useAppContext } from "@/app/context/AppContext";
 export type Discount = {
+  id: number;
+  uuid: string;
+  type: "code" | "quantity";
+  name: string | null;
+  code_key: string | null;
+  description: string | null;
+  percentage: string;
+  quantity: number | null;
+  status: boolean;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
+  services: {
     id: number;
     uuid: string;
-    type: 'code' | 'quantity';
-    name: string | null;
-    code_key: string | null;
-    description: string | null;
-    percentage: string;
-    quantity: number | null;
-    status: boolean;
-    expiry_date: string | null;
-    created_at: string;
-    updated_at: string;
-    services: {
-        id: number;
-        uuid: string;
-        name?: string;
-    }[];
+    name?: string;
+  }[];
 };
 export interface NotificationOptions {
-    notify_agent?: boolean;
-    notify_vendor?: boolean;
-    notify_admin?: boolean;
+  notify_agent?: boolean;
+  notify_vendor?: boolean;
+  notify_admin?: boolean;
 }
 
 export type OrderConfirmationHandle = {
-    handleSubmitOrder: (e?: React.MouseEvent<HTMLButtonElement>, notificationOptions?: NotificationOptions) => Promise<boolean>;
+  handleSubmitOrder: (
+    e?: React.MouseEvent<HTMLButtonElement>,
+    notificationOptions?: NotificationOptions,
+  ) => Promise<boolean>;
 };
 const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
-    const {
-        isSplitInvoice,
-        selectedAgentId,
-        selectedListingId,
-        setSelectedListingId,
-        selectedCurrentListing,
-        setSelectedCurrentListing,
-        agentNotes,
-        coAgents,
-        selectedServices,
-        discountCode,
-        setDiscountCode,
-        appliedCodeDiscount,
-        setAppliedCodeDiscount,
-        appliedQuantityDiscounts,
-        setAppliedQuantityDiscounts,
-        agentDiscount,
-        total,
-        setTotal,
-        selectedSlots,
-        isSubmitted,
-        setIsSubmitted,
-        isLoading,
-        setIsLoading,
-        activePackage,
-        tempPropertyData,
-        setTempPropertyData,
-        servicesData: services,
-        listingsData,
-        isBookNowMode,
-        floorplanAreas,
-        floorplanNotes
-    } = useOrderContext();
-    const { userType } = useAppContext()
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const { appliedSettings } = useWhiteLabel();
-    const role = (userType as string)?.toLowerCase() || (isBookNowMode ? 'agent' : 'admin');
-    const roleSettings = appliedSettings[role as Role] || appliedSettings['admin'];
+  const {
+    isSplitInvoice,
+    selectedAgentId,
+    selectedListingId,
+    setSelectedListingId,
+    selectedCurrentListing,
+    setSelectedCurrentListing,
+    agentNotes,
+    coAgents,
+    selectedServices,
+    discountCode,
+    setDiscountCode,
+    appliedCodeDiscount,
+    setAppliedCodeDiscount,
+    appliedQuantityDiscounts,
+    setAppliedQuantityDiscounts,
+    agentDiscount,
+    total,
+    setTotal,
+    selectedSlots,
+    isSubmitted,
+    setIsSubmitted,
+    isLoading,
+    setIsLoading,
+    activePackage,
+    tempPropertyData,
+    setTempPropertyData,
+    servicesData: services,
+    listingsData,
+    isBookNowMode,
+    floorplanAreas,
+    floorplanNotes,
+  } = useOrderContext();
+  const { userType } = useAppContext();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { appliedSettings } = useWhiteLabel();
+  const role =
+    (userType as string)?.toLowerCase() || (isBookNowMode ? "agent" : "admin");
+  const roleSettings =
+    appliedSettings[role as Role] || appliedSettings["admin"];
 
-    const handleDone = () => {
-        if (isBookNowMode) {
-            router.push('/agent/tours');
-            return;
-        }
-        router.push('/dashboard/calendar');
-    };
+  const handleDone = () => {
+    if (isBookNowMode) {
+      router.push("/agent/tours");
+      return;
+    }
+    router.push("/dashboard/calendar");
+  };
 
-    const [discounts, setDiscounts] = React.useState<Discount[]>([]);
-    const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
-    const [createdOrderUuid, setCreatedOrderUuid] = useState<string>("");
-    const [orderData, setOrderData] = React.useState<Order | null>(null);
-    const params = useParams();
-    const userId = params?.id as string;
-    // Read org slug from context (path segment) OR ?slug= query param
-    const { orgSlug: ctxOrgSlug } = useBookNowOrg();
-    const slugFromQuery = searchParams.get('slug');
-    const orgSlug = ctxOrgSlug || slugFromQuery || null;
+  const [discounts, setDiscounts] = React.useState<Discount[]>([]);
+  const [vendorsData, setVendorsData] = React.useState<VendorData[]>([]);
+  const [createdOrderUuid, setCreatedOrderUuid] = useState<string>("");
+  const [orderData, setOrderData] = React.useState<Order | null>(null);
+  const params = useParams();
+  const userId = params?.id as string;
+  // Read org slug from context (path segment) OR ?slug= query param
+  const { orgSlug: ctxOrgSlug } = useBookNowOrg();
+  const slugFromQuery = searchParams.get("slug");
+  const orgSlug = ctxOrgSlug || slugFromQuery || null;
 
-    const isEdit = searchParams.get('isEdit') === 'true';
-    const isAddFlow = !!userId && !isEdit;
+  const isEdit = searchParams.get("isEdit") === "true";
+  const isAddFlow = !!userId && !isEdit;
 
-    const newServices = isAddFlow ? selectedServices.filter(s => !s.service_uuid) : selectedServices;
-    const oldServices = isAddFlow ? selectedServices.filter(s => !!s.service_uuid) : [];
+  const newServices = isAddFlow
+    ? selectedServices.filter((s) => !s.service_uuid)
+    : selectedServices;
+  const oldServices = isAddFlow
+    ? selectedServices.filter((s) => !!s.service_uuid)
+    : [];
 
-    const currentListing = listingsData.find(l => l.uuid === selectedListingId) || selectedCurrentListing;
-    const sqFootage = Number(
-        currentListing?.square_footage ||
-        selectedCurrentListing?.square_footage ||
-        tempPropertyData?.square_footage ||
-        0
-    );
+  const currentListing =
+    listingsData.find((l) => l.uuid === selectedListingId) ||
+    selectedCurrentListing;
+  const sqFootage = Number(
+    currentListing?.square_footage ||
+      selectedCurrentListing?.square_footage ||
+      tempPropertyData?.square_footage ||
+      0,
+  );
 
-    const getOriginalPrice = React.useCallback((sel: SelectedService) => {
-        let originalPrice = Number(sel.price) || 0;
+  const getOriginalPrice = React.useCallback(
+    (sel: SelectedService) => {
+      let originalPrice = Number(sel.price) || 0;
 
-        if (sel.payment_status?.toUpperCase() !== 'PAID' && !sel.custom) {
-            const fullService = services.find(s => s.uuid === sel.uuid);
-            const catalogOption = fullService?.product_options?.find(o => o.uuid === sel.option_id || o.title === sel.optionName);
-
-            if (catalogOption) {
-                const isSqFtRateOption = (!catalogOption.sq_ft_range || String(catalogOption.sq_ft_range).trim() === '') &&
-                    catalogOption.sq_ft_rate &&
-                    parseFloat(String(catalogOption.sq_ft_rate)) > 0;
-
-                if (isSqFtRateOption) {
-                    if (sqFootage > 0) {
-                        const calculated = parseFloat(String(catalogOption.sq_ft_rate)) * sqFootage;
-                        originalPrice = catalogOption.min_price
-                            ? Math.max(calculated, catalogOption.min_price)
-                            : calculated;
-                    } else if (Number(sel.price) > 1) {
-                        // sel.price > 1 means it's a real calculated total, not the raw per-sqft rate
-                        // (e.g. a rate like $0.10/sqft would be ≤1; a real total would be e.g. $250)
-                        originalPrice = Number(sel.price);
-                    }
-                    // If sqFootage=0 and sel.price ≤ 1, leave originalPrice=0 — cannot compute yet
-                } else if (Number(catalogOption.amount) > 0) {
-                    originalPrice = Number(catalogOption.amount);
-                }
-            }
-        }
-
-        // Add selected add-ons to original price
-        const addOnsTotal = (sel.addOns || []).reduce((sum, a) => sum + (parseFloat(String(a.amount || 0)) || 0), 0);
-        return originalPrice + addOnsTotal;
-    }, [services, sqFootage]);
-
-    // Helper function to calculate discounted price for a service (code or quantity discount, whichever is greater)
-    const calculateServicePriceAfterDiscounts = React.useCallback((sel: SelectedService) => {
-        const originalPrice = getOriginalPrice(sel);
-
-        if (sel.payment_status?.toUpperCase() === 'PAID') {
-            return originalPrice;
-        }
-
-        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
-            ? appliedCodeDiscount
-            : null;
-        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-            d.services?.some(s => s.uuid === sel.uuid)
+      if (sel.payment_status?.toUpperCase() !== "PAID" && !sel.custom) {
+        const fullService = services.find((s) => s.uuid === sel.uuid);
+        const catalogOption = fullService?.product_options?.find(
+          (o) => o.uuid === sel.option_id || o.title === sel.optionName,
         );
 
-        const applicableDiscounts: Discount[] = [];
-        if (codeDiscount) applicableDiscounts.push(codeDiscount);
-        applicableDiscounts.push(...quantityDiscounts);
+        if (catalogOption) {
+          const isSqFtRateOption =
+            (!catalogOption.sq_ft_range ||
+              String(catalogOption.sq_ft_range).trim() === "") &&
+            catalogOption.sq_ft_rate &&
+            parseFloat(String(catalogOption.sq_ft_rate)) > 0;
 
-        const bestDiscount = applicableDiscounts.reduce((best, curr) => {
-            const currPercent = parseFloat(curr.percentage ?? "0");
-            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-            return currPercent > bestPercent ? curr : best;
-        }, null as Discount | null);
-
-        if (!bestDiscount) return originalPrice;
-
-        const parsedPercent = parseFloat(bestDiscount.percentage ?? "0");
-        const finalPrice = originalPrice * Math.max(0, (100 - parsedPercent) / 100);
-        return finalPrice;
-    }, [getOriginalPrice, appliedCodeDiscount, appliedQuantityDiscounts]);
-
-    const isServiceInActivePackage = React.useCallback((s: SelectedService) => {
-        if (!activePackage || !activePackage.services?.length) return false;
-        const sUuid = s.uuid || (s as any).service_uuid;
-        const sId = s.id ? String(s.id) : null;
-        return activePackage.services.some(pkgS => {
-            const pUuid = pkgS.uuid ? String(pkgS.uuid) : null;
-            const pId = pkgS.id ? String(pkgS.id) : null;
-            return (sUuid && pUuid && sUuid === pUuid) || (sId && pId && sId === pId);
-        });
-    }, [activePackage]);
-
-    const calculatePackageDiscount = React.useCallback(() => {
-        if (!activePackage || !activePackage.discount || !selectedServices?.length) return 0;
-        const discountVal = Number(activePackage.discount) || 0;
-        if (discountVal <= 0) return 0;
-
-        const eligibleTotal = selectedServices.reduce((sum, s) => {
-            if (isServiceInActivePackage(s)) {
-                return sum + getOriginalPrice(s);
+          if (isSqFtRateOption) {
+            if (sqFootage > 0) {
+              const calculated =
+                parseFloat(String(catalogOption.sq_ft_rate)) * sqFootage;
+              originalPrice = catalogOption.min_price
+                ? Math.max(calculated, catalogOption.min_price)
+                : calculated;
+            } else if (Number(sel.price) > 1) {
+              // sel.price > 1 means it's a real calculated total, not the raw per-sqft rate
+              // (e.g. a rate like $0.10/sqft would be ≤1; a real total would be e.g. $250)
+              originalPrice = Number(sel.price);
             }
-            return sum;
-        }, 0);
-
-        if (eligibleTotal <= 0) return 0;
-
-        if (activePackage.discount_type === 'dollar') {
-            return Math.min(eligibleTotal, discountVal);
+            // If sqFootage=0 and sel.price ≤ 1, leave originalPrice=0 — cannot compute yet
+          } else if (Number(catalogOption.amount) > 0) {
+            originalPrice = Number(catalogOption.amount);
+          }
         }
-        return Math.max(0, eligibleTotal * (discountVal / 100));
-    }, [activePackage, selectedServices, isServiceInActivePackage, getOriginalPrice]);
+      }
 
-    const calculateAgentDiscount = React.useCallback((baseTotal: number) => {
-        if (!agentDiscount || !baseTotal || baseTotal <= 0) return 0;
-        const isActive = Boolean(agentDiscount.is_active ?? true);
-        if (!isActive) return 0;
-        if (agentDiscount.expiry_date) {
-            const now = new Date();
-            const exp = new Date(agentDiscount.expiry_date);
-            exp.setHours(23, 59, 59, 999);
-            if (exp.getTime() < now.getTime()) return 0;
-        }
-        if (agentDiscount.minimum_spend && baseTotal < Number(agentDiscount.minimum_spend)) {
-            return 0;
-        }
-        const amount = Number(agentDiscount.amount) || 0;
-        if (amount <= 0) return 0;
-        const isPct = agentDiscount.is_percentage === 1 || (agentDiscount.is_percentage as any) === true;
-        if (isPct) {
-            return Math.round(baseTotal * (amount / 100) * 100) / 100;
-        }
-        return Math.min(baseTotal, amount);
-    }, [agentDiscount]);
+      // Add selected add-ons to original price
+      const addOnsTotal = (sel.addOns || []).reduce(
+        (sum, a) => sum + (parseFloat(String(a.amount || 0)) || 0),
+        0,
+      );
+      return originalPrice + addOnsTotal;
+    },
+    [services, sqFootage],
+  );
 
-    const getWinningDiscountType = React.useCallback((): 'agent' | 'package' | 'code' | 'none' => {
-        if (!selectedServices?.length) return 'none';
-        const rawOrigTotal = selectedServices.reduce((sum, sel) => sum + getOriginalPrice(sel), 0);
-        let rawCodeDisc = 0;
-        selectedServices.forEach(s => {
-            const orig = getOriginalPrice(s);
-            const disc = calculateServicePriceAfterDiscounts(s);
-            rawCodeDisc += (orig - disc);
-        });
-        const rawPackageDiscount = calculatePackageDiscount();
-        const rawAgentDisc = calculateAgentDiscount(rawOrigTotal);
+  // Helper function to calculate discounted price for a service (code or quantity discount, whichever is greater)
+  const calculateServicePriceAfterDiscounts = React.useCallback(
+    (sel: SelectedService) => {
+      const originalPrice = getOriginalPrice(sel);
 
-        const maxDisc = Math.max(rawPackageDiscount, rawAgentDisc, rawCodeDisc);
-        if (maxDisc <= 0) return 'none';
-        if (rawAgentDisc >= maxDisc) return 'agent';
-        if (rawPackageDiscount >= maxDisc) return 'package';
-        return 'code';
-    }, [selectedServices, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
+      if (sel.payment_status?.toUpperCase() === "PAID") {
+        return originalPrice;
+      }
 
-    const propertyProvince = tempPropertyData?.province || currentListing?.province || "BC";
-    const propertyCountry = tempPropertyData?.country || currentListing?.country || "CA";
+      const codeDiscount = appliedCodeDiscount?.services?.some(
+        (d) => d.uuid === sel.uuid,
+      )
+        ? appliedCodeDiscount
+        : null;
+      const quantityDiscounts = appliedQuantityDiscounts.filter((d) =>
+        d.services?.some((s) => s.uuid === sel.uuid),
+      );
 
-    const [taxPreview, setTaxPreview] = useState<RealtimeTaxPreviewResponseData | null>(null);
-    const [isTaxLoading, setIsTaxLoading] = useState<boolean>(false);
+      const applicableDiscounts: Discount[] = [];
+      if (codeDiscount) applicableDiscounts.push(codeDiscount);
+      applicableDiscounts.push(...quantityDiscounts);
 
-    useEffect(() => {
-        let isMounted = true;
+      const bestDiscount = applicableDiscounts.reduce(
+        (best, curr) => {
+          const currPercent = parseFloat(curr.percentage ?? "0");
+          const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+          return currPercent > bestPercent ? curr : best;
+        },
+        null as Discount | null,
+      );
 
-        if (!selectedServices?.length) {
-            setTaxPreview(null);
-            return;
-        }
+      if (!bestDiscount) return originalPrice;
 
-        setIsTaxLoading(true);
+      const parsedPercent = parseFloat(bestDiscount.percentage ?? "0");
+      const finalPrice =
+        originalPrice * Math.max(0, (100 - parsedPercent) / 100);
+      return finalPrice;
+    },
+    [getOriginalPrice, appliedCodeDiscount, appliedQuantityDiscounts],
+  );
 
-        const timer = setTimeout(async () => {
-            try {
-                const totalOrig = selectedServices.reduce((sum, s) => sum + getOriginalPrice(s), 0);
-                const eligibleOrig = selectedServices.reduce((sum, s) => {
-                    if (isServiceInActivePackage(s)) {
-                        return sum + getOriginalPrice(s);
-                    }
-                    return sum;
-                }, 0);
-
-                let rawPkgDisc = 0;
-                if (activePackage && (activePackage.discount || 0) > 0 && eligibleOrig > 0) {
-                    if (activePackage.discount_type === 'dollar') {
-                        rawPkgDisc = Math.min(eligibleOrig, Number(activePackage.discount) || 0);
-                    } else {
-                        rawPkgDisc = (eligibleOrig * (Number(activePackage.discount) || 0)) / 100;
-                    }
-                }
-
-                const rawAgentDisc = calculateAgentDiscount(totalOrig);
-
-                // Calculate code/quantity discount value against original prices
-                let rawCodeDisc = 0;
-                selectedServices.forEach(s => {
-                    const orig = getOriginalPrice(s);
-                    const disc = calculateServicePriceAfterDiscounts(s);
-                    rawCodeDisc += (orig - disc);
-                });
-
-                // Pick single largest discount among Package, Agent, and Coupon/Promo
-                const maxDisc = Math.max(rawPkgDisc, rawAgentDisc, rawCodeDisc);
-                let winner = 'none';
-                if (maxDisc > 0) {
-                    if (rawAgentDisc >= maxDisc) winner = 'agent';
-                    else if (rawPkgDisc >= maxDisc) winner = 'package';
-                    else winner = 'code';
-                }
-
-                const pkgDisc = winner === 'package' ? rawPkgDisc : 0;
-                const agentDiscVal = winner === 'agent' ? rawAgentDisc : 0;
-
-                const pkgRatio = eligibleOrig > 0 ? (pkgDisc / eligibleOrig) : 0;
-                const agentRatio = totalOrig > 0 ? (agentDiscVal / totalOrig) : 0;
-
-                const items = selectedServices.map((sel) => {
-                    const origPrice = getOriginalPrice(sel);
-                    let effAmount = origPrice;
-
-                    if (winner === 'code') {
-                        effAmount = calculateServicePriceAfterDiscounts(sel);
-                    } else if (winner === 'package') {
-                        const pkgDeduction = isServiceInActivePackage(sel) ? (origPrice * pkgRatio) : 0;
-                        effAmount = Math.max(0, origPrice - pkgDeduction);
-                    } else if (winner === 'agent') {
-                        const agentDeduction = origPrice * agentRatio;
-                        effAmount = Math.max(0, origPrice - agentDeduction);
-                    }
-
-                    const fullService = services.find(s => s.uuid === sel.uuid);
-                    const gstEnabled = fullService?.gst_enabled !== undefined ? Boolean(fullService.gst_enabled) : true;
-                    const pstEnabled = fullService?.pst_enabled !== undefined ? Boolean(fullService.pst_enabled) : false;
-
-                    return {
-                        amount: Number(effAmount.toFixed(2)),
-                        is_taxable: true,
-                        service_id: sel.uuid,
-                        gst_enabled: gstEnabled,
-                        pst_enabled: pstEnabled,
-                    };
-                });
-
-                const data = await CalculateRealtimeTaxPreview({
-                    ...(orgSlug ? { org_slug: orgSlug } : {}),
-                    property_province: propertyProvince,
-                    property_country: propertyCountry,
-                    items,
-                });
-
-                if (isMounted) {
-                    setTaxPreview(data);
-                }
-            } catch (err) {
-                console.warn("Error calculating tax preview:", err);
-            } finally {
-                if (isMounted) {
-                    setIsTaxLoading(false);
-                }
-            }
-        }, 250);
-
-        return () => {
-            isMounted = false;
-            clearTimeout(timer);
-        };
-    }, [
-        selectedServices,
-        appliedCodeDiscount,
-        appliedQuantityDiscounts,
-        activePackage,
-        propertyProvince,
-        propertyCountry,
-        orgSlug,
-        getOriginalPrice,
-        calculateServicePriceAfterDiscounts,
-        calculateAgentDiscount,
-        isServiceInActivePackage,
-    ]);
-
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        GetOneOrder(token, createdOrderUuid)
-            .then((data) => {
-                setOrderData(data.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [createdOrderUuid]);
-
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        GetVendors(token, orgSlug, true)
-            .then((data) => {
-                setVendorsData(data.data);
-            })
-            .catch((err) => console.log(err.message));
-    }, [orgSlug]);
-
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-            console.log("Token not found.");
-            return;
-        }
-
-        GetDiscount()
-            .then((data) => setDiscounts(Array.isArray(data.data) ? data.data : []))
-            .catch((err) => console.log(err.message));
-    }, []);
-
-    useEffect(() => {
-        const validQuantityDiscounts = discounts.filter((discount) => {
-            if (discount.type !== "quantity" || !discount.services) return false;
-
-            // ✅ check status
-            if (!discount.status) return false;
-
-            // ✅ check expiry date
-            const now = new Date();
-            const expiry = discount.expiry_date ? new Date(discount.expiry_date) : null;
-            if (expiry && expiry.getTime() < now.getTime()) return false;
-
-            // Count total quantity of eligible services (including matching PAID services)
-            const eligibleCount = selectedServices
-                .filter(sel => discount.services?.some(dService => dService.uuid === sel.uuid))
-                .reduce((sum, sel) => sum + (Number(sel.quantity) || 1), 0);
-
-            const requiredQty = Number(discount.quantity) || 0;
-            return eligibleCount >= requiredQty;
-        });
-
-        setAppliedQuantityDiscounts(validQuantityDiscounts);
-    }, [selectedServices, discounts, setAppliedQuantityDiscounts]);
-
-    useEffect(() => {
-        if (!selectedServices?.length || !services?.length) {
-            setTotal(0);
-            return;
-        }
-
-        const rawOrigTotal = selectedServices.reduce((sum, sel) => sum + getOriginalPrice(sel), 0);
-
-        let rawCodeDisc = 0;
-        selectedServices.forEach(s => {
-            const orig = getOriginalPrice(s);
-            const disc = calculateServicePriceAfterDiscounts(s);
-            rawCodeDisc += (orig - disc);
-        });
-
-        const rawPackageDiscount = calculatePackageDiscount();
-        const rawAgentDisc = calculateAgentDiscount(rawOrigTotal);
-
-        const maxDisc = Math.max(rawPackageDiscount, rawAgentDisc, rawCodeDisc);
-        let winningDiscountVal = 0;
-        if (maxDisc > 0) {
-            if (rawAgentDisc >= maxDisc) winningDiscountVal = rawAgentDisc;
-            else if (rawPackageDiscount >= maxDisc) winningDiscountVal = rawPackageDiscount;
-            else winningDiscountVal = rawCodeDisc;
-        }
-
-        const orderTotal = Math.max(0, rawOrigTotal - winningDiscountVal);
-
-        setTotal(Number(orderTotal.toFixed(2)));
-    }, [selectedServices, services, appliedCodeDiscount, appliedQuantityDiscounts, agentDiscount, setTotal, activePackage, listingsData, selectedListingId, selectedCurrentListing, tempPropertyData, getOriginalPrice, calculateServicePriceAfterDiscounts, calculatePackageDiscount, calculateAgentDiscount]);
-
-    const handleApplyDiscount = () => {
-        if (!discountCode?.trim()) {
-            toast.error("Please enter a discount code.");
-            return;
-        }
-
-        const code = discountCode.trim().toLowerCase();
-
-        if (appliedCodeDiscount?.code_key?.toLowerCase() === code) {
-            toast.error("This discount code is already applied.");
-            return;
-        }
-
-        const matched = discounts.find(
-            (d) => d.type === "code" && d.code_key?.toLowerCase() === code
+  const isServiceInActivePackage = React.useCallback(
+    (s: SelectedService) => {
+      if (!activePackage || !activePackage.services?.length) return false;
+      const sUuid = s.uuid || (s as any).service_uuid;
+      const sId = s.id ? String(s.id) : null;
+      return activePackage.services.some((pkgS) => {
+        const pUuid = pkgS.uuid ? String(pkgS.uuid) : null;
+        const pId = pkgS.id ? String(pkgS.id) : null;
+        return (
+          (sUuid && pUuid && sUuid === pUuid) || (sId && pId && sId === pId)
         );
+      });
+    },
+    [activePackage],
+  );
 
-        if (!matched) {
-            toast.error("Invalid discount code");
-            return;
-        }
-
-        if (!matched.status) {
-            toast.error("This discount code is inactive.");
-            return;
-        }
-
+  const calculateAgentDiscount = React.useCallback(
+    (baseTotal: number) => {
+      if (!agentDiscount || !baseTotal || baseTotal <= 0) return 0;
+      const isActive = Boolean(agentDiscount.is_active ?? true);
+      if (!isActive) return 0;
+      if (agentDiscount.expiry_date) {
         const now = new Date();
-        const expiry = matched.expiry_date ? new Date(matched.expiry_date) : null;
-        if (expiry && expiry.getTime() < now.getTime()) {
-            toast.error("This discount code has expired.");
-            return;
+        const exp = new Date(agentDiscount.expiry_date);
+        exp.setHours(23, 59, 59, 999);
+        if (exp.getTime() < now.getTime()) return 0;
+      }
+      if (
+        agentDiscount.minimum_spend &&
+        baseTotal < Number(agentDiscount.minimum_spend)
+      ) {
+        return 0;
+      }
+      const amount = Number(agentDiscount.amount) || 0;
+      if (amount <= 0) return 0;
+      const isPct =
+        agentDiscount.is_percentage === 1 ||
+        (agentDiscount.is_percentage as any) === true;
+      if (isPct) {
+        return Math.round(baseTotal * (amount / 100) * 100) / 100;
+      }
+      return Math.min(baseTotal, amount);
+    },
+    [agentDiscount],
+  );
+
+  const resolveServiceDiscount = React.useCallback(
+    (sel: SelectedService) => {
+      const originalPrice = getOriginalPrice(sel);
+      if (originalPrice <= 0 || sel.payment_status?.toUpperCase() === "PAID") {
+        return {
+          type: "none" as const,
+          name: "",
+          rateText: "",
+          savings: 0,
+          originalPrice,
+          netPrice: originalPrice,
+        };
+      }
+
+      const totalOriginalPrice = selectedServices.reduce(
+        (sum, s) => sum + getOriginalPrice(s),
+        0,
+      );
+
+      // 1. Candidate Package
+      let pkgSavings = 0;
+      let pkgRateText = "";
+      if (
+        activePackage &&
+        (Number(activePackage.discount) || 0) > 0 &&
+        isServiceInActivePackage(sel)
+      ) {
+        const rawEligibleTotal = selectedServices.reduce((sum, s) => {
+          if (!isServiceInActivePackage(s)) return sum;
+          return sum + getOriginalPrice(s);
+        }, 0);
+        if (activePackage.discount_type === "dollar") {
+          const totalDollarDisc = Math.min(
+            rawEligibleTotal,
+            Number(activePackage.discount) || 0,
+          );
+          pkgSavings =
+            rawEligibleTotal > 0
+              ? (originalPrice / rawEligibleTotal) * totalDollarDisc
+              : 0;
+          pkgRateText = `$${activePackage.discount} OFF`;
+        } else {
+          const pct = Number(activePackage.discount) || 0;
+          pkgSavings = (originalPrice * pct) / 100;
+          pkgRateText = `${pct}% OFF`;
         }
+      }
 
-        const validForService = selectedServices.some(sel =>
-            matched.services?.some(dService => dService.uuid === sel.uuid)
-        );
-
-        if (!validForService) {
-            toast.error("This discount is not valid for selected services.");
-            return;
+      // 2. Candidate Agent
+      let agentSavings = 0;
+      let agentRateText = "";
+      if (agentDiscount && Boolean(agentDiscount.is_active ?? true)) {
+        let isExpired = false;
+        if (agentDiscount.expiry_date) {
+          const now = new Date();
+          const exp = new Date(agentDiscount.expiry_date);
+          exp.setHours(23, 59, 59, 999);
+          if (exp.getTime() < now.getTime()) isExpired = true;
         }
+        const minSpend = Number(agentDiscount.minimum_spend || 0);
+        const isSpendMet = minSpend <= 0 || totalOriginalPrice >= minSpend;
 
-        setAppliedCodeDiscount(matched);
-        setDiscountCode('');
-        toast.success("Discount Applied Successfully");
-    };
-
-    const buildDiscountPayload = () => {
-        // Only send code/quantity discount payload if 'code' won the 3-way evaluation
-        if (getWinningDiscountType() !== 'code') {
-            return [];
+        if (!isExpired && isSpendMet) {
+          const amt = Number(agentDiscount.amount) || 0;
+          const isPct =
+            agentDiscount.is_percentage === 1 ||
+            (agentDiscount.is_percentage as any) === true;
+          if (isPct) {
+            agentSavings = (originalPrice * amt) / 100;
+            agentRateText = `${amt}% OFF`;
+          } else {
+            agentSavings =
+              totalOriginalPrice > 0
+                ? (originalPrice / totalOriginalPrice) * amt
+                : 0;
+            agentRateText = `$${amt} OFF`;
+          }
         }
+      }
 
-        const discountPayload: {
-            discount_id: string;
-            type: 'code' | 'quantity' | 'manual' | 'package';
-            value: number;
-            service_id?: string;
-        }[] = [];
+      // 3. Candidate Code / Coupon
+      let codeSavings = 0;
+      let codeRateText = "";
+      const discountedPrice = calculateServicePriceAfterDiscounts(sel);
+      if (discountedPrice < originalPrice) {
+        codeSavings = originalPrice - discountedPrice;
+        const matchedCode = appliedCodeDiscount?.services?.find(
+          (d) => d.uuid === sel.uuid,
+        )
+          ? appliedCodeDiscount
+          : null;
+        codeRateText = matchedCode?.percentage
+          ? `${matchedCode.percentage}% OFF`
+          : "Coupon";
+      }
 
-        selectedServices.forEach(sel => {
-            const allApplicableDiscounts: Discount[] = [];
+      // Line-Item Max Comparison with tie-breaker: Agent >= Package >= Code
+      const maxVal = Math.max(pkgSavings, agentSavings, codeSavings);
+      if (maxVal <= 0.001) {
+        return {
+          type: "none" as const,
+          name: "",
+          rateText: "",
+          savings: 0,
+          originalPrice,
+          netPrice: originalPrice,
+        };
+      }
 
-            if (appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)) {
-                allApplicableDiscounts.push(appliedCodeDiscount);
-            }
+      if (agentSavings >= maxVal) {
+        return {
+          type: "agent" as const,
+          name: agentDiscount?.name || "Agent Discount",
+          rateText: agentRateText,
+          savings: Math.round(agentSavings * 100) / 100,
+          originalPrice,
+          netPrice: Math.max(
+            0,
+            Math.round((originalPrice - agentSavings) * 100) / 100,
+          ),
+        };
+      }
+      if (pkgSavings >= maxVal) {
+        return {
+          type: "package" as const,
+          name: activePackage?.name || "Package Discount",
+          rateText: pkgRateText,
+          savings: Math.round(pkgSavings * 100) / 100,
+          originalPrice,
+          netPrice: Math.max(
+            0,
+            Math.round((originalPrice - pkgSavings) * 100) / 100,
+          ),
+        };
+      }
+      return {
+        type: "code" as const,
+        name:
+          appliedCodeDiscount?.name ||
+          appliedCodeDiscount?.code_key ||
+          "Coupon Discount",
+        rateText: codeRateText,
+        savings: Math.round(codeSavings * 100) / 100,
+        originalPrice,
+        netPrice: Math.max(
+          0,
+          Math.round((originalPrice - codeSavings) * 100) / 100,
+        ),
+      };
+    },
+    [
+      selectedServices,
+      getOriginalPrice,
+      activePackage,
+      isServiceInActivePackage,
+      agentDiscount,
+      calculateServicePriceAfterDiscounts,
+      appliedCodeDiscount,
+    ],
+  );
 
-            const qtyDiscounts = appliedQuantityDiscounts.filter(discount =>
-                discount.services?.some(s => s.uuid === sel.uuid)
-            );
+  const propertyProvince =
+    tempPropertyData?.province || currentListing?.province || "BC";
+  const propertyCountry =
+    tempPropertyData?.country || currentListing?.country || "CA";
 
-            allApplicableDiscounts.push(...qtyDiscounts);
+  const [taxPreview, setTaxPreview] =
+    useState<RealtimeTaxPreviewResponseData | null>(null);
+  const [isTaxLoading, setIsTaxLoading] = useState<boolean>(false);
 
-            const bestDiscount = allApplicableDiscounts.reduce((best, curr) => {
-                const currPercent = parseFloat(curr.percentage ?? '0');
-                const bestPercent = best ? parseFloat(best.percentage ?? '0') : 0;
-                return currPercent > bestPercent ? curr : best;
-            }, null as Discount | null);
+  useEffect(() => {
+    let isMounted = true;
 
-            if (bestDiscount) {
-                const discountPercent = parseFloat(bestDiscount.percentage ?? '0');
-                const originalPrice = getOriginalPrice(sel);
-                const discountAmount = (originalPrice * discountPercent) / 100;
-
-                discountPayload.push({
-                    discount_id: bestDiscount.uuid,
-                    type: bestDiscount.type,
-                    value: Number(discountAmount.toFixed(2)),
-                    service_id: sel.uuid,
-                });
-            }
-        });
-
-        // Note: Package discounts are handled automatically by the backend's PackageDetectionService.
-        // Sending them here as 'package' type causes validation errors because the backend 
-        // expects only 'code', 'quantity', or 'manual' types in the discounts array.
-
-        return discountPayload;
-    };
-
-
-    const handleSubmitOrder = async (
-        e?: React.MouseEvent<HTMLButtonElement>,
-        notificationOptions?: NotificationOptions
-    ): Promise<boolean> => {
-        if (e && typeof e.preventDefault === 'function') {
-            e.preventDefault();
-        }
-        if (isLoading) return false;
-
-        setIsLoading(true);
-
-        try {
-            const discounts = buildDiscountPayload();
-            const token = localStorage.getItem('token') || '';
-
-            let finalAgentId = selectedAgentId ?? '';
-            if (isBookNowMode && !finalAgentId) {
-                const userInfoStr = localStorage.getItem('userInfo');
-                if (userInfoStr) {
-                    try {
-                        const userInfo = JSON.parse(userInfoStr);
-                        finalAgentId = userInfo?.uuid || userInfo?.id || userInfo?.agent?.uuid || '';
-                    } catch {}
-                }
-            }
-
-            let propertyId = selectedListingId;
-
-            if (!propertyId && tempPropertyData) {
-                const listingPayload = {
-                    ...tempPropertyData,
-                    agent_id: tempPropertyData.agent_id || finalAgentId
-                };
-                const listingResponse = await CreateListings(listingPayload, token);
-                if (listingResponse?.data?.uuid) {
-                    propertyId = listingResponse.data.uuid;
-                    setSelectedListingId(listingResponse.data.uuid);
-                    if (setSelectedCurrentListing && listingResponse.data) {
-                        setSelectedCurrentListing(listingResponse.data);
-                    }
-                    setTempPropertyData(null);
-                } else {
-                    toast.error("Failed to create property");
-                    throw new Error("Failed to create property");
-                }
-            }
-
-            const payload: OrderPayload = {
-                agent_id: finalAgentId,
-                property_id: propertyId ?? '',
-                amount: total,
-                order_status: "Processing",
-                payment_status: "UNPAID",
-                split_invoice: isSplitInvoice ? 1 : 0,
-                ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
-                ...(floorplanAreas && floorplanAreas.length > 0 && { floorplan_areas: floorplanAreas }),
-                ...(floorplanNotes && floorplanNotes.trim() && { floorplan_notes: floorplanNotes.trim() }),
-                co_agents: coAgents,
-                agent_discount: agentDiscount ? {
-                    uuid: agentDiscount.uuid,
-                    name: agentDiscount.name,
-                    amount: Number(agentDiscount.amount),
-                    is_percentage: agentDiscount.is_percentage === 1 || (agentDiscount.is_percentage as any) === true ? 1 : 0,
-                    expiry_date: agentDiscount.expiry_date || null,
-                    minimum_orders: agentDiscount.minimum_orders ? Number(agentDiscount.minimum_orders) : null,
-                    minimum_spend: agentDiscount.minimum_spend ? Number(agentDiscount.minimum_spend) : null,
-                    is_active: agentDiscount.is_active ? 1 : 0,
-                    description: agentDiscount.description || null,
-                } : undefined,
-                notes: agentNotes.filter(note => note.note && note.note.trim()).map(note => ({
-                    ...note,
-                    note: note.note.trim(),
-                    date: new Date(note.date).toISOString().split("T")[0],
-                })),
-                services: selectedServices
-                    .map(service => {
-                        const originalPrice = getOriginalPrice(service);
-                        // Always send original (un-discounted) price as the service amount.
-                        // Discounts are communicated separately via the `discounts` payload.
-                        // Using the post-discount price here would corrupt os.amount in the DB
-                        // and cause the invoice backend to double-apply discounts.
-                        const computedPrice = originalPrice;
-
-                        const matchedSlot = selectedSlots.find(
-                            slot => slot.service_id === service.uuid ||
-                                String(slot.service_id) === String(service.uuid) ||
-                                (service.id && String(slot.service_id) === String(service.id))
-                        );
-                        const resolvedVendorId = (service as any).vendor_id || matchedSlot?.vendor_id || matchedSlot?.vendor?.uuid || undefined;
-
-                        return {
-                            ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
-                            service_id: service.uuid as string,
-                            option_id: service.option_id ?? undefined,
-                            amount: Number(computedPrice.toFixed(2)),
-                            vendor_id: resolvedVendorId,
-                            custom: service.custom ?? undefined,
-                            add_ons: service.addOns && service.addOns.length > 0 ? service.addOns : undefined
-                        };
-                    }),
-                discounts,
-                slots: (() => {
-                    // Filter out any slots for services that do not require travel
-                    const travelSlots = selectedSlots.filter((slot: Slot) => {
-                        const s = selectedServices.find(sel => sel.uuid === slot.service_id || String(sel.id) === String(slot.service_id));
-                        return isServiceRequiringTravel(s, services);
-                    });
-
-                    // Group slots by service_id, vendor_id, and date
-                    const groupedSlots: Record<string, Slot[]> = {};
-
-                    travelSlots.forEach((slot: Slot) => {
-                        const key = `${slot.service_id}_${slot.vendor_id}_${slot.date}`;
-                        if (!groupedSlots[key]) {
-                            groupedSlots[key] = [];
-                        }
-                        groupedSlots[key].push(slot);
-                    });
-
-                    // Merge consecutive slots for each group
-                    const mergedSlots: Array<{
-                        uuid?: string;
-                        service_id: string;
-                        vendor_id: string;
-                        show_all_vendors: number;
-                        schedule_override: number;
-                        recommend_time: number;
-                        travel?: string;
-                        start_time: string;
-                        end_time: string;
-                        est_time: number | null;
-                        distance: number | null;
-                        km_price: number | null;
-                        date: string;
-                    }> = [];
-
-                    Object.values(groupedSlots).forEach((slots) => {
-                        // Sort slots by start time
-                        const sortedSlots = slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-                        // Verify they are contiguous (sanity check)
-                        let isContiguous = true;
-                        for (let i = 0; i < sortedSlots.length - 1; i++) {
-                            if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
-                                isContiguous = false;
-                                console.warn('Non-contiguous slots detected for service:', sortedSlots[i].service_id);
-                                break;
-                            }
-                        }
-
-                        if (!isContiguous) {
-                            // If not contiguous, send slots individually (fallback)
-                            sortedSlots.forEach(slot => {
-                                mergedSlots.push({
-                                    ...(slot.uuid && { uuid: slot.uuid }),
-                                    service_id: slot.service_id,
-                                    vendor_id: slot.vendor_id,
-                                    show_all_vendors: slot.show_all_vendors ? 1 : 0,
-                                    schedule_override: slot.schedule_override ? 1 : 0,
-                                    recommend_time: slot.recommend_time ? 1 : 0,
-                                    travel: slot.travel ?? undefined,
-                                    start_time: slot.start_time,
-                                    end_time: slot.end_time,
-                                    est_time: slot.est_time ?? null,
-                                    distance: slot.distance ?? null,
-                                    km_price: slot.km_price ?? null,
-                                    date: slot.date
-                                });
-                            });
-                        } else {
-                            // Merge into a single slot
-                            const firstSlot = sortedSlots[0];
-                            const lastSlot = sortedSlots[sortedSlots.length - 1];
-
-                            mergedSlots.push({
-                                ...(firstSlot.uuid && { uuid: firstSlot.uuid }),
-                                service_id: firstSlot.service_id,
-                                vendor_id: firstSlot.vendor_id,
-                                show_all_vendors: firstSlot.show_all_vendors ? 1 : 0,
-                                schedule_override: firstSlot.schedule_override ? 1 : 0,
-                                recommend_time: firstSlot.recommend_time ? 1 : 0,
-                                travel: firstSlot.travel ?? undefined,
-                                start_time: firstSlot.start_time,
-                                end_time: lastSlot.end_time,
-                                est_time: firstSlot.est_time ?? null,
-                                distance: firstSlot.distance ?? null,
-                                km_price: firstSlot.km_price ?? null,
-                                date: firstSlot.date
-                            });
-                        }
-                    });
-
-                    return mergedSlots;
-                })()
-            };
-
-            let response;
- 
-            if (userId) {
-                const updatedPayload = {
-                    ...payload,
-                    _method: 'PUT',
-                    ...(notificationOptions?.notify_agent !== undefined && { notify_agent: notificationOptions.notify_agent ? 1 : 0 }),
-                    ...(notificationOptions?.notify_vendor !== undefined && { notify_vendor: notificationOptions.notify_vendor ? 1 : 0 }),
-                    ...(notificationOptions?.notify_admin !== undefined && { notify_admin: notificationOptions.notify_admin ? 1 : 0 }),
-                };
-                response = await Edit(userId, updatedPayload, token);
-            } else {
-                response = await Create(payload, token, orgSlug);
-            }
- 
-            if (!response?.success) throw new Error("Order failed");
- 
-            setCreatedOrderUuid(response.data.uuid);
-            setIsSubmitted(true);
-            return true;
-        } catch (err) {
-            console.error("Failed to submit order", err);
-            setIsSubmitted(false);
-            return false;
-        } finally {
-            setIsLoading(false); // ✅ ALWAYS LAST
-        }
-    };
-
-    const totalServiceAmount = orderData?.services
-        ?.reduce((sum: number, s: OrderService) => {
-            return sum + parseFloat(s.amount || "0");
-        }, 0) ?? 0;
-
-    const uniqueVendorsMap = new Map();
-
-    if (Array.isArray(orderData?.slots)) {
-        orderData?.slots.forEach((slot) => {
-            const vendor = slot?.vendor;
-            if (vendor && !uniqueVendorsMap.has(vendor.uuid)) {
-                uniqueVendorsMap.set(vendor.uuid, vendor);
-            }
-        });
+    if (!selectedServices?.length) {
+      setTaxPreview(null);
+      return;
     }
 
-    const uniqueVendors = Array.from(uniqueVendorsMap.values());
-    useImperativeHandle(ref, () => ({
-        handleSubmitOrder,
-    }));
-    return (
-        <div className="w-full space-y-4">
-            <div className="grid gap-4">
-                <div className='w-full flex flex-col items-center'>
-                    <div className='w-full md:w-[370px] pt-[60px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]'>
-                        {(isSubmitted && createdOrderUuid && !isLoading) ? (
-                            <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
-                                <div className='flex flex-col gap-[10px]'>
-                                    <div className='flex justify-between gap-[12px]'>
-                                        <div className='flex gap-[12px] items-center'>
-                                            <File style={{ color: roleSettings.pageTabColor }} className='h-[24px] w-[30px] md:h-[36px] md:w-[40px]' />
-                                            <p style={{ color: roleSettings.pageTabColor }} className='text-[24px] md:text-[36px] font-[700]'>Order {orderData?.id}</p>
-                                        </div>
-                                        <div className='items-center gap-[12px] hidden'>
-                                            <Switch className=' data-[state=checked]:bg-[#6BAE41] ' />
-                                            <p className='text-[#666666] text-[16px]'>Open</p>
-                                        </div>
-                                    </div>
-                                    <p className='text-[#666666] text-[16px] font-[400]'>This is only a quote. Invoiced amount will likely change based on actual measured area.</p>
-                                </div>
-                                <div className='text-[#666666] flex gap-x-[20px]'>
-                                    <div className='flex flex-col gap-y-[20px] w-1/2 text-wrap'>
-                                        <p>{uniqueVendors?.length > 1 ? "Vendors" : "Vendor"}</p>
-                                        {uniqueVendors?.map((vendor) => (
-                                            <div key={vendor.uuid} >
-                                                <p>{vendor.first_name} {vendor.last_name}</p>
-                                                <p>{vendor.company?.company_name ?? "N/A"}</p>
-                                                <p>{vendor.email}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+    setIsTaxLoading(true);
 
+    const timer = setTimeout(async () => {
+      try {
+        const items = selectedServices.map((sel) => {
+          const origPrice = getOriginalPrice(sel);
+          const discInfo = resolveServiceDiscount(sel);
+          const effAmount =
+            discInfo.savings > 0 ? discInfo.netPrice : origPrice;
 
-                                    <div className='w-1/2 text-wrap'>
-                                        <p className='mb-[20px]'>Customer</p>
-                                        <p>Realtor</p>
-                                        <p>{orderData?.agent?.first_name} {orderData?.agent?.last_name}</p>
-                                        <p>{orderData?.agent?.company_name}</p>
-                                        <p>{orderData?.agent?.email}</p>
-                                    </div>
-                                </div>
-                                <div className='flex flex-col gap-[18px] text-[#666666] text-[16px]'>
-                                    <p style={{ color: roleSettings.pageTabColor }} className='text-[20px] font-[700]'>Order Details</p>
+          const fullService = services.find((s) => s.uuid === sel.uuid);
+          const gstEnabled =
+            fullService?.gst_enabled !== undefined
+              ? Boolean(fullService.gst_enabled)
+              : true;
+          const pstEnabled =
+            fullService?.pst_enabled !== undefined
+              ? Boolean(fullService.pst_enabled)
+              : false;
 
-                                    {/* Package / Services Total display */}
-                                    {(() => {
-                                        const appliedPackage = (orderData as any)?.meta?.applied_package || (orderData as any)?.package || activePackage;
-                                        const packageName = appliedPackage?.package_name || appliedPackage?.name;
-                                        const packageDiscountItem = orderData?.totals?.find((t: any) => t.discount_type === 'package');
-                                        const packageDiscountAmount = packageDiscountItem 
-                                            ? Math.abs(parseFloat(packageDiscountItem.amount || '0')) 
-                                            : (parseFloat(appliedPackage?.package_discount_amount || '0') || 0);
-                                        const packagePrice = Math.max(0, totalServiceAmount - packageDiscountAmount);
+          return {
+            amount: Number(effAmount.toFixed(2)),
+            is_taxable: true,
+            service_id: sel.uuid,
+            gst_enabled: gstEnabled,
+            pst_enabled: pstEnabled,
+          };
+        });
 
-                                        if (packageName) {
-                                            return (
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Package ({packageName})</span>
-                                                    <span className='col-span-1'>
-                                                        ${packagePrice.toFixed(2)}
-                                                    </span>
-                                                </p>
-                                            );
-                                        }
+        const data = await CalculateRealtimeTaxPreview({
+          ...(orgSlug ? { org_slug: orgSlug } : {}),
+          property_province: propertyProvince,
+          property_country: propertyCountry,
+          items,
+        });
 
-                                        return (
-                                            <p className='grid grid-cols-4 gap-[15px]'>
-                                                <span className='col-span-3'>Services Total</span>
-                                                <span className='col-span-1'>
-                                                    ${totalServiceAmount.toFixed(2)}
-                                                </span>
-                                            </p>
-                                        );
-                                    })()}
+        if (isMounted) {
+          setTaxPreview(data);
+        }
+      } catch (err) {
+        console.warn("Error calculating tax preview:", err);
+      } finally {
+        if (isMounted) {
+          setIsTaxLoading(false);
+        }
+      }
+    }, 250);
 
-                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                        <span className='col-span-3'>Items</span>
-                                        <span className='col-span-1'>{orderData?.services?.length}</span>
-                                    </p>
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [
+    selectedServices,
+    appliedCodeDiscount,
+    appliedQuantityDiscounts,
+    activePackage,
+    propertyProvince,
+    propertyCountry,
+    orgSlug,
+    getOriginalPrice,
+    calculateServicePriceAfterDiscounts,
+    calculateAgentDiscount,
+    isServiceInActivePackage,
+    resolveServiceDiscount,
+    services,
+  ]);
 
-                                    <div className="grid gap-[15px]">
-                                        {(() => {
-                                            const oldServiceUuids = isAddFlow ? selectedServices.filter(s => !!s.service_uuid).map(s => s.service_uuid) : [];
-                                            const postNewServices = orderData?.services?.filter(s => !oldServiceUuids.includes(s.uuid)) || [];
-                                            const postOldServices = orderData?.services?.filter(s => oldServiceUuids.includes(s.uuid)) || [];
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
-                                            return (
-                                                <>
-                                                    {postNewServices.map((service) => {
-                                                        return (
-                                                            <p key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
-                                                                <span className="col-span-3 flex items-center gap-2">
-                                                                    {service.service?.name ?? ""}
-                                                                </span>
-                                                                <span className="col-span-1">${parseFloat(service.amount).toFixed(2)}</span>
-                                                            </p>
-                                                        );
-                                                    })}
+    if (!token) {
+      console.log("Token not found.");
+      return;
+    }
 
-                                                    {isAddFlow && postOldServices.length > 0 && (
-                                                        <Accordion type="single" collapsible className="w-full">
-                                                            <AccordionItem value="previous-services-posted" className="border-none">
-                                                                <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md decoration-transparent">
-                                                                    Previously Booked Services
-                                                                </AccordionTrigger>
-                                                                <AccordionContent className="pt-2 space-y-3 border-none">
-                                                                    {postOldServices.map((service) => {
-                                                                        const isPaid = service.payment_status?.toUpperCase() === 'PAID';
-                                                                        return (
-                                                                            <div key={service.id} className="grid grid-cols-4 gap-[15px] items-center">
-                                                                                <span className="col-span-3 flex items-center gap-2">
-                                                                                    {service.service?.name ?? ""}
-                                                                                    <span className={`text-[10px] ${isPaid ? 'bg-[#6BAE41]' : 'bg-[#E06D5E]'} text-white px-1.5 py-0.5 rounded font-semibold uppercase`}>
-                                                                                        {isPaid ? 'Paid' : 'Unpaid'}
-                                                                                    </span>
-                                                                                </span>
-                                                                                <span className="col-span-1 text-sm">${parseFloat(service.amount).toFixed(2)}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </AccordionContent>
-                                                            </AccordionItem>
-                                                        </Accordion>
-                                                    )}
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
+    GetOneOrder(token, createdOrderUuid)
+      .then((data) => {
+        setOrderData(data.data);
+      })
+      .catch((err) => console.log(err.message));
+  }, [createdOrderUuid]);
 
-                                    {(() => {
-                                        // Calculate subtotal from services
-                                        const subtotal = orderData?.services?.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0) || 0;
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
-                                        // Calculate total discount from orderData.totals array
-                                        const totalDiscount = orderData?.totals?.reduce((total, item) => {
-                                            if (item.amount && parseFloat(item.amount) < 0) {
-                                                return total + Math.abs(parseFloat(item.amount));
-                                            }
-                                            return total;
-                                        }, 0) || 0;
+    if (!token) {
+      console.log("Token not found.");
+      return;
+    }
 
-                                        // Calculate discount percentage
-                                        const discountPercent = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(2) : "0.00";
+    GetVendors(token, orgSlug, true)
+      .then((data) => {
+        setVendorsData(data.data);
+      })
+      .catch((err) => console.log(err.message));
+  }, [orgSlug]);
 
-                                        // Calculate taxes from taxPreview
-                                        let taxTotal = 0;
-                                        let taxRows: React.ReactNode = null;
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
-                                        if (taxPreview?.tax_details && Object.keys(taxPreview.tax_details).length > 0) {
-                                            taxTotal = Object.values(taxPreview.tax_details).reduce((sum, t) => sum + Number(t.amount || 0), 0);
-                                            taxRows = Object.entries(taxPreview.tax_details).map(([tName, tInfo]) => (
-                                                <p key={tName} className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>{tName} ({tInfo.rate}%)</span>
-                                                    <span className='col-span-1'>${Number(tInfo.amount || 0).toFixed(2)}</span>
-                                                </p>
-                                            ));
-                                        } else {
-                                            taxRows = (
-                                                <>
-                                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                                        <span className='col-span-3'>GST/HST</span>
-                                                        <span className='col-span-1'>$0.00</span>
-                                                    </p>
-                                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                                        <span className='col-span-3'>PST/RST/QST</span>
-                                                        <span className='col-span-1'>$0.00</span>
-                                                    </p>
-                                                </>
-                                            );
-                                        }
+    if (!token) {
+      console.log("Token not found.");
+      return;
+    }
 
-                                        // Grand total is the final net amount from the order + taxes
-                                        const netOrderAmount = parseFloat(orderData?.amount || "0");
-                                        const grandTotal = netOrderAmount + taxTotal;
+    GetDiscount()
+      .then((data) => setDiscounts(Array.isArray(data.data) ? data.data : []))
+      .catch((err) => console.log(err.message));
+  }, []);
 
-                                        // Get paid amount and refunded amount from order data
-                                        const paidAmount = parseFloat(orderData?.paid_amount || "0") || 0;
-                                        const refundedAmount = parseFloat(orderData?.refunded_amount || "0") || 0;
-                                        const netPaid = Math.max(0, paidAmount - refundedAmount);
+  useEffect(() => {
+    const validQuantityDiscounts = discounts.filter((discount) => {
+      if (discount.type !== "quantity" || !discount.services) return false;
 
-                                        // Calculate balance due
-                                        const balanceDue = grandTotal - netPaid;
+      // ✅ check status
+      if (!discount.status) return false;
 
-                                        return (
-                                            <>
-                                                {/* Subtotal */}
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Subtotal</span>
-                                                    <span className='col-span-1'>${subtotal.toFixed(2)}</span>
-                                                </p>
+      // ✅ check expiry date
+      const now = new Date();
+      const expiry = discount.expiry_date
+        ? new Date(discount.expiry_date)
+        : null;
+      if (expiry && expiry.getTime() < now.getTime()) return false;
 
-                                                {/* Discount */}
-                                                {totalDiscount > 0 && (
-                                                    <p className='grid grid-cols-4 gap-[15px]'>
-                                                        <span className='col-span-3'>Discount</span>
-                                                        <span className='col-span-1'>
-                                                            -${totalDiscount.toFixed(2)} ({discountPercent}%)
-                                                        </span>
-                                                    </p>
-                                                )}
+      // Count total quantity of eligible services (including matching PAID services)
+      const eligibleCount = selectedServices
+        .filter((sel) =>
+          discount.services?.some((dService) => dService.uuid === sel.uuid),
+        )
+        .reduce((sum, sel) => sum + (Number(sel.quantity) || 1), 0);
 
-                                                {/* Taxes */}
-                                                {taxRows}
+      const requiredQty = Number(discount.quantity) || 0;
+      return eligibleCount >= requiredQty;
+    });
 
-                                                {/* Order/Quote approx. */}
-                                                <p className='grid grid-cols-4 gap-[15px]'>
-                                                    <span className='col-span-3'>Order/Quote approx.</span>
-                                                    <span className='col-span-1'>${grandTotal.toFixed(2)}</span>
-                                                </p>
+    setAppliedQuantityDiscounts(validQuantityDiscounts);
+  }, [selectedServices, discounts, setAppliedQuantityDiscounts]);
 
-                                                {/* Show paid amount if any payment has been made */}
-                                                {paidAmount > 0 && (
-                                                    <p className='grid grid-cols-4 gap-[15px] text-[#6BAE41]'>
-                                                        <span className='col-span-3'>Paid</span>
-                                                        <span className='col-span-1'>-${paidAmount.toFixed(2)}</span>
-                                                    </p>
-                                                )}
+  useEffect(() => {
+    if (!selectedServices?.length || !services?.length) {
+      setTotal(0);
+      return;
+    }
 
-                                                {/* Show refunded amount if any refund has been processed */}
-                                                {refundedAmount > 0 && (
-                                                    <p className='grid grid-cols-4 gap-[15px] text-red-500'>
-                                                        <span className='col-span-3'>Refunded</span>
-                                                        <span className='col-span-1'>+${refundedAmount.toFixed(2)}</span>
-                                                    </p>
-                                                )}
+    const rawOrigTotal = selectedServices.reduce(
+      (sum, sel) => sum + getOriginalPrice(sel),
+      0,
+    );
+    const totalSavings = selectedServices.reduce(
+      (sum, sel) => sum + resolveServiceDiscount(sel).savings,
+      0,
+    );
+    const orderTotal = Math.max(0, rawOrigTotal - totalSavings);
 
-                                                {/* Show balance due */}
-                                                <p className='grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2'>
-                                                    <span className='col-span-3'>
-                                                        {(paidAmount > 0 || refundedAmount > 0) ? "Balance Due" : "Amount Due"}
-                                                    </span>
-                                                    <span className='col-span-1'>${Math.max(0, balanceDue).toFixed(2)}</span>
-                                                </p>
-                                            </>
-                                        );
-                                    })()}
+    setTotal(Number(orderTotal.toFixed(2)));
+  }, [
+    selectedServices,
+    services,
+    appliedCodeDiscount,
+    appliedQuantityDiscounts,
+    agentDiscount,
+    setTotal,
+    activePackage,
+    listingsData,
+    selectedListingId,
+    selectedCurrentListing,
+    tempPropertyData,
+    getOriginalPrice,
+    resolveServiceDiscount,
+  ]);
 
-                                    <Button
-                                        onClick={handleDone}
-                                        style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
-                                        className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center font-raleway"
-                                    >
-                                        Done
-                                    </Button>
-                                    {isBookNowMode && (
-                                        <Link 
-                                            href={'/dashboard'}
-                                            className={`mt-2 col-span-2 font-raleway text-white rounded-[3px] w-full h-[32px] font-[600] text-[14px] flex items-center justify-center transition-opacity hover:opacity-90`}
-                                            style={{ backgroundColor: roleSettings.pageTabColor || '#4290E9' }}
-                                        >
-                                            Go to Dashboard
-                                        </Link>
-                                    )}
-                                </div>
-                                <div>
-                                    <p className="text-[12px]">
-                                        <span className="text-[14px] font-[500]">Important Final Pricing Notice:</span> The amount shown above is an estimated quote.
-                                        Final billing is calculated post-service and may vary based on actual on-site measurements (square footage),
-                                        travel expenses, and any additional services requested during the shoot.
-                                        The final invoice will be generated and sent to you upon project completion.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className='grid grid-cols-2 gap-[22px]'>
+  const handleApplyDiscount = () => {
+    if (!discountCode?.trim()) {
+      toast.error("Please enter a discount code.");
+      return;
+    }
 
-                                <div className='col-span-2'>
-                                    {newServices.map((sel) => {
-                                        const fullService = services.find(s => s.uuid === sel.uuid);
-                                        if (!fullService) return null;
+    const code = discountCode.trim().toLowerCase();
 
-                                        // Get all slots for this service
-                                        const serviceSlots = selectedSlots.filter(slot => slot.service_id === sel.uuid);
+    if (appliedCodeDiscount?.code_key?.toLowerCase() === code) {
+      toast.error("This discount code is already applied.");
+      return;
+    }
 
-                                        // Group slots by vendor_id
-                                        const groupedByVendor: Record<string, typeof serviceSlots> = {};
-                                        serviceSlots.forEach(slot => {
-                                            if (!groupedByVendor[slot.vendor_id]) {
-                                                groupedByVendor[slot.vendor_id] = [];
-                                            }
-                                            groupedByVendor[slot.vendor_id].push(slot);
-                                        });
+    const matched = discounts.find(
+      (d) => d.type === "code" && d.code_key?.toLowerCase() === code,
+    );
 
-                                        // Build slotInfo array
-                                        const slotInfo = Object.entries(groupedByVendor).map(([vendorId, vendorSlots]) => {
-                                            const vendor = vendorsData.find(v => v.uuid === vendorId);
-                                            const vendorName = vendor ? `${vendor.first_name ?? ''} ${vendor.last_name ?? ''}`.trim() : 'Unknown Vendor';
+    if (!matched) {
+      toast.error("Invalid discount code");
+      return;
+    }
 
-                                            // Further group by date
-                                            const slotsByDate: Record<string, typeof vendorSlots> = {};
-                                            vendorSlots.forEach(slot => {
-                                                if (!slotsByDate[slot.date]) {
-                                                    slotsByDate[slot.date] = [];
-                                                }
-                                                slotsByDate[slot.date].push(slot);
-                                            });
+    if (!matched.status) {
+      toast.error("This discount code is inactive.");
+      return;
+    }
 
-                                            const timeRanges: string[] = [];
+    const now = new Date();
+    const expiry = matched.expiry_date ? new Date(matched.expiry_date) : null;
+    if (expiry && expiry.getTime() < now.getTime()) {
+      toast.error("This discount code has expired.");
+      return;
+    }
 
-                                            Object.entries(slotsByDate).forEach(([dateStr, slots]) => {
-                                                // Sort by start_time
-                                                slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const validForService = selectedServices.some((sel) =>
+      matched.services?.some((dService) => dService.uuid === sel.uuid),
+    );
 
-                                                // Merge contiguous slots
-                                                const mergedRanges: { start: string; end: string }[] = [];
-                                                if (slots.length > 0) {
-                                                    let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
+    if (!validForService) {
+      toast.error("This discount is not valid for selected services.");
+      return;
+    }
 
-                                                    for (let i = 1; i < slots.length; i++) {
-                                                        const slot = slots[i];
-                                                        if (slot.start_time === currentRange.end) {
-                                                            // Extend current range
-                                                            currentRange.end = slot.end_time;
-                                                        } else {
-                                                            // Push current range and start new one
-                                                            mergedRanges.push(currentRange);
-                                                            currentRange = { start: slot.start_time, end: slot.end_time };
-                                                        }
-                                                    }
-                                                    mergedRanges.push(currentRange);
-                                                }
+    setAppliedCodeDiscount(matched);
+    setDiscountCode("");
+    toast.success("Discount Applied Successfully");
+  };
 
-                                                // Format ranges
-                                                const formattedDate = dateStr
-                                                    ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
-                                                        year: "numeric",
-                                                        month: "long",
-                                                        day: "numeric",
-                                                    })
-                                                    : "";
+  const buildDiscountPayload = () => {
+    const discountPayload: {
+      discount_id: string;
+      type: "code" | "quantity" | "manual" | "package";
+      value: number;
+      service_id?: string;
+    }[] = [];
 
-                                                const formatTime = (time: string) => {
-                                                    const [h, m] = time.split(":");
-                                                    const hour = parseInt(h);
-                                                    const meridian = hour >= 12 ? "PM" : "AM";
-                                                    const formattedHour = hour % 12 || 12;
-                                                    return `${formattedHour}:${m} ${meridian}`;
-                                                };
-                                                mergedRanges.forEach(range => {
-                                                    const startTime = range.start ? formatTime(range.start) : "";
-                                                    const endTime = range.end ? formatTime(range.end) : "";
-                                                    timeRanges.push(`${formattedDate} | ${startTime} - ${endTime}`);
-                                                });
-                                            });
+    selectedServices.forEach((sel) => {
+      const discInfo = resolveServiceDiscount(sel);
+      if (discInfo.type === "code" && discInfo.savings > 0) {
+        const matchedCode = appliedCodeDiscount?.services?.some(
+          (d) => d.uuid === sel.uuid,
+        )
+          ? appliedCodeDiscount
+          : null;
+        const matchedQty = appliedQuantityDiscounts.find((d) =>
+          d.services?.some((s) => s.uuid === sel.uuid),
+        );
+        const targetDiscount = matchedCode || matchedQty;
+        if (targetDiscount) {
+          discountPayload.push({
+            discount_id: targetDiscount.uuid,
+            type: targetDiscount.type,
+            value: Number(discInfo.savings.toFixed(2)),
+            service_id: sel.uuid,
+          });
+        }
+      }
+    });
 
-                                            return {
-                                                vendorName,
-                                                timeRanges,
-                                            };
-                                        });
+    // Note: Package discounts are handled automatically by the backend's PackageDetectionService.
+    // Sending them here as 'package' type causes validation errors because the backend
+    // expects only 'code', 'quantity', or 'manual' types in the discounts array.
 
-                                        return (
-                                            <ConfirmationCard
-                                                key={fullService.uuid}
-                                                service={fullService}
-                                                title={fullService.name ?? ""}
-                                                selectedService={sel}
-                                                slotInfo={slotInfo}
-                                            />
-                                        );
-                                    })}
+    return discountPayload;
+  };
 
-                                    {oldServices.length > 0 && (
-                                        <Accordion type="single" collapsible className="w-full mt-4">
-                                            <AccordionItem value="previous-services" className="border-none">
-                                                <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md">
-                                                    Previously Booked Services
-                                                </AccordionTrigger>
-                                                <AccordionContent className="pt-2 space-y-4">
-                                                    {oldServices.map((sel) => {
-                                                        const fullService = services.find(s => s.uuid === sel.uuid);
-                                                        if (!fullService) return null;
+  const handleSubmitOrder = async (
+    e?: React.MouseEvent<HTMLButtonElement>,
+    notificationOptions?: NotificationOptions,
+  ): Promise<boolean> => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+    if (isLoading) return false;
 
-                                                        const serviceSlots = selectedSlots.filter(slot => slot.service_id === sel.uuid);
-                                                        const groupedByVendor: Record<string, typeof serviceSlots> = {};
-                                                        serviceSlots.forEach(slot => {
-                                                            if (!groupedByVendor[slot.vendor_id]) {
-                                                                groupedByVendor[slot.vendor_id] = [];
-                                                            }
-                                                            groupedByVendor[slot.vendor_id].push(slot);
-                                                        });
+    setIsLoading(true);
 
-                                                        const slotInfo = Object.entries(groupedByVendor).map(([vendorId, vendorSlots]) => {
-                                                            const vendor = vendorsData.find(v => v.uuid === vendorId);
-                                                            const vendorName = vendor ? `${vendor.first_name ?? ''} ${vendor.last_name ?? ''}`.trim() : 'Unknown Vendor';
-                                                            const slotsByDate: Record<string, typeof vendorSlots> = {};
-                                                            vendorSlots.forEach(slot => {
-                                                                if (!slotsByDate[slot.date]) slotsByDate[slot.date] = [];
-                                                                slotsByDate[slot.date].push(slot);
-                                                            });
+    try {
+      const discounts = buildDiscountPayload();
+      const token = localStorage.getItem("token") || "";
 
-                                                            const timeRanges: string[] = [];
-                                                            Object.entries(slotsByDate).forEach(([dateStr, slots]) => {
-                                                                slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
-                                                                const mergedRanges: { start: string; end: string }[] = [];
-                                                                if (slots.length > 0) {
-                                                                    let currentRange = { start: slots[0].start_time, end: slots[0].end_time };
-                                                                    for (let i = 1; i < slots.length; i++) {
-                                                                        const slot = slots[i];
-                                                                        if (slot.start_time === currentRange.end) {
-                                                                            currentRange.end = slot.end_time;
-                                                                        } else {
-                                                                            mergedRanges.push(currentRange);
-                                                                            currentRange = { start: slot.start_time, end: slot.end_time };
-                                                                        }
-                                                                    }
-                                                                    mergedRanges.push(currentRange);
-                                                                }
-                                                                const formattedDate = dateStr ? new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
-                                                                const formatTime = (time: string) => {
-                                                                    const [h, m] = time.split(":");
-                                                                    const hour = parseInt(h);
-                                                                    const meridian = hour >= 12 ? "PM" : "AM";
-                                                                    const formattedHour = hour % 12 || 12;
-                                                                    return `${formattedHour}:${m} ${meridian}`;
-                                                                };
-                                                                mergedRanges.forEach(range => {
-                                                                    const startTime = range.start ? formatTime(range.start) : "";
-                                                                    const endTime = range.end ? formatTime(range.end) : "";
-                                                                    timeRanges.push(`${formattedDate} | ${startTime} - ${endTime}`);
-                                                                });
-                                                            });
-                                                            return { vendorName, timeRanges };
-                                                        });
+      let finalAgentId = selectedAgentId ?? "";
+      if (isBookNowMode && !finalAgentId) {
+        const userInfoStr = localStorage.getItem("userInfo");
+        if (userInfoStr) {
+          try {
+            const userInfo = JSON.parse(userInfoStr);
+            finalAgentId =
+              userInfo?.uuid || userInfo?.id || userInfo?.agent?.uuid || "";
+          } catch {}
+        }
+      }
 
-                                                        return (
-                                                            <ConfirmationCard
-                                                                key={fullService.uuid}
-                                                                service={fullService}
-                                                                title={fullService.name ?? ""}
-                                                                selectedService={sel}
-                                                                slotInfo={slotInfo}
-                                                            />
-                                                        );
-                                                    })}
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        </Accordion>
-                                    )}
-                                </div>
-                                {floorplanAreas && floorplanAreas.length > 0 && (
-                                    <div className="col-span-2 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs">
-                                        <p className="font-semibold text-blue-900 mb-1 flex items-center gap-1.5">
-                                            📐 Floor Plan - Other Areas to Measure:
-                                        </p>
-                                        <p className="text-blue-800">
-                                            {floorplanAreas.join(', ')}
-                                        </p>
-                                        {floorplanNotes && floorplanNotes.trim() && (
-                                            <p className="text-blue-700 mt-1 italic">
-                                                Note: {floorplanNotes}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                                <div className="col-span-2 grid grid-cols-7 gap-x-[30px]">
-                                    <div className="col-span-6">
-                                        <label htmlFor="" className='font-normal text-sm text-[#666666]'>Discount Code</label>
-                                        <Input
-                                            value={discountCode}
-                                            onChange={(e) => setDiscountCode(e.target.value)}
-                                            className="h-[42px] w-full bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[8px]"
-                                            type="text"
-                                        />
-                                        <p className="text-[10px] text-[#888888] mt-1 italic">
-                                            Discount will not be applied to already paid services.
-                                        </p>
-                                    </div>
-                                    <div className='w-[32px] h-[32px] flex items-center justify-center mt-[30px] cursor-pointer' onClick={() => { handleApplyDiscount(); setDiscountCode(""); }}>
-                                        <Plus className={`w-[24px] h-[24px] ${userType}-bg text-white rounded-sm `} />
-                                    </div>
-                                </div>
-                                {getWinningDiscountType() === 'code' && selectedServices.map((sel) => {
-                                    const fullService = services.find(s => s.uuid === sel.uuid);
-                                    if (!fullService) return null;
+      let propertyId = selectedListingId;
 
-                                    const originalPrice = getOriginalPrice(sel);
+      if (!propertyId && tempPropertyData) {
+        const listingPayload = {
+          ...tempPropertyData,
+          agent_id: tempPropertyData.agent_id || finalAgentId,
+        };
+        const listingResponse = await CreateListings(listingPayload, token);
+        if (listingResponse?.data?.uuid) {
+          propertyId = listingResponse.data.uuid;
+          setSelectedListingId(listingResponse.data.uuid);
+          if (setSelectedCurrentListing && listingResponse.data) {
+            setSelectedCurrentListing(listingResponse.data);
+          }
+          setTempPropertyData(null);
+        } else {
+          toast.error("Failed to create property");
+          throw new Error("Failed to create property");
+        }
+      }
 
-                                    const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
-                                        ? appliedCodeDiscount
-                                        : null;
+      const payload: OrderPayload = {
+        agent_id: finalAgentId,
+        property_id: propertyId ?? "",
+        amount: total,
+        order_status: "Processing",
+        payment_status: "UNPAID",
+        split_invoice: isSplitInvoice ? 1 : 0,
+        ...(userId && { is_add_service: isAddFlow ? 1 : 0 }),
+        ...(floorplanAreas &&
+          floorplanAreas.length > 0 && { floorplan_areas: floorplanAreas }),
+        ...(floorplanNotes &&
+          floorplanNotes.trim() && { floorplan_notes: floorplanNotes.trim() }),
+        co_agents: coAgents,
+        agent_discount: agentDiscount
+          ? {
+              uuid: agentDiscount.uuid,
+              name: agentDiscount.name,
+              amount: Number(agentDiscount.amount),
+              is_percentage:
+                agentDiscount.is_percentage === 1 ||
+                (agentDiscount.is_percentage as any) === true
+                  ? 1
+                  : 0,
+              expiry_date: agentDiscount.expiry_date || null,
+              minimum_orders: agentDiscount.minimum_orders
+                ? Number(agentDiscount.minimum_orders)
+                : null,
+              minimum_spend: agentDiscount.minimum_spend
+                ? Number(agentDiscount.minimum_spend)
+                : null,
+              is_active: agentDiscount.is_active ? 1 : 0,
+              description: agentDiscount.description || null,
+            }
+          : undefined,
+        notes: agentNotes
+          .filter((note) => note.note && note.note.trim())
+          .map((note) => ({
+            ...note,
+            note: note.note.trim(),
+            date: new Date(note.date).toISOString().split("T")[0],
+          })),
+        services: selectedServices.map((service) => {
+          const originalPrice = getOriginalPrice(service);
+          // Always send original (un-discounted) price as the service amount.
+          // Discounts are communicated separately via the `discounts` payload.
+          // Using the post-discount price here would corrupt os.amount in the DB
+          // and cause the invoice backend to double-apply discounts.
+          const computedPrice = originalPrice;
 
-                                    const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                                        d.services?.some(s => s.uuid === sel.uuid)
-                                    );
+          const matchedSlot = selectedSlots.find(
+            (slot) =>
+              slot.service_id === service.uuid ||
+              String(slot.service_id) === String(service.uuid) ||
+              (service.id && String(slot.service_id) === String(service.id)),
+          );
+          const resolvedVendorId =
+            (service as any).vendor_id ||
+            matchedSlot?.vendor_id ||
+            matchedSlot?.vendor?.uuid ||
+            undefined;
 
-                                    const allDiscounts: Discount[] = [];
-                                    if (codeDiscount) allDiscounts.push(codeDiscount);
-                                    allDiscounts.push(...quantityDiscounts);
+          return {
+            ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
+            service_id: service.uuid as string,
+            option_id: service.option_id ?? undefined,
+            amount: Number(computedPrice.toFixed(2)),
+            vendor_id: resolvedVendorId,
+            custom: service.custom ?? undefined,
+            add_ons:
+              service.addOns && service.addOns.length > 0
+                ? service.addOns
+                : undefined,
+          };
+        }),
+        discounts,
+        slots: (() => {
+          // Filter out any slots for services that do not require travel
+          const travelSlots = selectedSlots.filter((slot: Slot) => {
+            const s = selectedServices.find(
+              (sel) =>
+                sel.uuid === slot.service_id ||
+                String(sel.id) === String(slot.service_id),
+            );
+            return isServiceRequiringTravel(s, services);
+          });
 
-                                    // ✅ skip rendering if no discounts for this service
-                                    if (allDiscounts?.length === 0) return null;
+          // Group slots by service_id, vendor_id, and date
+          const groupedSlots: Record<string, Slot[]> = {};
 
-                                    // ✅ skip if price couldn't be computed (sq_ft_rate service with sqFootage not yet loaded)
-                                    if (originalPrice <= 0) return null;
+          travelSlots.forEach((slot: Slot) => {
+            const key = `${slot.service_id}_${slot.vendor_id}_${slot.date}`;
+            if (!groupedSlots[key]) {
+              groupedSlots[key] = [];
+            }
+            groupedSlots[key].push(slot);
+          });
 
+          // Merge consecutive slots for each group
+          const mergedSlots: Array<{
+            uuid?: string;
+            service_id: string;
+            vendor_id: string;
+            show_all_vendors: number;
+            schedule_override: number;
+            recommend_time: number;
+            travel?: string;
+            start_time: string;
+            end_time: string;
+            est_time: number | null;
+            distance: number | null;
+            km_price: number | null;
+            date: string;
+          }> = [];
+
+          Object.values(groupedSlots).forEach((slots) => {
+            // Sort slots by start time
+            const sortedSlots = slots.sort((a, b) =>
+              a.start_time.localeCompare(b.start_time),
+            );
+
+            // Verify they are contiguous (sanity check)
+            let isContiguous = true;
+            for (let i = 0; i < sortedSlots.length - 1; i++) {
+              if (sortedSlots[i].end_time !== sortedSlots[i + 1].start_time) {
+                isContiguous = false;
+                console.warn(
+                  "Non-contiguous slots detected for service:",
+                  sortedSlots[i].service_id,
+                );
+                break;
+              }
+            }
+
+            if (!isContiguous) {
+              // If not contiguous, send slots individually (fallback)
+              sortedSlots.forEach((slot) => {
+                mergedSlots.push({
+                  ...(slot.uuid && { uuid: slot.uuid }),
+                  service_id: slot.service_id,
+                  vendor_id: slot.vendor_id,
+                  show_all_vendors: slot.show_all_vendors ? 1 : 0,
+                  schedule_override: slot.schedule_override ? 1 : 0,
+                  recommend_time: slot.recommend_time ? 1 : 0,
+                  travel: slot.travel ?? undefined,
+                  start_time: slot.start_time,
+                  end_time: slot.end_time,
+                  est_time: slot.est_time ?? null,
+                  distance: slot.distance ?? null,
+                  km_price: slot.km_price ?? null,
+                  date: slot.date,
+                });
+              });
+            } else {
+              // Merge into a single slot
+              const firstSlot = sortedSlots[0];
+              const lastSlot = sortedSlots[sortedSlots.length - 1];
+
+              mergedSlots.push({
+                ...(firstSlot.uuid && { uuid: firstSlot.uuid }),
+                service_id: firstSlot.service_id,
+                vendor_id: firstSlot.vendor_id,
+                show_all_vendors: firstSlot.show_all_vendors ? 1 : 0,
+                schedule_override: firstSlot.schedule_override ? 1 : 0,
+                recommend_time: firstSlot.recommend_time ? 1 : 0,
+                travel: firstSlot.travel ?? undefined,
+                start_time: firstSlot.start_time,
+                end_time: lastSlot.end_time,
+                est_time: firstSlot.est_time ?? null,
+                distance: firstSlot.distance ?? null,
+                km_price: firstSlot.km_price ?? null,
+                date: firstSlot.date,
+              });
+            }
+          });
+
+          return mergedSlots;
+        })(),
+      };
+
+      let response;
+
+      if (userId) {
+        const updatedPayload = {
+          ...payload,
+          _method: "PUT",
+          ...(notificationOptions?.notify_agent !== undefined && {
+            notify_agent: notificationOptions.notify_agent ? 1 : 0,
+          }),
+          ...(notificationOptions?.notify_vendor !== undefined && {
+            notify_vendor: notificationOptions.notify_vendor ? 1 : 0,
+          }),
+          ...(notificationOptions?.notify_admin !== undefined && {
+            notify_admin: notificationOptions.notify_admin ? 1 : 0,
+          }),
+        };
+        response = await Edit(userId, updatedPayload, token);
+      } else {
+        response = await Create(payload, token, orgSlug);
+      }
+
+      if (!response?.success) throw new Error("Order failed");
+
+      setCreatedOrderUuid(response.data.uuid);
+      setIsSubmitted(true);
+      return true;
+    } catch (err) {
+      console.error("Failed to submit order", err);
+      setIsSubmitted(false);
+      return false;
+    } finally {
+      setIsLoading(false); // ✅ ALWAYS LAST
+    }
+  };
+
+  const totalServiceAmount =
+    orderData?.services?.reduce((sum: number, s: OrderService) => {
+      return sum + parseFloat(s.amount || "0");
+    }, 0) ?? 0;
+
+  const uniqueVendorsMap = new Map();
+
+  if (Array.isArray(orderData?.slots)) {
+    orderData?.slots.forEach((slot) => {
+      const vendor = slot?.vendor;
+      if (vendor && !uniqueVendorsMap.has(vendor.uuid)) {
+        uniqueVendorsMap.set(vendor.uuid, vendor);
+      }
+    });
+  }
+
+  const uniqueVendors = Array.from(uniqueVendorsMap.values());
+  useImperativeHandle(ref, () => ({
+    handleSubmitOrder,
+  }));
+  return (
+    <div className="w-full space-y-4">
+      <div className="grid gap-4">
+        <div className="w-full flex flex-col items-center">
+          <div className="w-full md:w-[370px] pt-[60px] pb-[100px] px-[10px] md:px-0 flex justify-center flex-col gap-[16px] text-[#424242] text-[14px] font-[400]">
+            {isSubmitted && createdOrderUuid && !isLoading ? (
+              <div className="w-full md:w-[450px] py-[32px] px-[10px] md:px-0 flex justify-center flex-col gap-[48px] text-[#424242] text-[14px] font-[400]">
+                <div className="flex flex-col gap-[10px]">
+                  <div className="flex justify-between gap-[12px]">
+                    <div className="flex gap-[12px] items-center">
+                      <File
+                        style={{ color: roleSettings.pageTabColor }}
+                        className="h-[24px] w-[30px] md:h-[36px] md:w-[40px]"
+                      />
+                      <p
+                        style={{ color: roleSettings.pageTabColor }}
+                        className="text-[24px] md:text-[36px] font-[700]"
+                      >
+                        Order {orderData?.id}
+                      </p>
+                    </div>
+                    <div className="items-center gap-[12px] hidden">
+                      <Switch className=" data-[state=checked]:bg-[#6BAE41] " />
+                      <p className="text-[#666666] text-[16px]">Open</p>
+                    </div>
+                  </div>
+                  <p className="text-[#666666] text-[16px] font-[400]">
+                    This is only a quote. Invoiced amount will likely change
+                    based on actual measured area.
+                  </p>
+                </div>
+                <div className="text-[#666666] flex gap-x-[20px]">
+                  <div className="flex flex-col gap-y-[20px] w-1/2 text-wrap">
+                    <p>{uniqueVendors?.length > 1 ? "Vendors" : "Vendor"}</p>
+                    {uniqueVendors?.map((vendor) => (
+                      <div key={vendor.uuid}>
+                        <p>
+                          {vendor.first_name} {vendor.last_name}
+                        </p>
+                        <p>{vendor.company?.company_name ?? "N/A"}</p>
+                        <p>{vendor.email}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="w-1/2 text-wrap">
+                    <p className="mb-[20px]">Customer</p>
+                    <p>Realtor</p>
+                    <p>
+                      {orderData?.agent?.first_name}{" "}
+                      {orderData?.agent?.last_name}
+                    </p>
+                    <p>{orderData?.agent?.company_name}</p>
+                    <p>{orderData?.agent?.email}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-[18px] text-[#666666] text-[16px]">
+                  <p
+                    style={{ color: roleSettings.pageTabColor }}
+                    className="text-[20px] font-[700]"
+                  >
+                    Order Details
+                  </p>
+
+                  {/* Package / Services Total display */}
+                  {(() => {
+                    const appliedPackage =
+                      (orderData as any)?.meta?.applied_package ||
+                      (orderData as any)?.package ||
+                      activePackage;
+                    const packageName =
+                      appliedPackage?.package_name || appliedPackage?.name;
+                    const packageDiscountItem = orderData?.totals?.find(
+                      (t: any) => t.discount_type === "package",
+                    );
+                    const packageDiscountAmount = packageDiscountItem
+                      ? Math.abs(parseFloat(packageDiscountItem.amount || "0"))
+                      : parseFloat(
+                          appliedPackage?.package_discount_amount || "0",
+                        ) || 0;
+                    const packagePrice = Math.max(
+                      0,
+                      totalServiceAmount - packageDiscountAmount,
+                    );
+
+                    if (packageName) {
+                      return (
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">
+                            Package ({packageName})
+                          </span>
+                          <span className="col-span-1">
+                            ${packagePrice.toFixed(2)}
+                          </span>
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <p className="grid grid-cols-4 gap-[15px]">
+                        <span className="col-span-3">Services Total</span>
+                        <span className="col-span-1">
+                          ${totalServiceAmount.toFixed(2)}
+                        </span>
+                      </p>
+                    );
+                  })()}
+
+                  <p className="grid grid-cols-4 gap-[15px]">
+                    <span className="col-span-3">Items</span>
+                    <span className="col-span-1">
+                      {orderData?.services?.length}
+                    </span>
+                  </p>
+
+                  <div className="grid gap-[15px]">
+                    {(() => {
+                      const oldServiceUuids = isAddFlow
+                        ? selectedServices
+                            .filter((s) => !!s.service_uuid)
+                            .map((s) => s.service_uuid)
+                        : [];
+                      const postNewServices =
+                        orderData?.services?.filter(
+                          (s) => !oldServiceUuids.includes(s.uuid),
+                        ) || [];
+                      const postOldServices =
+                        orderData?.services?.filter((s) =>
+                          oldServiceUuids.includes(s.uuid),
+                        ) || [];
+
+                      return (
+                        <>
+                          {postNewServices.map((service) => {
+                            return (
+                              <p
+                                key={service.id}
+                                className="grid grid-cols-4 gap-[15px] items-center"
+                              >
+                                <span className="col-span-3 flex items-center gap-2">
+                                  {service.service?.name ?? ""}
+                                </span>
+                                <span className="col-span-1">
+                                  ${parseFloat(service.amount).toFixed(2)}
+                                </span>
+                              </p>
+                            );
+                          })}
+
+                          {isAddFlow && postOldServices.length > 0 && (
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="w-full"
+                            >
+                              <AccordionItem
+                                value="previous-services-posted"
+                                className="border-none"
+                              >
+                                <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md decoration-transparent">
+                                  Previously Booked Services
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 space-y-3 border-none">
+                                  {postOldServices.map((service) => {
+                                    const isPaid =
+                                      service.payment_status?.toUpperCase() ===
+                                      "PAID";
                                     return (
-                                        <div key={fullService.uuid} className="col-span-2 space-y-5">
-                                            {allDiscounts.map((discount, idx) => {
-                                                const percent = parseFloat(discount.percentage ?? "0");
-                                                const discountedPrice = originalPrice * ((100 - percent) / 100);
-
-                                                return (
-                                                    <div key={idx} className='flex items-start justify-between gap-x-6'>
-                                                        <div className='flex flex-col'>
-                                                            <p className='text-[14px] font-medium text-[#333333]'>
-                                                                {fullService.name || sel.custom || "Service"}
-                                                            </p>
-                                                            <p className='text-[12px] font-normal text-[#888888]'>
-                                                                Code: {discount.name ?? discount.code_key ?? "Unnamed Discount"}
-                                                            </p>
-                                                        </div>
-                                                        <p className='text-[14px] font-normal text-[#666666] text-center'>
-                                                            {discount.description ?? "—"}
-                                                        </p>
-                                                        <div className='text-right text-[14px] gap-x-1.5 font-normal flex items-start'>
-                                                            <p className='line-through text-[#E06D5E]'>${originalPrice.toFixed(2)}</p>
-                                                            <p className='text-[#6BAE41] font-medium'>${discountedPrice.toFixed(2)}</p>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                      <div
+                                        key={service.id}
+                                        className="grid grid-cols-4 gap-[15px] items-center"
+                                      >
+                                        <span className="col-span-3 flex items-center gap-2">
+                                          {service.service?.name ?? ""}
+                                          <span
+                                            className={`text-[10px] ${isPaid ? "bg-[#6BAE41]" : "bg-[#E06D5E]"} text-white px-1.5 py-0.5 rounded font-semibold uppercase`}
+                                          >
+                                            {isPaid ? "Paid" : "Unpaid"}
+                                          </span>
+                                        </span>
+                                        <span className="col-span-1 text-sm">
+                                          $
+                                          {parseFloat(service.amount).toFixed(
+                                            2,
+                                          )}
+                                        </span>
+                                      </div>
                                     );
-                                })}
+                                  })}
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
 
-                                <div className='col-span-2'>
-                                    <div className='flex flex-col gap-2'>
-                                        {(() => {
-                                            // Calculate original total for all services
-                                            const totalOriginalPrice = selectedServices.reduce((sum, sel) => {
-                                                return sum + getOriginalPrice(sel);
-                                            }, 0);
+                  {(() => {
+                    // Calculate subtotal from services
+                    const subtotal =
+                      orderData?.services?.reduce(
+                        (sum, s) => sum + parseFloat(s.amount || "0"),
+                        0,
+                      ) || 0;
 
-                                            // Calculate total discount for ALL services (both paid and unpaid)
-                                            const totalDiscountValue = selectedServices.reduce((sum, sel) => {
-                                                const originalPrice = getOriginalPrice(sel);
-                                                const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === sel.uuid)
-                                                    ? appliedCodeDiscount
-                                                    : null;
-                                                const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                                                    d.services?.some(s => s.uuid === sel.uuid)
-                                                );
-                                                const allDiscounts: Discount[] = [];
-                                                if (codeDiscount) allDiscounts.push(codeDiscount);
-                                                allDiscounts.push(...quantityDiscounts);
-                                                const bestDiscount = allDiscounts.reduce((best, curr) => {
-                                                    const currPercent = parseFloat(curr.percentage ?? "0");
-                                                    const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-                                                    return currPercent > bestPercent ? curr : best;
-                                                }, null as Discount | null);
+                    // Calculate total discount from orderData.totals array
+                    const totalDiscount =
+                      orderData?.totals?.reduce((total, item) => {
+                        if (item.amount && parseFloat(item.amount) < 0) {
+                          return total + Math.abs(parseFloat(item.amount));
+                        }
+                        return total;
+                      }, 0) || 0;
 
-                                                if (bestDiscount) {
-                                                    const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
-                                                    return sum + (originalPrice * discountPercent / 100);
-                                                }
-                                                return sum;
-                                            }, 0);
+                    // Calculate discount percentage
+                    const discountPercent =
+                      subtotal > 0
+                        ? ((totalDiscount / subtotal) * 100).toFixed(2)
+                        : "0.00";
 
-                                            // Calculate package discount for eligible package services
-                                            let packageDiscount = 0;
-                                            if (activePackage && (activePackage.discount || 0) > 0) {
-                                                const rawEligibleTotal = selectedServices.reduce((sum, s) => {
-                                                    if (!isServiceInActivePackage(s)) return sum;
-                                                    return sum + getOriginalPrice(s);
-                                                }, 0);
-                                                if (activePackage.discount_type === 'dollar') {
-                                                    packageDiscount = Math.min(rawEligibleTotal, Number(activePackage.discount) || 0);
-                                                } else {
-                                                    packageDiscount = (rawEligibleTotal * (Number(activePackage.discount) || 0)) / 100;
-                                                }
-                                            }
+                    // Calculate taxes from taxPreview
+                    let taxTotal = 0;
+                    let taxRows: React.ReactNode = null;
 
-                                            // Option B: Pick Maximum / Best Single Discount among Package, Agent, and Coupon/Promo
-                                            const rawPkgDisc = packageDiscount;
-                                            const rawAgentDisc = calculateAgentDiscount(totalOriginalPrice);
-                                            const rawCodeDisc = totalDiscountValue;
+                    if (
+                      taxPreview?.tax_details &&
+                      Object.keys(taxPreview.tax_details).length > 0
+                    ) {
+                      taxTotal = Object.values(taxPreview.tax_details).reduce(
+                        (sum, t) => sum + Number(t.amount || 0),
+                        0,
+                      );
+                      taxRows = Object.entries(taxPreview.tax_details).map(
+                        ([tName, tInfo]) => (
+                          <p
+                            key={tName}
+                            className="grid grid-cols-4 gap-[15px]"
+                          >
+                            <span className="col-span-3">
+                              {tName} ({tInfo.rate}%)
+                            </span>
+                            <span className="col-span-1">
+                              ${Number(tInfo.amount || 0).toFixed(2)}
+                            </span>
+                          </p>
+                        ),
+                      );
+                    } else {
+                      taxRows = (
+                        <>
+                          <p className="grid grid-cols-4 gap-[15px]">
+                            <span className="col-span-3">GST/HST</span>
+                            <span className="col-span-1">$0.00</span>
+                          </p>
+                          <p className="grid grid-cols-4 gap-[15px]">
+                            <span className="col-span-3">PST/RST/QST</span>
+                            <span className="col-span-1">$0.00</span>
+                          </p>
+                        </>
+                      );
+                    }
 
-                                            const maxDisc = Math.max(rawPkgDisc, rawAgentDisc, rawCodeDisc);
-                                            let winner = 'none';
-                                            if (maxDisc > 0) {
-                                                if (rawAgentDisc >= maxDisc) winner = 'agent';
-                                                else if (rawPkgDisc >= maxDisc) winner = 'package';
-                                                else winner = 'code';
-                                            }
+                    // Grand total is the final net amount from the order + taxes
+                    const netOrderAmount = parseFloat(orderData?.amount || "0");
+                    const grandTotal = netOrderAmount + taxTotal;
 
-                                            const effectivePkgDisc = winner === 'package' ? rawPkgDisc : 0;
-                                            const effectiveAgentDisc = winner === 'agent' ? rawAgentDisc : 0;
-                                            const effectiveCodeDisc = winner === 'code' ? rawCodeDisc : 0;
+                    // Get paid amount and refunded amount from order data
+                    const paidAmount =
+                      parseFloat(orderData?.paid_amount || "0") || 0;
+                    const refundedAmount =
+                      parseFloat(orderData?.refunded_amount || "0") || 0;
+                    const netPaid = Math.max(0, paidAmount - refundedAmount);
 
-                                            const agentDiscountVal = effectiveAgentDisc;
-                                            const grandTotal = Math.max(0, totalOriginalPrice - maxDisc);
+                    // Calculate balance due
+                    const balanceDue = grandTotal - netPaid;
 
-                                            // Calculate paid amount (use discounted price for paid services if applicable)
-                                            const paidAmount = selectedServices.reduce((acc, curr) => {
-                                                if (curr.payment_status?.toUpperCase() === 'PAID') {
-                                                    const originalPrice = getOriginalPrice(curr);
+                    return (
+                      <>
+                        {/* Subtotal */}
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">Subtotal</span>
+                          <span className="col-span-1">
+                            ${subtotal.toFixed(2)}
+                          </span>
+                        </p>
 
-                                                    let discountAmount = 0;
-                                                    if (winner === 'code') {
-                                                        const codeDiscount = appliedCodeDiscount?.services?.some(d => d.uuid === curr.uuid)
-                                                            ? appliedCodeDiscount
-                                                            : null;
-                                                        const quantityDiscounts = appliedQuantityDiscounts.filter(d =>
-                                                            d.services?.some(s => s.uuid === curr.uuid)
-                                                        );
-                                                        const allDiscounts: Discount[] = [];
-                                                        if (codeDiscount) allDiscounts.push(codeDiscount);
-                                                        allDiscounts.push(...quantityDiscounts);
-                                                        const bestDiscount = allDiscounts.reduce((best, currDiscount) => {
-                                                            const currPercent = parseFloat(currDiscount.percentage ?? "0");
-                                                            const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-                                                            return currPercent > bestPercent ? currDiscount : best;
-                                                        }, null as Discount | null);
-
-                                                        if (bestDiscount) {
-                                                            const discountPercent = parseFloat(bestDiscount.percentage ?? "0");
-                                                            discountAmount = originalPrice * discountPercent / 100;
-                                                        }
-                                                    } else if (winner === 'package' && activePackage && effectivePkgDisc > 0 && isServiceInActivePackage(curr)) {
-                                                        const rawEligibleTotal = selectedServices.reduce((sum, s) => {
-                                                            if (!isServiceInActivePackage(s)) return sum;
-                                                            return sum + getOriginalPrice(s);
-                                                        }, 0);
-                                                        const serviceRatio = rawEligibleTotal > 0 ? (originalPrice / rawEligibleTotal) : 0;
-                                                        discountAmount = (effectivePkgDisc * serviceRatio);
-                                                    } else if (winner === 'agent' && agentDiscountVal > 0) {
-                                                        const agentRatio = totalOriginalPrice > 0 ? (agentDiscountVal / totalOriginalPrice) : 0;
-                                                        discountAmount = (originalPrice * agentRatio);
-                                                    }
-
-                                                    return acc + (originalPrice - discountAmount);
-                                                }
-                                                return acc;
-                                            }, 0);
-
-                                            const previewTaxAmount = taxPreview ? Number(taxPreview.total_tax_amount || 0) : 0;
-                                            const grandTotalWithTax = grandTotal + previewTaxAmount;
-                                            // Amount Due = Grand Total (with tax) - Paid Amount
-                                            const amountDue = grandTotalWithTax - paidAmount;
-
-                                            return (
-                                                <>
-                                                    <div className='flex items-center justify-between'>
-                                                        <p className='font-normal text-[14px] text-[#424242]'>Subtotal</p>
-                                                        <p className='font-normal text-[14px] text-[#424242]'>
-                                                            ${totalOriginalPrice.toFixed(2)}
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Superseded discounts (shown crossed-out) */}
-                                                    {winner !== 'agent' && rawAgentDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
-                                                            <p className='truncate max-w-[280px]'>
-                                                                Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)
-                                                            </p>
-                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
-                                                                -${rawAgentDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {winner !== 'package' && rawPkgDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
-                                                            <p className='truncate max-w-[280px]' title={activePackage?.name}>
-                                                                Package ({activePackage?.name} &mdash; {activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
-                                                            </p>
-                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
-                                                                -${rawPkgDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {winner !== 'code' && rawCodeDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-gray-400 line-through py-0.5 text-[13px] gap-2'>
-                                                            <p className='truncate max-w-[280px]'>
-                                                                Coupon Discount ({appliedCodeDiscount?.name ?? appliedCodeDiscount?.code_key ?? 'Promo'})
-                                                            </p>
-                                                            <p className='whitespace-nowrap shrink-0 font-medium'>
-                                                                -${rawCodeDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Winner discount display */}
-                                                    {effectivePkgDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
-                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
-                                                                <span className='truncate max-w-[260px]' title={activePackage?.name}>
-                                                                    Package: {activePackage?.name}
-                                                                </span>
-                                                                <span className='shrink-0'>
-                                                                    ({activePackage?.discount_type === 'dollar' ? `$${activePackage?.discount}` : `${activePackage?.discount}%`} OFF)
-                                                                </span>
-                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
-                                                                    Best Value
-                                                                </span>
-                                                            </div>
-                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
-                                                                -${effectivePkgDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {effectiveAgentDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
-                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
-                                                                <span>Agent Discount ({agentDiscount?.is_percentage ? `${agentDiscount.amount}%` : `$${agentDiscount?.amount}`} OFF)</span>
-                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
-                                                                    Best Value
-                                                                </span>
-                                                            </div>
-                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
-                                                                -${effectiveAgentDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {effectiveCodeDisc > 0 && (
-                                                        <div className='flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2'>
-                                                            <div className='flex items-center gap-1.5 flex-wrap min-w-0'>
-                                                                <span>Coupon Discount ({appliedCodeDiscount?.name ?? appliedCodeDiscount?.code_key ?? 'Promo'})</span>
-                                                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-300 shrink-0">
-                                                                    Best Value
-                                                                </span>
-                                                            </div>
-                                                            <p className='whitespace-nowrap shrink-0 font-bold'>
-                                                                -${effectiveCodeDisc.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {/* When Agent discount has min spend not met */}
-                                                    {agentDiscount && agentDiscount.minimum_spend > 0 && totalOriginalPrice < Number(agentDiscount.minimum_spend) && !effectivePkgDisc && (
-                                                        <div className='flex items-center justify-between text-amber-700 text-[12px] bg-amber-50/80 px-2 py-1 rounded border border-amber-200'>
-                                                            <p>Agent Discount ({agentDiscount.amount}%): Min. spend ${Number(agentDiscount.minimum_spend).toLocaleString()} not met</p>
-                                                            <p className='whitespace-nowrap shrink-0'>&mdash;</p>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Real-time Tax Preview Breakdown */}
-                                                    <div className='border-t border-dashed my-1 pt-1 space-y-1'>
-                                                        {isTaxLoading ? (
-                                                            <div className='flex items-center justify-between text-xs text-[#888888] italic py-0.5'>
-                                                                <span className='flex items-center gap-1.5'>
-                                                                    <Loader2 className='w-3 h-3 animate-spin text-[#6BAE41]' /> Calculating tax ({propertyProvince})...
-                                                                </span>
-                                                                <span>—</span>
-                                                            </div>
-                                                        ) : taxPreview && taxPreview.tax_details && Object.keys(taxPreview.tax_details).length > 0 ? (
-                                                            <>
-                                                                {Object.entries(taxPreview.tax_details).map(([taxName, details]) => (
-                                                                    <div key={taxName} className='flex items-center justify-between text-[13px] text-[#666666]'>
-                                                                        <p>{taxName} ({details.rate}%)</p>
-                                                                        <p>${Number(details.amount || 0).toFixed(2)}</p>
-                                                                    </div>
-                                                                ))}
-                                                                {Object.keys(taxPreview.tax_details).length > 1 && (
-                                                                    <div className='flex items-center justify-between text-[13px] font-medium text-[#424242]'>
-                                                                        <p>Total Estimated Tax</p>
-                                                                        <p>${previewTaxAmount.toFixed(2)}</p>
-                                                                    </div>
-                                                                )}
-                                                            </>
-                                                        ) : (
-                                                            <div className='flex items-center justify-between text-[13px] text-[#666666]'>
-                                                                <p>Estimated Tax ({propertyProvince})</p>
-                                                                <p>${previewTaxAmount.toFixed(2)}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div className='flex items-center justify-between pt-1 font-medium'>
-                                                        <p className='text-[14px] text-[#424242]'>Order/Quote approx. (inc. tax)</p>
-                                                        <p className='text-[14px] text-[#424242]'>
-                                                            ${grandTotalWithTax.toFixed(2)}
-                                                        </p>
-                                                    </div>
-
-                                                    {paidAmount > 0 && (
-                                                        <div className='flex items-center justify-between text-[#6BAE41]'>
-                                                            <p className='font-normal text-[14px]'>Paid</p>
-                                                            <p className='font-normal text-[14px]'>
-                                                                -${paidAmount.toFixed(2)}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    <div className='flex items-center justify-between mt-2 pt-2 border-t'>
-                                                        <p className='font-normal text-[20px] text-[#424242]'>
-                                                            {paidAmount > 0 ? "Balance Due" : "Amount Due"}
-                                                        </p>
-                                                        <p className='font-normal text-[20px] text-[#424242]'>
-                                                            ${Math.max(0, amountDue).toFixed(2)}
-                                                        </p>
-                                                    </div>
-                                                    <p className="text-[10px] text-[#888888] italic text-right mt-1">
-                                                        * Tax preview based on {propertyProvince}, {propertyCountry}. Final taxes are applied on invoice.
-                                                    </p>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-
-                            </div>
+                        {/* Discount */}
+                        {totalDiscount > 0 && (
+                          <p className="grid grid-cols-4 gap-[15px]">
+                            <span className="col-span-3">Discount</span>
+                            <span className="col-span-1">
+                              -${totalDiscount.toFixed(2)} ({discountPercent}%)
+                            </span>
+                          </p>
                         )}
 
-                    </div>
+                        {/* Taxes */}
+                        {taxRows}
+
+                        {/* Order/Quote approx. */}
+                        <p className="grid grid-cols-4 gap-[15px]">
+                          <span className="col-span-3">
+                            Order/Quote approx.
+                          </span>
+                          <span className="col-span-1">
+                            ${grandTotal.toFixed(2)}
+                          </span>
+                        </p>
+
+                        {/* Show paid amount if any payment has been made */}
+                        {paidAmount > 0 && (
+                          <p className="grid grid-cols-4 gap-[15px] text-[#6BAE41]">
+                            <span className="col-span-3">Paid</span>
+                            <span className="col-span-1">
+                              -${paidAmount.toFixed(2)}
+                            </span>
+                          </p>
+                        )}
+
+                        {/* Show refunded amount if any refund has been processed */}
+                        {refundedAmount > 0 && (
+                          <p className="grid grid-cols-4 gap-[15px] text-red-500">
+                            <span className="col-span-3">Refunded</span>
+                            <span className="col-span-1">
+                              +${refundedAmount.toFixed(2)}
+                            </span>
+                          </p>
+                        )}
+
+                        {/* Show balance due */}
+                        <p className="grid grid-cols-4 gap-[15px] text-[20px] md:text-[24px] font-[500] border-t pt-2">
+                          <span className="col-span-3">
+                            {paidAmount > 0 || refundedAmount > 0
+                              ? "Balance Due"
+                              : "Amount Due"}
+                          </span>
+                          <span className="col-span-1">
+                            ${Math.max(0, balanceDue).toFixed(2)}
+                          </span>
+                        </p>
+                      </>
+                    );
+                  })()}
+
+                  <Button
+                    onClick={handleDone}
+                    style={{
+                      backgroundColor: roleSettings.pageTabColor,
+                      borderColor: roleSettings.pageTabColor,
+                    }}
+                    className="col-span-2 w-full rounded-[3px] md:w-full h-[32px] md:h-[32px] text-[14px] md:text-[14px] font-[600] text-white flex gap-[5px] justify-center items-center font-raleway"
+                  >
+                    Done
+                  </Button>
+                  {isBookNowMode && (
+                    <Link
+                      href={"/dashboard"}
+                      className={`mt-2 col-span-2 font-raleway text-white rounded-[3px] w-full h-[32px] font-[600] text-[14px] flex items-center justify-center transition-opacity hover:opacity-90`}
+                      style={{
+                        backgroundColor: roleSettings.pageTabColor || "#4290E9",
+                      }}
+                    >
+                      Go to Dashboard
+                    </Link>
+                  )}
                 </div>
-            </div>
+                <div>
+                  <p className="text-[12px]">
+                    <span className="text-[14px] font-[500]">
+                      Important Final Pricing Notice:
+                    </span>{" "}
+                    The amount shown above is an estimated quote. Final billing
+                    is calculated post-service and may vary based on actual
+                    on-site measurements (square footage), travel expenses, and
+                    any additional services requested during the shoot. The
+                    final invoice will be generated and sent to you upon project
+                    completion.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-[22px]">
+                <div className="col-span-2">
+                  {newServices.map((sel) => {
+                    const fullService = services.find(
+                      (s) => s.uuid === sel.uuid,
+                    );
+                    if (!fullService) return null;
+
+                    // Get all slots for this service
+                    const serviceSlots = selectedSlots.filter(
+                      (slot) => slot.service_id === sel.uuid,
+                    );
+
+                    // Group slots by vendor_id
+                    const groupedByVendor: Record<string, typeof serviceSlots> =
+                      {};
+                    serviceSlots.forEach((slot) => {
+                      if (!groupedByVendor[slot.vendor_id]) {
+                        groupedByVendor[slot.vendor_id] = [];
+                      }
+                      groupedByVendor[slot.vendor_id].push(slot);
+                    });
+
+                    // Build slotInfo array
+                    const slotInfo = Object.entries(groupedByVendor).map(
+                      ([vendorId, vendorSlots]) => {
+                        const vendor = vendorsData.find(
+                          (v) => v.uuid === vendorId,
+                        );
+                        const vendorName = vendor
+                          ? `${vendor.first_name ?? ""} ${vendor.last_name ?? ""}`.trim()
+                          : "Unknown Vendor";
+
+                        // Further group by date
+                        const slotsByDate: Record<string, typeof vendorSlots> =
+                          {};
+                        vendorSlots.forEach((slot) => {
+                          if (!slotsByDate[slot.date]) {
+                            slotsByDate[slot.date] = [];
+                          }
+                          slotsByDate[slot.date].push(slot);
+                        });
+
+                        const timeRanges: string[] = [];
+
+                        Object.entries(slotsByDate).forEach(
+                          ([dateStr, slots]) => {
+                            // Sort by start_time
+                            slots.sort((a, b) =>
+                              a.start_time.localeCompare(b.start_time),
+                            );
+
+                            // Merge contiguous slots
+                            const mergedRanges: {
+                              start: string;
+                              end: string;
+                            }[] = [];
+                            if (slots.length > 0) {
+                              let currentRange = {
+                                start: slots[0].start_time,
+                                end: slots[0].end_time,
+                              };
+
+                              for (let i = 1; i < slots.length; i++) {
+                                const slot = slots[i];
+                                if (slot.start_time === currentRange.end) {
+                                  // Extend current range
+                                  currentRange.end = slot.end_time;
+                                } else {
+                                  // Push current range and start new one
+                                  mergedRanges.push(currentRange);
+                                  currentRange = {
+                                    start: slot.start_time,
+                                    end: slot.end_time,
+                                  };
+                                }
+                              }
+                              mergedRanges.push(currentRange);
+                            }
+
+                            // Format ranges
+                            const formattedDate = dateStr
+                              ? new Date(
+                                  `${dateStr}T00:00:00`,
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })
+                              : "";
+
+                            const formatTime = (time: string) => {
+                              const [h, m] = time.split(":");
+                              const hour = parseInt(h);
+                              const meridian = hour >= 12 ? "PM" : "AM";
+                              const formattedHour = hour % 12 || 12;
+                              return `${formattedHour}:${m} ${meridian}`;
+                            };
+                            mergedRanges.forEach((range) => {
+                              const startTime = range.start
+                                ? formatTime(range.start)
+                                : "";
+                              const endTime = range.end
+                                ? formatTime(range.end)
+                                : "";
+                              timeRanges.push(
+                                `${formattedDate} | ${startTime} - ${endTime}`,
+                              );
+                            });
+                          },
+                        );
+
+                        return {
+                          vendorName,
+                          timeRanges,
+                        };
+                      },
+                    );
+
+                    return (
+                      <ConfirmationCard
+                        key={fullService.uuid}
+                        service={fullService}
+                        title={fullService.name ?? ""}
+                        selectedService={sel}
+                        slotInfo={slotInfo}
+                        discountInfo={resolveServiceDiscount(sel)}
+                      />
+                    );
+                  })}
+
+                  {oldServices.length > 0 && (
+                    <Accordion
+                      type="single"
+                      collapsible
+                      className="w-full mt-4"
+                    >
+                      <AccordionItem
+                        value="previous-services"
+                        className="border-none"
+                      >
+                        <AccordionTrigger className="text-[16px] font-semibold text-[#666666] hover:no-underline px-0 py-2 bg-[#EEEEEE] rounded-md">
+                          Previously Booked Services
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2 space-y-4">
+                          {oldServices.map((sel) => {
+                            const fullService = services.find(
+                              (s) => s.uuid === sel.uuid,
+                            );
+                            if (!fullService) return null;
+
+                            const serviceSlots = selectedSlots.filter(
+                              (slot) => slot.service_id === sel.uuid,
+                            );
+                            const groupedByVendor: Record<
+                              string,
+                              typeof serviceSlots
+                            > = {};
+                            serviceSlots.forEach((slot) => {
+                              if (!groupedByVendor[slot.vendor_id]) {
+                                groupedByVendor[slot.vendor_id] = [];
+                              }
+                              groupedByVendor[slot.vendor_id].push(slot);
+                            });
+
+                            const slotInfo = Object.entries(
+                              groupedByVendor,
+                            ).map(([vendorId, vendorSlots]) => {
+                              const vendor = vendorsData.find(
+                                (v) => v.uuid === vendorId,
+                              );
+                              const vendorName = vendor
+                                ? `${vendor.first_name ?? ""} ${vendor.last_name ?? ""}`.trim()
+                                : "Unknown Vendor";
+                              const slotsByDate: Record<
+                                string,
+                                typeof vendorSlots
+                              > = {};
+                              vendorSlots.forEach((slot) => {
+                                if (!slotsByDate[slot.date])
+                                  slotsByDate[slot.date] = [];
+                                slotsByDate[slot.date].push(slot);
+                              });
+
+                              const timeRanges: string[] = [];
+                              Object.entries(slotsByDate).forEach(
+                                ([dateStr, slots]) => {
+                                  slots.sort((a, b) =>
+                                    a.start_time.localeCompare(b.start_time),
+                                  );
+                                  const mergedRanges: {
+                                    start: string;
+                                    end: string;
+                                  }[] = [];
+                                  if (slots.length > 0) {
+                                    let currentRange = {
+                                      start: slots[0].start_time,
+                                      end: slots[0].end_time,
+                                    };
+                                    for (let i = 1; i < slots.length; i++) {
+                                      const slot = slots[i];
+                                      if (
+                                        slot.start_time === currentRange.end
+                                      ) {
+                                        currentRange.end = slot.end_time;
+                                      } else {
+                                        mergedRanges.push(currentRange);
+                                        currentRange = {
+                                          start: slot.start_time,
+                                          end: slot.end_time,
+                                        };
+                                      }
+                                    }
+                                    mergedRanges.push(currentRange);
+                                  }
+                                  const formattedDate = dateStr
+                                    ? new Date(
+                                        `${dateStr}T00:00:00`,
+                                      ).toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })
+                                    : "";
+                                  const formatTime = (time: string) => {
+                                    const [h, m] = time.split(":");
+                                    const hour = parseInt(h);
+                                    const meridian = hour >= 12 ? "PM" : "AM";
+                                    const formattedHour = hour % 12 || 12;
+                                    return `${formattedHour}:${m} ${meridian}`;
+                                  };
+                                  mergedRanges.forEach((range) => {
+                                    const startTime = range.start
+                                      ? formatTime(range.start)
+                                      : "";
+                                    const endTime = range.end
+                                      ? formatTime(range.end)
+                                      : "";
+                                    timeRanges.push(
+                                      `${formattedDate} | ${startTime} - ${endTime}`,
+                                    );
+                                  });
+                                },
+                              );
+                              return { vendorName, timeRanges };
+                            });
+
+                            return (
+                              <ConfirmationCard
+                                key={fullService.uuid}
+                                service={fullService}
+                                title={fullService.name ?? ""}
+                                selectedService={sel}
+                                slotInfo={slotInfo}
+                                discountInfo={resolveServiceDiscount(sel)}
+                              />
+                            );
+                          })}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+                </div>
+                {floorplanAreas && floorplanAreas.length > 0 && (
+                  <div className="col-span-2 p-3 bg-blue-50/70 border border-blue-200 rounded-md text-xs">
+                    <p className="font-semibold text-blue-900 mb-1 flex items-center gap-1.5">
+                      📐 Floor Plan - Other Areas to Measure:
+                    </p>
+                    <p className="text-blue-800">{floorplanAreas.join(", ")}</p>
+                    {floorplanNotes && floorplanNotes.trim() && (
+                      <p className="text-blue-700 mt-1 italic">
+                        Note: {floorplanNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="col-span-2 grid grid-cols-7 gap-x-[30px]">
+                  <div className="col-span-6">
+                    <label
+                      htmlFor=""
+                      className="font-normal text-sm text-[#666666]"
+                    >
+                      Discount Code
+                    </label>
+                    <Input
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value)}
+                      className="h-[42px] w-full bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[8px]"
+                      type="text"
+                    />
+                    <p className="text-[10px] text-[#888888] mt-1 italic">
+                      Discount will not be applied to already paid services.
+                    </p>
+                  </div>
+                  <div
+                    className="w-[32px] h-[32px] flex items-center justify-center mt-[30px] cursor-pointer"
+                    onClick={() => {
+                      handleApplyDiscount();
+                      setDiscountCode("");
+                    }}
+                  >
+                    <Plus
+                      className={`w-[24px] h-[24px] ${userType}-bg text-white rounded-sm `}
+                    />
+                  </div>
+                </div>
+
+                <div className="col-span-2">
+                  <div className="flex flex-col gap-2">
+                    {(() => {
+                      // Calculate original total for all services
+                      const totalOriginalPrice = selectedServices.reduce(
+                        (sum, sel) => {
+                          return sum + getOriginalPrice(sel);
+                        },
+                        0,
+                      );
+
+                      // Aggregate per-category discounts across all services
+                      let totalPkgSavings = 0;
+                      let totalAgentSavings = 0;
+                      let totalCodeSavings = 0;
+
+                      selectedServices.forEach((sel) => {
+                        const d = resolveServiceDiscount(sel);
+                        if (d.type === "package") totalPkgSavings += d.savings;
+                        else if (d.type === "agent")
+                          totalAgentSavings += d.savings;
+                        else if (d.type === "code")
+                          totalCodeSavings += d.savings;
+                      });
+
+                      totalPkgSavings = Math.round(totalPkgSavings * 100) / 100;
+                      totalAgentSavings =
+                        Math.round(totalAgentSavings * 100) / 100;
+                      totalCodeSavings =
+                        Math.round(totalCodeSavings * 100) / 100;
+                      const grandTotal = Math.max(
+                        0,
+                        totalOriginalPrice -
+                          (totalPkgSavings +
+                            totalAgentSavings +
+                            totalCodeSavings),
+                      );
+
+                      // Calculate paid amount (use discounted price for paid services if applicable)
+                      const paidAmount = selectedServices.reduce(
+                        (acc, curr) => {
+                          if (curr.payment_status?.toUpperCase() === "PAID") {
+                            const orig = getOriginalPrice(curr);
+                            const d = resolveServiceDiscount(curr);
+                            return acc + (orig - d.savings);
+                          }
+                          return acc;
+                        },
+                        0,
+                      );
+
+                      const previewTaxAmount = taxPreview
+                        ? Number(taxPreview.total_tax_amount || 0)
+                        : 0;
+                      const grandTotalWithTax = grandTotal + previewTaxAmount;
+                      // Amount Due = Grand Total (with tax) - Paid Amount
+                      const amountDue = grandTotalWithTax - paidAmount;
+
+                      return (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <p className="font-normal text-[14px] text-[#424242]">
+                              Subtotal
+                            </p>
+                            <p className="font-normal text-[14px] text-[#424242]">
+                              ${totalOriginalPrice.toFixed(2)}
+                            </p>
+                          </div>
+
+                          {/* Active Package Discount Line */}
+                          {totalPkgSavings > 0 && (
+                            <div className="flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                <span
+                                  className="truncate max-w-[280px]"
+                                  title={activePackage?.name}
+                                >
+                                  Package ({activePackage?.name} &mdash;{" "}
+                                  {activePackage?.discount_type === "dollar"
+                                    ? `$${activePackage?.discount}`
+                                    : `${activePackage?.discount}%`}{" "}
+                                  OFF)
+                                </span>
+                              </div>
+                              <p className="whitespace-nowrap shrink-0 font-bold">
+                                -${totalPkgSavings.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Active Agent Discount Line */}
+                          {totalAgentSavings > 0 && (
+                            <div className="flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                <span>
+                                  Agent Discount (
+                                  {agentDiscount?.is_percentage
+                                    ? `${agentDiscount.amount}%`
+                                    : `$${agentDiscount?.amount}`}{" "}
+                                  OFF)
+                                </span>
+                              </div>
+                              <p className="whitespace-nowrap shrink-0 font-bold">
+                                -${totalAgentSavings.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Active Coupon Discount Line */}
+                          {totalCodeSavings > 0 && (
+                            <div className="flex items-start justify-between text-emerald-600 font-[500] py-0.5 text-[14px] gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                <span>
+                                  Coupon Discount (
+                                  {appliedCodeDiscount?.name ??
+                                    appliedCodeDiscount?.code_key ??
+                                    "Promo"}
+                                  )
+                                </span>
+                              </div>
+                              <p className="whitespace-nowrap shrink-0 font-bold">
+                                -${totalCodeSavings.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* When Agent discount has min spend not met */}
+                          {agentDiscount &&
+                            agentDiscount.minimum_spend > 0 &&
+                            totalOriginalPrice <
+                              Number(agentDiscount.minimum_spend) &&
+                            totalAgentSavings === 0 && (
+                              <div className="flex items-center justify-between text-amber-700 text-[12px] bg-amber-50/80 px-2 py-1 rounded border border-amber-200">
+                                <p>
+                                  Agent Discount ({agentDiscount.amount}%): Min.
+                                  spend $
+                                  {Number(
+                                    agentDiscount.minimum_spend,
+                                  ).toLocaleString()}{" "}
+                                  not met
+                                </p>
+                                <p className="whitespace-nowrap shrink-0">
+                                  &mdash;
+                                </p>
+                              </div>
+                            )}
+
+                          {/* Real-time Tax Preview Breakdown */}
+                          <div className="border-t border-dashed my-1 pt-1 space-y-1">
+                            {isTaxLoading ? (
+                              <div className="flex items-center justify-between text-xs text-[#888888] italic py-0.5">
+                                <span className="flex items-center gap-1.5">
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#6BAE41]" />{" "}
+                                  Calculating tax ({propertyProvince})...
+                                </span>
+                                <span>—</span>
+                              </div>
+                            ) : taxPreview &&
+                              taxPreview.tax_details &&
+                              Object.keys(taxPreview.tax_details).length > 0 ? (
+                              <>
+                                {Object.entries(taxPreview.tax_details).map(
+                                  ([taxName, details]) => (
+                                    <div
+                                      key={taxName}
+                                      className="flex items-center justify-between text-[13px] text-[#666666]"
+                                    >
+                                      <p>
+                                        {taxName} ({details.rate}%)
+                                      </p>
+                                      <p>
+                                        $
+                                        {Number(details.amount || 0).toFixed(2)}
+                                      </p>
+                                    </div>
+                                  ),
+                                )}
+                                {Object.keys(taxPreview.tax_details).length >
+                                  1 && (
+                                  <div className="flex items-center justify-between text-[13px] font-medium text-[#424242]">
+                                    <p>Total Estimated Tax</p>
+                                    <p>${previewTaxAmount.toFixed(2)}</p>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="flex items-center justify-between text-[13px] text-[#666666]">
+                                <p>Estimated Tax ({propertyProvince})</p>
+                                <p>${previewTaxAmount.toFixed(2)}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 font-medium">
+                            <p className="text-[14px] text-[#424242]">
+                              Order/Quote approx. (inc. tax)
+                            </p>
+                            <p className="text-[14px] text-[#424242]">
+                              ${grandTotalWithTax.toFixed(2)}
+                            </p>
+                          </div>
+
+                          {paidAmount > 0 && (
+                            <div className="flex items-center justify-between text-[#6BAE41]">
+                              <p className="font-normal text-[14px]">Paid</p>
+                              <p className="font-normal text-[14px]">
+                                -${paidAmount.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                            <p className="font-normal text-[20px] text-[#424242]">
+                              {paidAmount > 0 ? "Balance Due" : "Amount Due"}
+                            </p>
+                            <p className="font-normal text-[20px] text-[#424242]">
+                              ${Math.max(0, amountDue).toFixed(2)}
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-[#888888] italic text-right mt-1">
+                            * Tax preview based on {propertyProvince},{" "}
+                            {propertyCountry}. Final taxes are applied on
+                            invoice.
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-    )
+      </div>
+    </div>
+  );
 });
 Confirmation.displayName = "Confirmation";
-export default Confirmation
+export default Confirmation;

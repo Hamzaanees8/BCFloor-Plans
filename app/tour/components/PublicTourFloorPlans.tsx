@@ -48,6 +48,7 @@ export interface Marker {
 
 interface PublicTourFloorPlansProps {
     floorPlanFiles?: FloorPlanFile[];
+    allFloorPlanFiles?: FloorPlanFile[];
     snapshots?: Snapshoots[];
     tourPhotos?: any[];
     watermarkLogo?: string;
@@ -69,6 +70,7 @@ function PdfPlaceholder({ className = '', onClick }: { className?: string; onCli
 
 function PublicTourFloorPlans({
     floorPlanFiles = [],
+    allFloorPlanFiles = [],
     snapshots = [],
 }: PublicTourFloorPlansProps) {
     const [isMobile, setIsMobile] = useState(false);
@@ -215,17 +217,31 @@ function PublicTourFloorPlans({
             // If there is only 1 floor plan in this tour view, render all order snapshots on it
             if (floorPlanFiles.length === 1) return true;
 
-            // Counterpart matching when multiple floor plans exist
-            const currentFile = floorPlanFiles.find(f => normalizeName(f.name) === normCurrent);
+            const pool = allFloorPlanFiles && allFloorPlanFiles.length > 0 ? allFloorPlanFiles : floorPlanFiles;
+            const currentFile = pool.find(f => normalizeName(f.name) === normCurrent);
             if (currentFile) {
                 const isBranded = currentFile.subtype === "branded_floorplan" || currentFile.subtype === "branded";
                 const isUnbranded = currentFile.subtype === "unbranded_floorplan" || currentFile.subtype === "unbranded";
 
-                const counterpart = floorPlanFiles.find(f => {
-                    if (isBranded) return f.subtype === "unbranded_floorplan" || f.subtype === "unbranded";
-                    if (isUnbranded) return f.subtype === "branded_floorplan" || f.subtype === "branded";
-                    return false;
-                });
+                const brandedList = pool.filter(f => f.subtype === "branded_floorplan" || f.subtype === "branded");
+                const unbrandedList = pool.filter(f => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded");
+
+                let counterpart: any = null;
+                if (isBranded) {
+                    const idx = brandedList.findIndex(f => f === currentFile);
+                    if (idx >= 0 && idx < unbrandedList.length) {
+                        counterpart = unbrandedList[idx];
+                    } else if (unbrandedList.length === 1) {
+                        counterpart = unbrandedList[0];
+                    }
+                } else if (isUnbranded) {
+                    const idx = unbrandedList.findIndex(f => f === currentFile);
+                    if (idx >= 0 && idx < brandedList.length) {
+                        counterpart = brandedList[idx];
+                    } else if (brandedList.length === 1) {
+                        counterpart = brandedList[0];
+                    }
+                }
 
                 if (counterpart && normalizeName(counterpart.name) === normSnap) {
                     return true;
@@ -233,7 +249,7 @@ function PublicTourFloorPlans({
             }
             return false;
         },
-        [floorPlanFiles],
+        [floorPlanFiles, allFloorPlanFiles],
     );
 
     const getFilteredSnapshots = () => {

@@ -1,5 +1,5 @@
 // components/GlobalTourSetting.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Accordion,
     AccordionContent,
@@ -30,6 +30,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "./ui/popover";
+import { Plus, Trash2, RotateCcw, ChevronUp, ChevronDown, Pencil, Check, X } from "lucide-react";
 
 
 type SizeType = {
@@ -80,7 +81,19 @@ type TourDefaultsType = {
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];
     always_enable_sorting?: boolean;
+    floorplan_names?: string[];
+    is_custom_floorplans?: boolean;
+    global_floorplan_names?: string[];
 };
+
+export const DEFAULT_FLOORPLAN_NAMES = [
+    "Dimensions PDF",
+    "Branded Floor Plan",
+    "UnBranded Floor Plan",
+    "Branded Image",
+    "Unbranded Image",
+    "Additional Files",
+];
 
 const defaultRenewalPlans: RenewalPlan[] = [
     { id: "30_days", unit: "days", days: 30, months: 1, label: "30 Days Extension", price: 20 },
@@ -91,6 +104,11 @@ const defaultRenewalPlans: RenewalPlan[] = [
 
 const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object>((props, ref) => {
     const { userType } = useAppContext();
+    const [newFloorplanName, setNewFloorplanName] = useState("");
+    const [editingFloorplanIndex, setEditingFloorplanIndex] = useState<number | null>(null);
+    const [editingFloorplanValue, setEditingFloorplanValue] = useState<string>("");
+    const [dragOverFloorplanIndex, setDragOverFloorplanIndex] = useState<number | null>(null);
+    const dragFloorplanRowIndex = useRef<number | null>(null);
     const [videoSizes, setVideoSizes] = useState<VideoSizesType>({
         original: { width: 0, height: 0 },
         small: { width: 0, height: 0 },
@@ -123,6 +141,7 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
         matterport_auto_invoice_enabled: true,
         matterport_auto_invoice_days: 14,
         matterport_reminder_intervals: [30, 14, 7, 1],
+        floorplan_names: DEFAULT_FLOORPLAN_NAMES,
     });
 
 
@@ -162,7 +181,17 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
 
             const tourDefaultData = await GetTourDefaultSettings();
             if (tourDefaultData && tourDefaultData.value) {
-                setTourDefaults(tourDefaultData.value);
+                setTourDefaults(prev => ({
+                    ...prev,
+                    ...tourDefaultData.value,
+                    floorplan_names: Array.isArray(tourDefaultData.value.floorplan_names) && tourDefaultData.value.floorplan_names.length > 0
+                        ? tourDefaultData.value.floorplan_names
+                        : (Array.isArray(prev.floorplan_names) && prev.floorplan_names.length > 0 ? prev.floorplan_names : DEFAULT_FLOORPLAN_NAMES),
+                    global_floorplan_names: Array.isArray(tourDefaultData.value.global_floorplan_names) && tourDefaultData.value.global_floorplan_names.length > 0
+                        ? tourDefaultData.value.global_floorplan_names
+                        : DEFAULT_FLOORPLAN_NAMES,
+                    is_custom_floorplans: Boolean(tourDefaultData.value.is_custom_floorplans),
+                }));
             }
 
         } catch (error) {
@@ -236,6 +265,134 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
         });
     };
 
+    const handleAddFloorplanName = () => {
+        const trimmed = newFloorplanName.trim();
+        if (!trimmed) {
+            toast.error("Please enter a floorplan name");
+            return;
+        }
+        const currentList = tourDefaults.floorplan_names || [];
+        if (currentList.some(name => name.toLowerCase() === trimmed.toLowerCase())) {
+            toast.error("A floorplan with this name already exists");
+            return;
+        }
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: [...(prev.floorplan_names || []), trimmed],
+            is_custom_floorplans: true,
+        }));
+        setNewFloorplanName("");
+        toast.success(`Added "${trimmed}" to floorplan names`);
+    };
+
+    const handleDeleteFloorplanName = (indexToRemove: number) => {
+        const currentList = tourDefaults.floorplan_names || [];
+        const removedItem = currentList[indexToRemove];
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: (prev.floorplan_names || []).filter((_, idx) => idx !== indexToRemove),
+            is_custom_floorplans: true,
+        }));
+        if (removedItem) {
+            toast.info(`Removed "${removedItem}"`);
+        }
+    };
+
+    const handleMoveFloorplanName = (index: number, direction: 'up' | 'down') => {
+        const currentList = [...(tourDefaults.floorplan_names || [])];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= currentList.length) return;
+        const temp = currentList[index];
+        currentList[index] = currentList[targetIndex];
+        currentList[targetIndex] = temp;
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: currentList,
+            is_custom_floorplans: true,
+        }));
+    };
+
+    const handleStartEditFloorplanName = (index: number, currentName: string) => {
+        setEditingFloorplanIndex(index);
+        setEditingFloorplanValue(currentName);
+    };
+
+    const handleCancelEditFloorplanName = () => {
+        setEditingFloorplanIndex(null);
+        setEditingFloorplanValue("");
+    };
+
+    const handleSaveEditFloorplanName = (index: number) => {
+        const trimmed = editingFloorplanValue.trim();
+        if (!trimmed) {
+            toast.error("Floor plan name cannot be empty");
+            return;
+        }
+        const currentList = tourDefaults.floorplan_names || [];
+        const isDuplicate = currentList.some((name, i) => i !== index && name.toLowerCase() === trimmed.toLowerCase());
+        if (isDuplicate) {
+            toast.error("A floorplan with this name already exists");
+            return;
+        }
+        const updatedList = [...currentList];
+        updatedList[index] = trimmed;
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: updatedList,
+            is_custom_floorplans: true,
+        }));
+        setEditingFloorplanIndex(null);
+        setEditingFloorplanValue("");
+        toast.success(`Updated floor plan name to "${trimmed}"`);
+    };
+
+    const handleFloorplanDragStart = (index: number) => {
+        dragFloorplanRowIndex.current = index;
+    };
+
+    const handleFloorplanDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (dragOverFloorplanIndex !== index) {
+            setDragOverFloorplanIndex(index);
+        }
+    };
+
+    const handleFloorplanDrop = (dropIndex: number) => {
+        const fromIndex = dragFloorplanRowIndex.current;
+        if (fromIndex === null || fromIndex === dropIndex) {
+            setDragOverFloorplanIndex(null);
+            dragFloorplanRowIndex.current = null;
+            return;
+        }
+        const currentList = [...(tourDefaults.floorplan_names || [])];
+        const [moved] = currentList.splice(fromIndex, 1);
+        currentList.splice(dropIndex, 0, moved);
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: currentList,
+            is_custom_floorplans: true,
+        }));
+        setDragOverFloorplanIndex(null);
+        dragFloorplanRowIndex.current = null;
+    };
+
+    const handleFloorplanDragEnd = () => {
+        setDragOverFloorplanIndex(null);
+        dragFloorplanRowIndex.current = null;
+    };
+
+    const handleResetFloorplanNames = () => {
+        const defaultNames = tourDefaults.global_floorplan_names && tourDefaults.global_floorplan_names.length > 0
+            ? tourDefaults.global_floorplan_names
+            : DEFAULT_FLOORPLAN_NAMES;
+        setTourDefaults(prev => ({
+            ...prev,
+            floorplan_names: defaultNames,
+            is_custom_floorplans: false,
+        }));
+        toast.success("Reset floorplan names to platform defaults. Click Save to apply.");
+    };
+
     const handleSaveMediaSettings = async () => {
         const token = localStorage.getItem('token');
 
@@ -268,7 +425,7 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
         <div className="w-full">
             <Accordion
                 type="multiple"
-                defaultValue={["tour", "defaults", "size"]}
+                defaultValue={["tour", "defaults", "floorplans", "size"]}
                 className="w-full space-y-4 "
             >
 
@@ -664,6 +821,224 @@ const GlobalTourSetting = React.forwardRef<{ save: () => Promise<void> }, object
                                         </div>
                                     )}
 
+                                </div>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="floorplans" className="border-none">
+                    <AccordionTrigger
+                        className={`px-[14px] py-[19px] border-t-[1px] border-b-[1px] border-[#BBBBBB] h-[60px] bg-[#E4E4E4] ${userType}-text text-[18px] font-[600] ${userType === "admin"
+                            ? "[&>svg]:text-[#4290E9]"
+                            : "[&>svg]:text-[#6BAE41]"
+                            } [&>svg]:w-6 [&>svg]:h-6 [&>svg]:stroke-[2] [&>svg]:stroke-current`}
+                    >
+                        <div className="flex items-center justify-between w-full">
+                            <p>FLOORPLANS</p>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="w-full pb-6 font-alexandria">
+                        <div className="p-6 space-y-6">
+                            {/* Header row */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-[16px] font-[600] text-gray-800">Default Floorplan Names</h3>
+                                        {tourDefaults.is_custom_floorplans ? (
+                                            <Badge variant="outline" className="border-blue-400 text-blue-600 bg-blue-50 text-[12px] font-medium px-2.5 py-0.5 rounded-full">
+                                                Organization Custom Names
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="border-gray-300 text-gray-600 bg-gray-50 text-[12px] font-medium px-2.5 py-0.5 rounded-full">
+                                                Using Platform Defaults
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <p className="text-[13px] text-gray-500">
+                                        Configure the default names for floorplans uploaded to orders in your organization. These options will appear as suggestions in dropdowns during upload and file renaming, while still allowing custom names.
+                                    </p>
+                                </div>
+                                {tourDefaults.is_custom_floorplans && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleResetFloorplanNames}
+                                        className="text-xs h-9 px-3 text-gray-700 hover:text-gray-900 border-gray-300 hover:bg-gray-100 flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Reset to Platform Defaults
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Add new floorplan name bar */}
+                            <div className="bg-[#F8F9FA] p-4 rounded-[8px] border border-[#E0E0E0]">
+                                <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">
+                                    Add New Floorplan Name
+                                </Label>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter floor plan name (e.g., Main Floor, Upper Level, Basement Suite)"
+                                        value={newFloorplanName}
+                                        onChange={(e) => setNewFloorplanName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddFloorplanName();
+                                            }
+                                        }}
+                                        className="h-[42px] flex-1 bg-white border-[#BBBBBB] text-sm focus:border-[#4290E9]"
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={handleAddFloorplanName}
+                                        className={`h-[42px] px-6 ${userType === 'admin' ? 'bg-[#4290E9] hover:bg-[#327acc]' : 'bg-[#6BAE41] hover:bg-[#5a9636]'} text-white text-sm font-medium flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-xs`}
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add Name
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Full-width list showing complete names without truncation */}
+                            <div className="border border-[#E0E0E0] rounded-[8px] overflow-hidden bg-white shadow-xs">
+                                <div className="bg-[#F2F4F7] px-5 py-3 border-b border-[#E0E0E0] flex items-center justify-between text-xs font-semibold text-[#555555] uppercase tracking-wider">
+                                    <div className="flex items-center gap-4">
+                                        <span className="w-6"></span>
+                                        <span className="w-8 text-center">#</span>
+                                        <span>Floor Plan Name</span>
+                                    </div>
+                                    <div className="pr-4">Actions</div>
+                                </div>
+
+                                <div className="divide-y divide-[#EEEEEE]">
+                                    {(!tourDefaults.floorplan_names || tourDefaults.floorplan_names.length === 0) ? (
+                                        <div className="p-8 text-center text-sm text-gray-400">
+                                            No default floorplan names configured. Add one above.
+                                        </div>
+                                    ) : (
+                                        tourDefaults.floorplan_names.map((name, index) => (
+                                            <div
+                                                key={`${name}-${index}`}
+                                                draggable={editingFloorplanIndex === null}
+                                                onDragStart={() => handleFloorplanDragStart(index)}
+                                                onDragOver={(e) => handleFloorplanDragOver(e, index)}
+                                                onDrop={() => handleFloorplanDrop(index)}
+                                                onDragEnd={handleFloorplanDragEnd}
+                                                style={
+                                                    dragOverFloorplanIndex === index && dragFloorplanRowIndex.current !== index
+                                                        ? { borderTop: "2px solid #4290E9", background: "rgba(66,144,233,0.05)" }
+                                                        : {}
+                                                }
+                                                className="px-5 py-3.5 flex items-center justify-between hover:bg-gray-50/80 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-4 min-w-0 flex-1 pr-4">
+                                                    {/* 6-dot pan grab handle matching services screen */}
+                                                    <div
+                                                        className="flex items-center justify-center w-[24px] h-[24px] text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none shrink-0"
+                                                        title="Drag to reorder"
+                                                    >
+                                                        <svg
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 16 16"
+                                                            fill="currentColor"
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                        >
+                                                            <circle cx="5.5" cy="3" r="1.25" />
+                                                            <circle cx="10.5" cy="3" r="1.25" />
+                                                            <circle cx="5.5" cy="8" r="1.25" />
+                                                            <circle cx="10.5" cy="8" r="1.25" />
+                                                            <circle cx="5.5" cy="13" r="1.25" />
+                                                            <circle cx="10.5" cy="13" r="1.25" />
+                                                        </svg>
+                                                    </div>
+                                                    <span className="w-8 text-center text-xs font-semibold text-gray-400 shrink-0">
+                                                        {index + 1}
+                                                    </span>
+                                                    {editingFloorplanIndex === index ? (
+                                                        <div className="flex items-center gap-2 flex-1 max-w-md">
+                                                            <Input
+                                                                autoFocus
+                                                                value={editingFloorplanValue}
+                                                                onChange={(e) => setEditingFloorplanValue(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        handleSaveEditFloorplanName(index);
+                                                                    } else if (e.key === 'Escape') {
+                                                                        e.preventDefault();
+                                                                        handleCancelEditFloorplanName();
+                                                                    }
+                                                                }}
+                                                                className="h-[34px] text-sm bg-white border-[#4290E9] focus:border-[#4290E9]"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSaveEditFloorplanName(index)}
+                                                                className="p-1.5 rounded text-green-600 hover:text-green-700 hover:bg-green-50 cursor-pointer transition-colors"
+                                                                title="Save name"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleCancelEditFloorplanName}
+                                                                className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer transition-colors"
+                                                                title="Cancel edit"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm font-medium text-gray-900 break-words whitespace-normal leading-relaxed">
+                                                            {name}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {editingFloorplanIndex !== index && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleStartEditFloorplanName(index, name)}
+                                                            className="p-1.5 rounded text-gray-400 hover:text-[#4290E9] hover:bg-blue-50 cursor-pointer transition-colors"
+                                                            title="Edit floor plan name"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleMoveFloorplanName(index, 'up')}
+                                                        disabled={index === 0}
+                                                        className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                                        title="Move up"
+                                                    >
+                                                        <ChevronUp className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleMoveFloorplanName(index, 'down')}
+                                                        disabled={index === (tourDefaults.floorplan_names || []).length - 1}
+                                                        className="p-1.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                                        title="Move down"
+                                                    >
+                                                        <ChevronDown className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFloorplanName(index)}
+                                                        className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer ml-1 transition-colors"
+                                                        title="Delete floorplan name"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         </div>

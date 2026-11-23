@@ -711,13 +711,6 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         if (isTarget) {
           const finalSubtype = file.subtype === newSubtype ? null : newSubtype;
           return { ...file, subtype: finalSubtype };
-        } else if (newSubtype) {
-          if (
-            (newSubtype === 'branded_floorplan' && (file.subtype === 'branded_floorplan' || file.subtype === 'branded')) ||
-            (newSubtype === 'unbranded_floorplan' && (file.subtype === 'unbranded_floorplan' || file.subtype === 'unbranded'))
-          ) {
-            return { ...file, subtype: null };
-          }
         }
         return file;
       });
@@ -731,13 +724,6 @@ export const FileManagerProvider = ({ children }: { children: ReactNode }) => {
         if (isTarget) {
           const finalSubtype = f.subtype === newSubtype ? null : newSubtype;
           return { ...f, subtype: finalSubtype };
-        } else if (newSubtype) {
-          if (
-            (newSubtype === 'branded_floorplan' && (f.subtype === 'branded_floorplan' || f.subtype === 'branded')) ||
-            (newSubtype === 'unbranded_floorplan' && (f.subtype === 'unbranded_floorplan' || f.subtype === 'unbranded'))
-          ) {
-            return { ...f, subtype: null };
-          }
         }
         return f;
       });

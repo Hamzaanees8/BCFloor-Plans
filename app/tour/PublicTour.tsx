@@ -274,15 +274,15 @@ const PublicTour = () => {
       const brandedFiles = sorted.filter(
         (f) => f.subtype === "branded_floorplan" || f.subtype === "branded"
       );
-      if (brandedFiles.length > 0) return brandedFiles;
+      if (brandedFiles.length > 0) return [brandedFiles[0]];
     } else {
       const unbrandedFiles = sorted.filter(
         (f) => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded"
       );
-      if (unbrandedFiles.length > 0) return unbrandedFiles;
+      if (unbrandedFiles.length > 0) return [unbrandedFiles[0]];
     }
 
-    return sorted;
+    return sorted.length > 0 ? [sorted[0]] : [];
   }, [orderData, isPreview, isBranded]);
   const matterportLinks = useMemo(() => {
     const rawLinks = orderData?.tours?.[0]?.links || [];

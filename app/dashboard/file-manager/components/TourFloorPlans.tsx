@@ -7,7 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CameraIcon } from "@/components/Icons";
-import { X, ChevronLeft, ChevronRight, RotateCcw, ZoomIn, ZoomOut, FileText } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  FileText,
+  Info,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { DeleteSnapshot, GetFilesData } from "../file-manager";
 import { useGlobalFileUpload } from "@/context/GlobalFileUploadContext";
@@ -37,6 +47,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     filesData,
     setFilesData,
     floorFiles,
+    setFloorFiles,
     deletedSnapshotUuids,
     setDeletedSnapshotUuids,
     delay,
@@ -49,7 +60,11 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     setFloorPlanSubtype,
   } = useFileManagerContext();
 
-  const allSourceFiles = filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || [];
+  const allSourceFiles =
+    filesData?.files ||
+    orderData?.tours?.[0]?.files ||
+    (orderData as any)?.files ||
+    [];
 
   const currentTourFloorFiles = [
     ...(allSourceFiles?.filter((file: any) => {
@@ -79,13 +94,169 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   }
 
   filteredFloorFiles = filteredFloorFiles.sort((a, b) => {
-    const orderA = (a as any).sort_order !== undefined && (a as any).sort_order !== null ? Number((a as any).sort_order) : 999999;
-    const orderB = (b as any).sort_order !== undefined && (b as any).sort_order !== null ? Number((b as any).sort_order) : 999999;
+    const orderA =
+      (a as any).sort_order !== undefined && (a as any).sort_order !== null
+        ? Number((a as any).sort_order)
+        : 999999;
+    const orderB =
+      (b as any).sort_order !== undefined && (b as any).sort_order !== null
+        ? Number((b as any).sort_order)
+        : 999999;
     if (orderA !== orderB) return orderA - orderB;
-    const dateA = (a as any).created_at ? new Date((a as any).created_at).getTime() : 0;
-    const dateB = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
+    const dateA = (a as any).created_at
+      ? new Date((a as any).created_at).getTime()
+      : 0;
+    const dateB = (b as any).created_at
+      ? new Date((b as any).created_at).getTime()
+      : 0;
     return dateA - dateB;
   });
+
+  const { brandedRankMap, unbrandedRankMap } = React.useMemo(() => {
+    const bMap = new Map<string, number>();
+    const uMap = new Map<string, number>();
+    let bCount = 0;
+    let uCount = 0;
+    filteredFloorFiles.forEach((file: any) => {
+      const targetId =
+        "uuid" in file ? file.uuid : file.name || file.file?.name || "";
+      const isB =
+        file.subtype === "branded_floorplan" || file.subtype === "branded";
+      const isU =
+        file.subtype === "unbranded_floorplan" || file.subtype === "unbranded";
+      if (isB) {
+        bCount++;
+        bMap.set(targetId, bCount);
+      } else if (isU) {
+        uCount++;
+        uMap.set(targetId, uCount);
+      }
+    });
+    return { brandedRankMap: bMap, unbrandedRankMap: uMap };
+  }, [filteredFloorFiles]);
+
+  const [draggedFloorIndex, setDraggedFloorIndex] = useState<number | null>(
+    null,
+  );
+  const [isSavingFloorOrder, setIsSavingFloorOrder] = useState(false);
+
+  const handleReorderFloorFiles = async (
+    fromIndex: number,
+    toIndex: number,
+  ) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      !filteredFloorFiles ||
+      toIndex >= filteredFloorFiles.length
+    )
+      return;
+
+    const reordered = [...filteredFloorFiles];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+
+    const newlyChangedFiles: any[] = [];
+    const changedSortMap = new Map<string, number>();
+
+    reordered.forEach((file: any, index: number) => {
+      const newOrder = index + 1;
+      const targetId =
+        "uuid" in file ? file.uuid : file.name || file.file?.name;
+      changedSortMap.set(targetId, newOrder);
+
+      if ("uuid" in file && file.sort_order !== newOrder) {
+        newlyChangedFiles.push({
+          ...file,
+          sort_order: newOrder,
+        });
+      }
+    });
+
+    setFloorFiles((prev: any[]) =>
+      prev.map((f: any) => {
+        const id = f.uuid || (f.file && f.file.name) || f.name;
+        const newOrder = changedSortMap.get(id);
+        if (newOrder !== undefined) {
+          return { ...f, sort_order: newOrder };
+        }
+        return f;
+      }),
+    );
+
+    if (filesData && filesData.files) {
+      setFilesData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          files: prev.files.map((f: any) => {
+            const newOrder = changedSortMap.get(f.uuid);
+            if (newOrder !== undefined) {
+              return { ...f, sort_order: newOrder };
+            }
+            return f;
+          }),
+        };
+      });
+    }
+
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const targetOrderUuid = orderData?.uuid || filesData?.order_id;
+    if (
+      token &&
+      targetOrderUuid &&
+      filesData?.uuid &&
+      newlyChangedFiles.length > 0
+    ) {
+      setIsSavingFloorOrder(true);
+      try {
+        const activeSnapshots = [
+          ...(filesData?.snapshots || [])
+            .filter((snap: any) => !deletedSnapshotUuids.has(snap.uuid))
+            .map((snap: any) => ({
+              uuid: snap.uuid,
+              x: Number(snap.x_axis),
+              y: Number(snap.y_axis),
+              floorImageUrl: snap.file_name,
+              isApi: true,
+              name: snap.name ?? undefined,
+              description: snap.description ?? undefined,
+              file_path: snap.file_path,
+              url: snap.url,
+              thumbnail_url: snap.thumbnail_url,
+              variant_urls: snap.variant_urls,
+            })),
+          ...droppedMarkers,
+        ];
+
+        await startUpload({
+          token,
+          orderUuid: targetOrderUuid,
+          filesDataUuid: filesData.uuid,
+          files: [],
+          links: (filesData as any)?.links || [],
+          droppedMarkers: activeSnapshots,
+          delay,
+          transition,
+          selectedAudioTrack: selectedAudioTrack || "none",
+          changedFiles: newlyChangedFiles,
+          isUpdate: true,
+          successMessage: "Floor plan order saved successfully.",
+          heroType,
+          heroVideoUuid,
+          panAdjust,
+        });
+        toast.success("Floor plans reordered successfully");
+      } catch (err) {
+        console.error("Failed to save floor plan order:", err);
+        toast.error("Failed to save floor plan order");
+      } finally {
+        setIsSavingFloorOrder(false);
+      }
+    }
+  };
 
   const usedSnapshotKeys = React.useMemo(() => {
     const keys = new Set<string>();
@@ -205,7 +376,7 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     if (!selectedImageId && filteredFloorFiles?.length > 0) {
       const firstFile = filteredFloorFiles[0];
       setSelectedImageId(
-        "uuid" in firstFile ? firstFile.name : (firstFile as any).file.name
+        "uuid" in firstFile ? firstFile.name : (firstFile as any).file.name,
       );
     }
   }, [filteredFloorFiles, selectedImageId]);
@@ -329,7 +500,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           setSnapshotFile(null);
           setSnapshotName(found.name || "");
           setSnapshotDescription(found.description || "");
-          setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+          setTempMarkerPos({
+            x: Number(found.x_axis),
+            y: Number(found.y_axis),
+          });
           setPreviewMarker({
             x: Number(found.x_axis),
             y: Number(found.y_axis),
@@ -394,25 +568,41 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           currentFile.subtype === "unbranded_floorplan" ||
           currentFile.subtype === "unbranded";
 
-        const counterpart = filteredFloorFiles?.find((f: any) => {
-          if (isBranded) {
-            return (
-              f.subtype === "unbranded_floorplan" ||
-              f.subtype === "unbranded"
-            );
+        const brandedList = filteredFloorFiles.filter(
+          (f: any) =>
+            f.subtype === "branded_floorplan" || f.subtype === "branded",
+        );
+        const unbrandedList = filteredFloorFiles.filter(
+          (f: any) =>
+            f.subtype === "unbranded_floorplan" || f.subtype === "unbranded",
+        );
+
+        let counterpart: any = null;
+        if (isBranded) {
+          const indexInBranded = brandedList.findIndex(
+            (f: any) => f === currentFile,
+          );
+          if (indexInBranded >= 0 && indexInBranded < unbrandedList.length) {
+            counterpart = unbrandedList[indexInBranded];
+          } else if (unbrandedList.length === 1) {
+            counterpart = unbrandedList[0];
           }
-          if (isUnbranded) {
-            return (
-              f.subtype === "branded_floorplan" ||
-              f.subtype === "branded"
-            );
+        } else if (isUnbranded) {
+          const indexInUnbranded = unbrandedList.findIndex(
+            (f: any) => f === currentFile,
+          );
+          if (indexInUnbranded >= 0 && indexInUnbranded < brandedList.length) {
+            counterpart = brandedList[indexInUnbranded];
+          } else if (brandedList.length === 1) {
+            counterpart = brandedList[0];
           }
-          return false;
-        });
+        }
 
         if (
           counterpart &&
-          normalizeName("uuid" in counterpart ? counterpart.name : counterpart.file.name) === normSnap
+          normalizeName(
+            "uuid" in counterpart ? counterpart.name : counterpart.file.name,
+          ) === normSnap
         ) {
           return true;
         }
@@ -432,24 +622,42 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       !deletedSnapshotUuids.has(snap.uuid),
   );
 
-  const allSnapshots = React.useMemo(() => [...localSnapshots, ...apiSnapshots], [localSnapshots, apiSnapshots]);
+  const allSnapshots = React.useMemo(
+    () => [...localSnapshots, ...apiSnapshots],
+    [localSnapshots, apiSnapshots],
+  );
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const [fullscreenSnapshot, setFullscreenSnapshot] = useState<any | null>(null);
-  const [fullscreenSnapshotIndex, setFullscreenSnapshotIndex] = useState<number>(0);
+  const [fullscreenSnapshot, setFullscreenSnapshot] = useState<any | null>(
+    null,
+  );
+  const [fullscreenSnapshotIndex, setFullscreenSnapshotIndex] =
+    useState<number>(0);
   const [lightboxZoom, setLightboxZoom] = useState<number>(1);
-  const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
   const [isLightboxDragging, setIsLightboxDragging] = useState<boolean>(false);
-  const [lightboxDragStart, setLightboxDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [lightboxDragStart, setLightboxDragStart] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
 
   const openFullscreenSnapshot = (snap: any, index?: number) => {
     if (!snap) return;
-    const foundIdx = index !== undefined && index >= 0
-      ? index
-      : allSnapshots.findIndex(s => s === snap || (s.file_path && s.file_path === snap.file_path) || (s.uuid && s.uuid === snap.uuid));
+    const foundIdx =
+      index !== undefined && index >= 0
+        ? index
+        : allSnapshots.findIndex(
+            (s) =>
+              s === snap ||
+              (s.file_path && s.file_path === snap.file_path) ||
+              (s.uuid && s.uuid === snap.uuid),
+          );
     setFullscreenSnapshot(snap);
     setFullscreenSnapshotIndex(foundIdx >= 0 ? foundIdx : 0);
     setLightboxZoom(1);
@@ -473,7 +681,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handlePrevSnapshot = useCallback(() => {
     if (allSnapshots.length === 0) return;
-    const prevIdx = (fullscreenSnapshotIndex - 1 + allSnapshots.length) % allSnapshots.length;
+    const prevIdx =
+      (fullscreenSnapshotIndex - 1 + allSnapshots.length) % allSnapshots.length;
     setFullscreenSnapshotIndex(prevIdx);
     setFullscreenSnapshot(allSnapshots[prevIdx]);
     setLightboxZoom(1);
@@ -494,7 +703,12 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [fullscreenSnapshot, closeFullscreenSnapshot, handleNextSnapshot, handlePrevSnapshot]);
+  }, [
+    fullscreenSnapshot,
+    closeFullscreenSnapshot,
+    handleNextSnapshot,
+    handlePrevSnapshot,
+  ]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -583,7 +797,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           setSnapshotFile(null);
           setSnapshotName(found.name || "");
           setSnapshotDescription(found.description || "");
-          setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+          setTempMarkerPos({
+            x: Number(found.x_axis),
+            y: Number(found.y_axis),
+          });
           setPreviewMarker({
             x: Number(found.x_axis),
             y: Number(found.y_axis),
@@ -604,7 +821,11 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
   const updateSnapshotImage = async (activeFile: any) => {
     if (!activeFile) return;
 
-    if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) {
+    if (
+      activeMarkerIndex === null &&
+      !activeApiSnapshotUuid &&
+      !previewMarker
+    ) {
       toast.error("Please select a snapshot marker first to update its image");
       return;
     }
@@ -668,7 +889,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                 y: targetPosY,
                 floorImageUrl: snap.file_name ?? selectedImageId ?? "",
                 name: snapshotName || snap.name || undefined,
-                description: snapshotDescription || snap.description || undefined,
+                description:
+                  snapshotDescription || snap.description || undefined,
                 ...filePayload,
               };
             }
@@ -688,7 +910,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           }),
         ...droppedMarkers,
       ];
-    } else if (activeMarkerIndex !== null && droppedMarkers[activeMarkerIndex]) {
+    } else if (
+      activeMarkerIndex !== null &&
+      droppedMarkers[activeMarkerIndex]
+    ) {
       const updatedMarkers = droppedMarkers.map((m, idx) => {
         if (idx === activeMarkerIndex) {
           return {
@@ -734,7 +959,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         const token = localStorage.getItem("token");
         const orderUuid =
           orderData?.uuid ||
-          ((filesData as any)?.tour_id ? String((filesData as any).tour_id) : "");
+          ((filesData as any)?.tour_id
+            ? String((filesData as any).tour_id)
+            : "");
         if (token && orderUuid) {
           const fresh = await GetFilesData(token, orderUuid);
           const freshSnapshots = fresh?.data?.[0]?.snapshots || [];
@@ -758,7 +985,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
             setSnapshotFile(null);
             setSnapshotName(found.name || "");
             setSnapshotDescription(found.description || "");
-            setTempMarkerPos({ x: Number(found.x_axis), y: Number(found.y_axis) });
+            setTempMarkerPos({
+              x: Number(found.x_axis),
+              y: Number(found.y_axis),
+            });
             setPreviewMarker({
               x: Number(found.x_axis),
               y: Number(found.y_axis),
@@ -779,7 +1009,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
 
   const handlePhotoClick = async (file: any) => {
     // Only handle replacement if a snapshot is currently selected for editing
-    if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker) return;
+    if (activeMarkerIndex === null && !activeApiSnapshotUuid && !previewMarker)
+      return;
 
     const fileObj = !("uuid" in file)
       ? {
@@ -809,7 +1040,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
     await updateSnapshotImage(fileObj);
   };
 
-  const handleSnapshotImageDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleSnapshotImageDrop = async (
+    e: React.DragEvent<HTMLDivElement>,
+  ) => {
     e.preventDefault();
     const activeFile = draggedFileRef.current || draggedFile;
     if (!activeFile) return;
@@ -930,7 +1163,8 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         changedFiles: [],
         isUpdate: true,
         showToast: options?.showToast ?? false,
-        successMessage: options?.successToastMsg || "Snapshots saved successfully.",
+        successMessage:
+          options?.successToastMsg || "Snapshots saved successfully.",
         heroType,
         heroVideoUuid,
         panAdjust,
@@ -1006,7 +1240,10 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
       newMarker.uuid = activeApiSnapshotUuid;
       currentDeletedUuids.add(activeApiSnapshotUuid);
       updatedDroppedMarkers.push(newMarker);
-    } else if (activeMarkerIndex !== null && updatedDroppedMarkers[activeMarkerIndex]) {
+    } else if (
+      activeMarkerIndex !== null &&
+      updatedDroppedMarkers[activeMarkerIndex]
+    ) {
       updatedDroppedMarkers[activeMarkerIndex] = {
         ...updatedDroppedMarkers[activeMarkerIndex],
         ...newMarker,
@@ -1079,7 +1316,9 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
         return;
       }
     } else if (activeMarkerIndex !== null) {
-      const updatedMarkers = droppedMarkers.filter((_, i) => i !== activeMarkerIndex);
+      const updatedMarkers = droppedMarkers.filter(
+        (_, i) => i !== activeMarkerIndex,
+      );
       const activeSnapshots = [
         ...(filesData?.snapshots || [])
           .filter((snap) => !deletedSnapshotUuids.has(snap.uuid))
@@ -1410,11 +1649,11 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                 Quick Guide: How to Attach Snapshots
               </span>
               <p className="text-[13.5px] leading-relaxed">
-                Drag and drop any photo from the <strong>Photos</strong>{" "}
-                gallery below onto the desired position on the floor plan
-                image to attach it as a snapshot. Alternatively, you can{" "}
-                <strong>double-click or tap</strong> anywhere on the floor
-                plan to select a photo directly.
+                Drag and drop any photo from the <strong>Photos</strong> gallery
+                below onto the desired position on the floor plan image to
+                attach it as a snapshot. Alternatively, you can{" "}
+                <strong>double-click or tap</strong> anywhere on the floor plan
+                to select a photo directly.
               </p>
             </div>
           </div>
@@ -1425,532 +1664,656 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
           <div
             className={`relative w-full ${type === "confirm" ? "md:w-full" : "md:w-[70%]"} border border-gray-200 h-[300px] sm:h-full bg-white overflow-hidden flex items-center justify-center ${type === "confirm" ? "m-auto" : ""}`}
           >
-              {selectedFile &&
-              "uuid" in selectedFile &&
-              selectedFile.is_processing ? (
-                <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                  <p className="text-gray-500 font-medium text-sm">
-                    Processing...
-                  </p>
-                </div>
-              ) : userType === "agent" &&
-                !orderData?.release_media_before_payment &&
-                !(orderData?.payment_status === "PAID") &&
-                !(selectedFile && "is_paid" in selectedFile && (selectedFile as any).is_paid) &&
-                !(
-                  selectedFile &&
-                  "is_complimentary" in selectedFile &&
-                  selectedFile.is_complimentary
-                ) &&
-                !(orderData?.services?.some((s: any) =>
-                  (s.service?.name?.toLowerCase().includes("floor plan") || s.service?.name?.toLowerCase().includes("floorplan")) &&
-                  (s.payment_status === "PAID" || (s as any)?.media_access === true || (s.service as any)?.media_access === true)
-                )) ? (
-                <PdfPlaceholder
-                  className="w-full h-full"
-                  isRestricted={true}
-                  message="Floor plan preview is protected until payment is completed"
-                />
-              ) : isSelectedFilePDF && selectedFile ? (
-                (() => {
-                  if (!("uuid" in selectedFile)) {
-                    return (
-                      <iframe
-                        src={URL.createObjectURL((selectedFile as any).file)}
-                        className="w-full h-full border-0"
-                        title="Floor Plan PDF"
-                      />
-                    );
-                  }
-                  const pdfUrl =
-                    (selectedFile.thumbnail_url && typeof selectedFile.thumbnail_url === "string" && selectedFile.thumbnail_url.trim()) ||
-                    (selectedFile.variant_urls && typeof selectedFile.variant_urls === "object" && !Array.isArray(selectedFile.variant_urls) && (selectedFile.variant_urls.popup || selectedFile.variant_urls.thumb || selectedFile.variant_urls.landing || selectedFile.variant_urls.slider || selectedFile.variant_urls.print)) ||
-                    (selectedFile.url && typeof selectedFile.url === "string" && selectedFile.url.trim()) ||
-                    (selectedFile.file_path && typeof selectedFile.file_path === "string" && selectedFile.file_path.trim() ? (selectedFile.file_path.startsWith("http") ? selectedFile.file_path : `${API_URL}/${selectedFile.file_path}`) : null);
-
-                  if (!pdfUrl) {
-                    return (
-                      <div className="flex flex-col items-center justify-center w-full h-full p-6 text-center bg-gray-50">
-                        <div className="bg-red-50 rounded-full p-4 mb-3">
-                          <FileText className="w-10 h-10 text-red-500" />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700 max-w-[80%] truncate block">
-                          {selectedFile.name || "PDF Floor Plan"}
-                        </span>
-                        <span className="inline-block mt-2 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                          URL Missing
-                        </span>
-                      </div>
-                    );
-                  }
-
+            {selectedFile &&
+            "uuid" in selectedFile &&
+            selectedFile.is_processing ? (
+              <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                <p className="text-gray-500 font-medium text-sm">
+                  Processing...
+                </p>
+              </div>
+            ) : userType === "agent" &&
+              !orderData?.release_media_before_payment &&
+              !(orderData?.payment_status === "PAID") &&
+              !(
+                selectedFile &&
+                "is_paid" in selectedFile &&
+                (selectedFile as any).is_paid
+              ) &&
+              !(
+                selectedFile &&
+                "is_complimentary" in selectedFile &&
+                selectedFile.is_complimentary
+              ) &&
+              !orderData?.services?.some(
+                (s: any) =>
+                  (s.service?.name?.toLowerCase().includes("floor plan") ||
+                    s.service?.name?.toLowerCase().includes("floorplan")) &&
+                  (s.payment_status === "PAID" ||
+                    (s as any)?.media_access === true ||
+                    (s.service as any)?.media_access === true),
+              ) ? (
+              <PdfPlaceholder
+                className="w-full h-full"
+                isRestricted={true}
+                message="Floor plan preview is protected until payment is completed"
+              />
+            ) : isSelectedFilePDF && selectedFile ? (
+              (() => {
+                if (!("uuid" in selectedFile)) {
                   return (
                     <iframe
-                      src={`${pdfUrl}#toolbar=0`}
+                      src={URL.createObjectURL((selectedFile as any).file)}
                       className="w-full h-full border-0"
                       title="Floor Plan PDF"
                     />
                   );
-                })()
-              ) : (
-                <div
-                  ref={imageContainerRef}
-                  onDrop={handleDrop}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "copy";
-                  }}
-                  className="relative inline-block max-w-full max-h-full select-none"
-                >
-                  {selectedFile && !("uuid" in selectedFile) ? (
-                    <OptimizedImagePreview
-                      file={(selectedFile as any).file}
-                      width={1200}
-                      height={1200}
-                      draggable={false}
-                      ref={imgRef as any}
-                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
-                      onDoubleClick={type === "confirm" ? undefined : handleImageDoubleClick}
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      draggable={false}
-                      ref={imgRef}
-                      src={
-                        selectedFile
-                          ? "uuid" in selectedFile
-                            ? selectedFile.variant_urls?.popup ||
-                              selectedFile.variant_urls?.landing ||
-                              selectedFile.url ||
-                              (selectedFile.file_path
-                                ? `${API_URL}/${selectedFile.file_path}`
-                                : "")
-                            : URL.createObjectURL((selectedFile as any).file)
-                          : ""
-                      }
-                      alt="Selected Floor"
-                      className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
-                      onDoubleClick={type === "confirm" ? undefined : handleImageDoubleClick}
-                    />
-                  )}
-                  {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
-                    const isApiSnapshot = "x_axis" in marker;
-                    const rawX = Number(isApiSnapshot ? marker.x_axis : marker.x);
-                    const rawY = Number(isApiSnapshot ? marker.y_axis : marker.y);
-                    const posX = isNaN(rawX) ? 50 : Math.max(0, Math.min(100, rawX));
-                    const posY = isNaN(rawY) ? 50 : Math.max(0, Math.min(100, rawY));
+                }
+                const pdfUrl =
+                  (selectedFile.thumbnail_url &&
+                    typeof selectedFile.thumbnail_url === "string" &&
+                    selectedFile.thumbnail_url.trim()) ||
+                  (selectedFile.variant_urls &&
+                    typeof selectedFile.variant_urls === "object" &&
+                    !Array.isArray(selectedFile.variant_urls) &&
+                    (selectedFile.variant_urls.popup ||
+                      selectedFile.variant_urls.thumb ||
+                      selectedFile.variant_urls.landing ||
+                      selectedFile.variant_urls.slider ||
+                      selectedFile.variant_urls.print)) ||
+                  (selectedFile.url &&
+                    typeof selectedFile.url === "string" &&
+                    selectedFile.url.trim()) ||
+                  (selectedFile.file_path &&
+                  typeof selectedFile.file_path === "string" &&
+                  selectedFile.file_path.trim()
+                    ? selectedFile.file_path.startsWith("http")
+                      ? selectedFile.file_path
+                      : `${API_URL}/${selectedFile.file_path}`
+                    : null);
 
-                    const markerKey = isApiSnapshot
-                      ? marker.uuid
-                      : `local-${droppedMarkers.indexOf(marker)}`;
-                    const isDraggingThis =
-                      draggingMarker !== null && draggingMarker.key === markerKey;
-                    const displayX = isDraggingThis ? draggingMarker.currentX : posX;
-                    const displayY = isDraggingThis ? draggingMarker.currentY : posY;
-
-                    const isSelected =
-                      type !== "confirm" &&
-                      (isApiSnapshot
-                        ? activeApiSnapshotUuid === marker.uuid
-                        : activeMarkerIndex !== null &&
-                          droppedMarkers[activeMarkerIndex] === marker);
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`absolute select-none z-10 ${
-                          type === "confirm"
-                            ? "cursor-pointer hover:scale-110 transition-all duration-150"
-                            : isDraggingThis
-                              ? "cursor-grabbing scale-125 z-30 transition-none drop-shadow-[0_0_12px_rgba(66,144,233,1)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
-                              : isSelected
-                                ? "cursor-grab scale-125 z-20 transition-all duration-150 drop-shadow-[0_0_8px_rgba(66,144,233,0.9)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
-                                : "cursor-grab hover:scale-110 transition-all duration-150"
-                        }`}
-                        style={{
-                          top: `${displayY}%`,
-                          left: `${displayX}%`,
-                          transform: "translate(-50%, -100%)",
-                          touchAction: type !== "confirm" ? "none" : "auto",
-                        }}
-                        onPointerDown={(e) =>
-                          handleMarkerPointerDown(
-                            e,
-                            marker,
-                            isApiSnapshot,
-                            posX,
-                            posY,
-                          )
-                        }
-                        onPointerMove={handleMarkerPointerMove}
-                        onPointerUp={(e) =>
-                          handleMarkerPointerUp(e, marker, isApiSnapshot)
-                        }
-                        onPointerCancel={handleMarkerPointerCancel}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (justDraggedRef.current) return;
-                          if (type === "confirm") {
-                            openFullscreenSnapshot(marker, idx);
-                            return;
-                          }
-
-                          if (isApiSnapshot) {
-                            setPreviewMarker({
-                              x: Number(marker.x_axis),
-                              y: Number(marker.y_axis),
-                              file_path: marker.file_path,
-                              url: marker.url,
-                              floorImageUrl: marker.file_name,
-                              name: marker.name ?? "",
-                              description: marker.description ?? "",
-                              isApi: true,
-                              thumbnail_url: marker.thumbnail_url,
-                              variant_urls: (marker as any).variant_urls,
-                            });
-
-                            setSnapshotFile(null);
-                            setSnapshotName(marker.name ?? "");
-                            setSnapshotDescription(marker.description ?? "");
-                            setTempMarkerPos({
-                              x: Number(marker.x_axis),
-                              y: Number(marker.y_axis),
-                            });
-                            setActiveMarkerIndex(null);
-                            setActiveApiSnapshotUuid(marker.uuid);
-                          } else {
-                            const originalIndex = droppedMarkers.findIndex(
-                              (m) => m === marker,
-                            );
-                            setActiveMarkerIndex(originalIndex);
-                            setActiveApiSnapshotUuid(null);
-                            setSnapshotFile(marker.file ?? null);
-                            setSnapshotName(marker.name ?? "");
-                            setSnapshotDescription(marker.description ?? "");
-                            setTempMarkerPos({ x: marker.x, y: marker.y });
-                            setPreviewMarker(marker);
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (type !== "confirm") return;
-                          if (hoverTimeoutRef.current) {
-                            clearTimeout(hoverTimeoutRef.current);
-                          }
-                          if (isApiSnapshot) {
-                            setPreviewMarker({
-                              x: Number(marker.x_axis),
-                              y: Number(marker.y_axis),
-                              file_path: marker.file_path,
-                              url: marker.url,
-                              floorImageUrl: marker.file_name,
-                              name: marker.name ?? "",
-                              description: marker.description ?? "",
-                              isApi: true,
-                              thumbnail_url: marker.thumbnail_url,
-                              variant_urls: (marker as any).variant_urls,
-                            });
-                          } else {
-                            setPreviewMarker(marker);
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          if (type !== "confirm") return;
-                          hoverTimeoutRef.current = setTimeout(() => {
-                            setPreviewMarker(null);
-                          }, 300);
-                        }}
-                      >
-                        <span className="pointer-events-none flex items-center justify-center">
-                          <CameraIcon width={20} height={20} />
-                        </span>
+                if (!pdfUrl) {
+                  return (
+                    <div className="flex flex-col items-center justify-center w-full h-full p-6 text-center bg-gray-50">
+                      <div className="bg-red-50 rounded-full p-4 mb-3">
+                        <FileText className="w-10 h-10 text-red-500" />
                       </div>
-                    );
-                  })}
+                      <span className="text-sm font-semibold text-gray-700 max-w-[80%] truncate block">
+                        {selectedFile.name || "PDF Floor Plan"}
+                      </span>
+                      <span className="inline-block mt-2 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        URL Missing
+                      </span>
+                    </div>
+                  );
+                }
 
-                  {previewMarker && type === "confirm" && (
+                return (
+                  <iframe
+                    src={`${pdfUrl}#toolbar=0`}
+                    className="w-full h-full border-0"
+                    title="Floor Plan PDF"
+                  />
+                );
+              })()
+            ) : (
+              <div
+                ref={imageContainerRef}
+                onDrop={handleDrop}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                className="relative inline-block max-w-full max-h-full select-none"
+              >
+                {selectedFile && !("uuid" in selectedFile) ? (
+                  <OptimizedImagePreview
+                    file={(selectedFile as any).file}
+                    width={1200}
+                    height={1200}
+                    draggable={false}
+                    ref={imgRef as any}
+                    className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
+                    onDoubleClick={
+                      type === "confirm" ? undefined : handleImageDoubleClick
+                    }
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    draggable={false}
+                    ref={imgRef}
+                    src={
+                      selectedFile
+                        ? "uuid" in selectedFile
+                          ? selectedFile.variant_urls?.popup ||
+                            selectedFile.variant_urls?.landing ||
+                            selectedFile.url ||
+                            (selectedFile.file_path
+                              ? `${API_URL}/${selectedFile.file_path}`
+                              : "")
+                          : URL.createObjectURL((selectedFile as any).file)
+                        : ""
+                    }
+                    alt="Selected Floor"
+                    className={`block max-h-[300px] sm:max-h-[550px] max-w-full w-auto h-auto object-contain select-none ${type === "confirm" ? "cursor-default" : "cursor-pointer"}`}
+                    onDoubleClick={
+                      type === "confirm" ? undefined : handleImageDoubleClick
+                    }
+                  />
+                )}
+                {[...localSnapshots, ...apiSnapshots].map((marker, idx) => {
+                  const isApiSnapshot = "x_axis" in marker;
+                  const rawX = Number(isApiSnapshot ? marker.x_axis : marker.x);
+                  const rawY = Number(isApiSnapshot ? marker.y_axis : marker.y);
+                  const posX = isNaN(rawX)
+                    ? 50
+                    : Math.max(0, Math.min(100, rawX));
+                  const posY = isNaN(rawY)
+                    ? 50
+                    : Math.max(0, Math.min(100, rawY));
+
+                  const markerKey = isApiSnapshot
+                    ? marker.uuid
+                    : `local-${droppedMarkers.indexOf(marker)}`;
+                  const isDraggingThis =
+                    draggingMarker !== null && draggingMarker.key === markerKey;
+                  const displayX = isDraggingThis
+                    ? draggingMarker.currentX
+                    : posX;
+                  const displayY = isDraggingThis
+                    ? draggingMarker.currentY
+                    : posY;
+
+                  const isSelected =
+                    type !== "confirm" &&
+                    (isApiSnapshot
+                      ? activeApiSnapshotUuid === marker.uuid
+                      : activeMarkerIndex !== null &&
+                        droppedMarkers[activeMarkerIndex] === marker);
+
+                  return (
                     <div
+                      key={idx}
+                      className={`absolute select-none z-10 ${
+                        type === "confirm"
+                          ? "cursor-pointer hover:scale-110 transition-all duration-150"
+                          : isDraggingThis
+                            ? "cursor-grabbing scale-125 z-30 transition-none drop-shadow-[0_0_12px_rgba(66,144,233,1)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
+                            : isSelected
+                              ? "cursor-grab scale-125 z-20 transition-all duration-150 drop-shadow-[0_0_8px_rgba(66,144,233,0.9)] ring-2 ring-[#4290E9] ring-offset-2 rounded-full"
+                              : "cursor-grab hover:scale-110 transition-all duration-150"
+                      }`}
+                      style={{
+                        top: `${displayY}%`,
+                        left: `${displayX}%`,
+                        transform: "translate(-50%, -100%)",
+                        touchAction: type !== "confirm" ? "none" : "auto",
+                      }}
+                      onPointerDown={(e) =>
+                        handleMarkerPointerDown(
+                          e,
+                          marker,
+                          isApiSnapshot,
+                          posX,
+                          posY,
+                        )
+                      }
+                      onPointerMove={handleMarkerPointerMove}
+                      onPointerUp={(e) =>
+                        handleMarkerPointerUp(e, marker, isApiSnapshot)
+                      }
+                      onPointerCancel={handleMarkerPointerCancel}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openFullscreenSnapshot(previewMarker);
+                        if (justDraggedRef.current) return;
+                        if (type === "confirm") {
+                          openFullscreenSnapshot(marker, idx);
+                          return;
+                        }
+
+                        if (isApiSnapshot) {
+                          setPreviewMarker({
+                            x: Number(marker.x_axis),
+                            y: Number(marker.y_axis),
+                            file_path: marker.file_path,
+                            url: marker.url,
+                            floorImageUrl: marker.file_name,
+                            name: marker.name ?? "",
+                            description: marker.description ?? "",
+                            isApi: true,
+                            thumbnail_url: marker.thumbnail_url,
+                            variant_urls: (marker as any).variant_urls,
+                          });
+
+                          setSnapshotFile(null);
+                          setSnapshotName(marker.name ?? "");
+                          setSnapshotDescription(marker.description ?? "");
+                          setTempMarkerPos({
+                            x: Number(marker.x_axis),
+                            y: Number(marker.y_axis),
+                          });
+                          setActiveMarkerIndex(null);
+                          setActiveApiSnapshotUuid(marker.uuid);
+                        } else {
+                          const originalIndex = droppedMarkers.findIndex(
+                            (m) => m === marker,
+                          );
+                          setActiveMarkerIndex(originalIndex);
+                          setActiveApiSnapshotUuid(null);
+                          setSnapshotFile(marker.file ?? null);
+                          setSnapshotName(marker.name ?? "");
+                          setSnapshotDescription(marker.description ?? "");
+                          setTempMarkerPos({ x: marker.x, y: marker.y });
+                          setPreviewMarker(marker);
+                        }
                       }}
-                      className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300 cursor-pointer"
-                      style={
-                        isMobile
-                          ? {
-                              bottom: "10px",
-                              left: "50%",
-                              transform: "translateX(-50%)",
-                            }
-                          : {
-                              top:
-                                previewMarker.y > 50
-                                  ? "auto"
-                                  : `calc(${previewMarker.y}% - 24px)`,
-                              bottom:
-                                previewMarker.y > 50
-                                  ? `calc(${100 - previewMarker.y}%)`
-                                  : "auto",
-                              left:
-                                previewMarker.x > 50
-                                  ? "auto"
-                                  : `calc(${previewMarker.x}% + 15px)`,
-                              right:
-                                previewMarker.x > 50
-                                  ? `calc(${100 - previewMarker.x}% + 15px)`
-                                  : "auto",
-                            }
-                      }
                       onMouseEnter={() => {
+                        if (type !== "confirm") return;
                         if (hoverTimeoutRef.current) {
                           clearTimeout(hoverTimeoutRef.current);
                         }
+                        if (isApiSnapshot) {
+                          setPreviewMarker({
+                            x: Number(marker.x_axis),
+                            y: Number(marker.y_axis),
+                            file_path: marker.file_path,
+                            url: marker.url,
+                            floorImageUrl: marker.file_name,
+                            name: marker.name ?? "",
+                            description: marker.description ?? "",
+                            isApi: true,
+                            thumbnail_url: marker.thumbnail_url,
+                            variant_urls: (marker as any).variant_urls,
+                          });
+                        } else {
+                          setPreviewMarker(marker);
+                        }
                       }}
                       onMouseLeave={() => {
+                        if (type !== "confirm") return;
                         hoverTimeoutRef.current = setTimeout(() => {
                           setPreviewMarker(null);
                         }, 300);
                       }}
                     >
-                      <button
-                        onClick={() => setPreviewMarker(null)}
-                        className="absolute top-4 right-4 text-black text-[20px] bg-white rounded-full z-10 p-[2px]"
-                      >
-                        <X className="w-[20px] h-[20px]" />
-                      </button>
-
-                      {previewMarker && (
-                        //eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={
-                            previewMarker.file
-                              ? URL.createObjectURL(previewMarker.file)
-                              : previewMarker.variant_urls?.popup ||
-                                previewMarker.variant_urls?.landing ||
-                                previewMarker.url ||
-                                (previewMarker.file_path
-                                  ? previewMarker.file_path.startsWith("http")
-                                    ? previewMarker.file_path
-                                    : `${API_URL}/${previewMarker.file_path}`
-                                  : "")
-                          }
-                          alt={previewMarker.name || "Snapshot"}
-                          className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
-                        />
-                      )}
-
-                      <div className="p-4 flex-1">
-                        <p className="text-[20px] font-[500] uppercase pb-2 break-words">
-                          {previewMarker?.name}
-                        </p>
-                        <p className="break-words">{previewMarker?.description}</p>
-                      </div>
+                      <span className="pointer-events-none flex items-center justify-center">
+                        <CameraIcon width={20} height={20} />
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  );
+                })}
 
-            {type !== "confirm" && (
-              <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
-                <div className="flex items-center justify-between mb-[20px]">
-                  <p className="text-[24px]">SnapShot</p>
-                  {(droppedMarkers.length > 0 ||
-                    deletedSnapshotUuids.size > 0) && (
-                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-                      Unsaved Changes
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-end gap-5">
+                {previewMarker && type === "confirm" && (
                   <div
-                    onDrop={handleSnapshotImageDrop}
-                    onDragOver={(e) => e.preventDefault()}
-                    className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openFullscreenSnapshot(previewMarker);
+                    }}
+                    className="bg-[#565656] text-white font-alexandria shadow-lg w-[90vw] max-w-[500px] min-w-[300px] h-auto absolute flex flex-col z-[100] rounded-lg overflow-hidden transition-all duration-300 cursor-pointer"
+                    style={
+                      isMobile
+                        ? {
+                            bottom: "10px",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                          }
+                        : {
+                            top:
+                              previewMarker.y > 50
+                                ? "auto"
+                                : `calc(${previewMarker.y}% - 24px)`,
+                            bottom:
+                              previewMarker.y > 50
+                                ? `calc(${100 - previewMarker.y}%)`
+                                : "auto",
+                            left:
+                              previewMarker.x > 50
+                                ? "auto"
+                                : `calc(${previewMarker.x}% + 15px)`,
+                            right:
+                              previewMarker.x > 50
+                                ? `calc(${100 - previewMarker.x}% + 15px)`
+                                : "auto",
+                          }
+                    }
+                    onMouseEnter={() => {
+                      if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      hoverTimeoutRef.current = setTimeout(() => {
+                        setPreviewMarker(null);
+                      }, 300);
+                    }}
                   >
-                    {snapshotFile ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={URL.createObjectURL(snapshotFile)}
-                        alt="Snapshot Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : previewMarker?.file ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={URL.createObjectURL(previewMarker.file)}
-                        alt="Snapshot Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : previewMarker ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                    <button
+                      onClick={() => setPreviewMarker(null)}
+                      className="absolute top-4 right-4 text-black text-[20px] bg-white rounded-full z-10 p-[2px]"
+                    >
+                      <X className="w-[20px] h-[20px]" />
+                    </button>
+
+                    {previewMarker && (
+                      //eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={
-                          previewMarker.variant_urls?.popup ||
-                          previewMarker.variant_urls?.landing ||
-                          previewMarker.variant_urls?.thumb ||
-                          previewMarker.url ||
-                          previewMarker.thumbnail_url ||
-                          (previewMarker.file_path
-                            ? previewMarker.file_path.startsWith("http")
-                              ? previewMarker.file_path
-                              : `${API_URL}/${previewMarker.file_path}`
-                            : "")
+                          previewMarker.file
+                            ? URL.createObjectURL(previewMarker.file)
+                            : previewMarker.variant_urls?.popup ||
+                              previewMarker.variant_urls?.landing ||
+                              previewMarker.url ||
+                              (previewMarker.file_path
+                                ? previewMarker.file_path.startsWith("http")
+                                  ? previewMarker.file_path
+                                  : `${API_URL}/${previewMarker.file_path}`
+                                : "")
                         }
-                        alt="Snapshot Preview"
-                        className="w-full h-full object-cover"
+                        alt={previewMarker.name || "Snapshot"}
+                        className="w-auto h-auto max-w-[calc(100%-24px)] max-h-[300px] object-contain mx-auto mt-3 rounded"
                       />
-                    ) : (
-                      <div className="text-gray-400 text-xs text-center">
-                        No snapshot selected
-                      </div>
                     )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <p className="text-white text-[10px] font-bold">
-                        Drop photo to update
+
+                    <div className="p-4 flex-1">
+                      <p className="text-[20px] font-[500] uppercase pb-2 break-words">
+                        {previewMarker?.name}
+                      </p>
+                      <p className="break-words">
+                        {previewMarker?.description}
                       </p>
                     </div>
                   </div>
-                </div>
-                <div className="mt-[20px]">
-                  <Label>Name</Label>
-                  <div className="relative w-full ">
-                    <Input
-                      value={snapshotName}
-                      onChange={(e) => setSnapshotName(e.target.value)}
-                      type="text"
-                      placeholder=""
-                      className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                )}
+              </div>
+            )}
+          </div>
+
+          {type !== "confirm" && (
+            <div className="w-[30%] p-4 text-[#666666] border border-gray-400 rounded-[6px]">
+              <div className="flex items-center justify-between mb-[20px]">
+                <p className="text-[24px]">SnapShot</p>
+                {(droppedMarkers.length > 0 ||
+                  deletedSnapshotUuids.size > 0) && (
+                  <span className="text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                    Unsaved Changes
+                  </span>
+                )}
+              </div>
+              <div className="flex items-end gap-5">
+                <div
+                  onDrop={handleSnapshotImageDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="mt-4 border p-2 rounded relative w-[200px] h-[150px] bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer group"
+                >
+                  {snapshotFile ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={URL.createObjectURL(snapshotFile)}
+                      alt="Snapshot Preview"
+                      className="w-full h-full object-cover"
                     />
+                  ) : previewMarker?.file ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={URL.createObjectURL(previewMarker.file)}
+                      alt="Snapshot Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : previewMarker ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={
+                        previewMarker.variant_urls?.popup ||
+                        previewMarker.variant_urls?.landing ||
+                        previewMarker.variant_urls?.thumb ||
+                        previewMarker.url ||
+                        previewMarker.thumbnail_url ||
+                        (previewMarker.file_path
+                          ? previewMarker.file_path.startsWith("http")
+                            ? previewMarker.file_path
+                            : `${API_URL}/${previewMarker.file_path}`
+                          : "")
+                      }
+                      alt="Snapshot Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-gray-400 text-xs text-center">
+                      No snapshot selected
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <p className="text-white text-[10px] font-bold">
+                      Drop photo to update
+                    </p>
                   </div>
                 </div>
-                <div className="mt-[20px]">
-                  <Label>Description</Label>
-                  <div className="relative w-full ">
-                    <Textarea
-                      value={snapshotDescription}
-                      onChange={(e) => setSnapshotDescription(e.target.value)}
-                      placeholder=""
-                      className="h-[100px] resize-none bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
-                    />
-                  </div>
+              </div>
+              <div className="mt-[20px]">
+                <Label>Name</Label>
+                <div className="relative w-full ">
+                  <Input
+                    value={snapshotName}
+                    onChange={(e) => setSnapshotName(e.target.value)}
+                    type="text"
+                    placeholder=""
+                    className="h-[42px] bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                  />
                 </div>
-                <div className="flex flex-wrap justify-end gap-3 mt-5 mb-2">
-                  <Button
-                    onClick={handleAddSnapshot}
-                    className="bg-[#4290E9] hover:bg-[#4898f3]"
-                  >
-                    {activeMarkerIndex !== null || activeApiSnapshotUuid
-                      ? "Update"
-                      : "Add"}
-                  </Button>
-                  <Button
-                    onClick={handleDeleteSnapshot}
-                    className="bg-[#E06D5E] hover:bg-[#f0796a]"
-                  >
-                    Delete Snapshot
-                  </Button>
-                  {/* <Button
+              </div>
+              <div className="mt-[20px]">
+                <Label>Description</Label>
+                <div className="relative w-full ">
+                  <Textarea
+                    value={snapshotDescription}
+                    onChange={(e) => setSnapshotDescription(e.target.value)}
+                    placeholder=""
+                    className="h-[100px] resize-none bg-[#EEEEEE] border-[1px] border-[#BBBBBB] mt-[12px]"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-3 mt-5 mb-2">
+                <Button
+                  onClick={handleAddSnapshot}
+                  className="bg-[#4290E9] hover:bg-[#4898f3]"
+                >
+                  {activeMarkerIndex !== null || activeApiSnapshotUuid
+                    ? "Update"
+                    : "Add"}
+                </Button>
+                <Button
+                  onClick={handleDeleteSnapshot}
+                  className="bg-[#E06D5E] hover:bg-[#f0796a]"
+                >
+                  Delete Snapshot
+                </Button>
+                {/* <Button
                     onClick={handleSaveSnapshots}
                     disabled={isSaving}
                     className="bg-[#6BAE41] hover:bg-[#5ca034] text-white font-medium"
                   >
                     {isSaving ? "Saving..." : "Save All Snapshots"}
                   </Button> */}
-                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Informational Guidance Banner */}
+        {type !== "confirm" && (
+          <div className="mb-4 w-full md:w-[70%] bg-blue-50/90 border border-blue-200/80 rounded-xl p-3.5 shadow-sm flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <span className="font-semibold block text-[13px] text-blue-900 mb-0.5">
+                Public Tour Display Order
+              </span>
+              <p className="text-[12px] text-blue-700 leading-relaxed font-medium">
+                The first ranked branded and unbranded floor plans (
+                <strong>#1</strong>) will be featured as the primary default
+                view in the public tour. Drag cards horizontally or use the
+                arrows to customize the order.
+              </p>
+            </div>
+            {isSavingFloorOrder && (
+              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-semibold bg-white/80 px-2 py-1 rounded-md border border-blue-200">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving...</span>
               </div>
             )}
           </div>
-          <div className="w-full h-auto my-[20px] px-4 md:px-0">
-            <div
-              className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-2 whitespace-nowrap scrollbar-none ${type === "confirm" ? "w-full" : "w-full md:w-[70%]"}`}
-            >
-              {filteredFloorFiles?.map((file, idx) => {
-                const isFilePDF = isPDF(file);
-                const fileName =
-                  "uuid" in file ? file.name : (file as any).file.name;
-                const fileTargetId = "uuid" in file ? file.uuid : fileName;
-                const isBranded = file.subtype === "branded_floorplan" || file.subtype === "branded";
-                const isUnbranded = file.subtype === "unbranded_floorplan" || file.subtype === "unbranded";
+        )}
 
-                return (
-                  <div key={idx} className="flex flex-col gap-1 shrink-0">
-                    <div
-                      onClick={() => setSelectedImageId(fileName)}
-                      className={`w-[220px] h-[110px] flex items-center rounded-[6px] justify-center cursor-pointer relative overflow-hidden bg-white ${selectedImageId === fileName ? "border-2 border-[#4290E9]" : "border border-gray-200"}`}
-                    >
-                      {/* Subtype Badge Indicator */}
-                      {isBranded && (
-                        <span className="absolute top-1 left-1 z-10 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
-                          ✓ Branded
+        <div className="w-full h-auto my-[15px] px-4 md:px-0">
+          <div className="flex items-center justify-between w-full md:w-[70%] mb-2">
+            <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              Floor Plans ({filteredFloorFiles.length})
+            </span>
+            <span className="text-[11px] text-gray-500">
+              Drag cards or use arrows to rearrange
+            </span>
+          </div>
+          <div
+            className={`h-full flex items-center gap-[20px] overflow-x-auto overflow-y-hidden pb-3 whitespace-nowrap scrollbar-none ${type === "confirm" ? "w-full" : "w-full md:w-[70%]"}`}
+          >
+            {filteredFloorFiles?.map((file, idx) => {
+              const isFilePDF = isPDF(file);
+              const fileName =
+                "uuid" in file ? file.name : (file as any).file.name;
+              const fileTargetId = "uuid" in file ? file.uuid : fileName;
+              const isBranded =
+                file.subtype === "branded_floorplan" ||
+                file.subtype === "branded";
+              const isUnbranded =
+                file.subtype === "unbranded_floorplan" ||
+                file.subtype === "unbranded";
+
+              const brandedRank = brandedRankMap.get(fileTargetId);
+              const unbrandedRank = unbrandedRankMap.get(fileTargetId);
+              const isDraggingThis = draggedFloorIndex === idx;
+
+              return (
+                <div
+                  key={fileTargetId || idx}
+                  draggable={type !== "confirm"}
+                  onDragStart={(e) => {
+                    if (type === "confirm") return;
+                    e.dataTransfer.setData("text/plain", `floorplan:${idx}`);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedFloorIndex(idx);
+                  }}
+                  onDragEnd={() => setDraggedFloorIndex(null)}
+                  onDragOver={(e) => {
+                    if (type === "confirm") return;
+                    if (e.dataTransfer.types.includes("text/plain")) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }
+                  }}
+                  onDrop={(e) => {
+                    if (type === "confirm") return;
+                    const data = e.dataTransfer.getData("text/plain");
+                    if (data.startsWith("floorplan:")) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const fromIdx = parseInt(
+                        data.replace("floorplan:", ""),
+                        10,
+                      );
+                      if (!isNaN(fromIdx)) {
+                        handleReorderFloorFiles(fromIdx, idx);
+                      }
+                      setDraggedFloorIndex(null);
+                    }
+                  }}
+                  className={`flex flex-col gap-1 shrink-0 transition-opacity ${isDraggingThis ? "opacity-50" : "opacity-100"}`}
+                >
+                  <div
+                    onClick={() => setSelectedImageId(fileName)}
+                    className={`w-[220px] h-[110px] flex items-center rounded-[6px] justify-center cursor-pointer relative overflow-hidden bg-white ${selectedImageId === fileName ? "border-2 border-[#4290E9] shadow-md" : "border border-gray-200"}`}
+                  >
+                    {/* Subtype Badge Indicator */}
+                    {isBranded && (
+                      <span className="absolute top-1 left-1 z-10 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
+                        ✓{" "}
+                        {brandedRank === 1
+                          ? "Primary Branded (#1)"
+                          : `Branded (#${brandedRank})`}
+                      </span>
+                    )}
+                    {isUnbranded && (
+                      <span className="absolute top-1 left-1 z-10 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
+                        ✓{" "}
+                        {unbrandedRank === 1
+                          ? "Primary Unbranded (#1)"
+                          : `Unbranded (#${unbrandedRank})`}
+                      </span>
+                    )}
+
+                    {/* Overall Sort Position Badge */}
+                    <span className="absolute bottom-1 left-1 z-10 bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow backdrop-blur-sm pointer-events-none">
+                      #{idx + 1}
+                    </span>
+
+                    {/* Reorder Buttons Overlay */}
+                    {type !== "confirm" && (
+                      <div
+                        className="absolute top-1 right-1 z-20 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm rounded p-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleReorderFloorFiles(idx, idx - 1)}
+                          className="p-1 text-white hover:bg-white/20 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                          title="Move Left"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <span
+                          title="Drag to reorder"
+                          className="flex items-center justify-center text-white/80 hover:text-white cursor-grab active:cursor-grabbing select-none px-0.5"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <circle cx="5.5" cy="3" r="1.25" />
+                            <circle cx="10.5" cy="3" r="1.25" />
+                            <circle cx="5.5" cy="8" r="1.25" />
+                            <circle cx="10.5" cy="8" r="1.25" />
+                            <circle cx="5.5" cy="13" r="1.25" />
+                            <circle cx="10.5" cy="13" r="1.25" />
+                          </svg>
                         </span>
-                      )}
-                      {isUnbranded && (
-                        <span className="absolute top-1 left-1 z-10 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
-                          ✓ Unbranded
-                        </span>
-                      )}
+                        <button
+                          type="button"
+                          disabled={idx === filteredFloorFiles.length - 1}
+                          onClick={() => handleReorderFloorFiles(idx, idx + 1)}
+                          className="p-1 text-white hover:bg-white/20 rounded disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                          title="Move Right"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
 
-                      <div className="relative border border-gray-100 rounded-[6px] w-full h-full flex items-center justify-center">
-                        {"uuid" in file && file.is_processing ? (
-                          <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
-                            <p className="text-gray-500 font-medium text-xs">
-                              Processing...
-                            </p>
-                          </div>
-                        ) : isFilePDF ? (
-                          (() => {
-                            if (!("uuid" in file)) {
-                              return (
-                                <div className="relative w-full h-full overflow-hidden">
-                                  <iframe
-                                    src={URL.createObjectURL((file as any).file)}
-                                    className="w-full h-full pointer-events-none border-none"
-                                    tabIndex={-1}
-                                    scrolling="no"
-                                  />
-                                  <div className="absolute inset-0 bg-transparent" />
-                                </div>
-                              );
-                            }
-
-                            if (
-                              userType === "agent" &&
-                              !orderData?.release_media_before_payment &&
-                              orderData?.payment_status !== "PAID" &&
-                              !(file as any).is_complimentary
-                            ) {
-                              return (
-                                <PdfPlaceholder
-                                  className="w-full h-full"
-                                  message="service is not paid yet"
-                                />
-                              );
-                            }
-
-                            const pdfUrl =
-                              (file.thumbnail_url && typeof file.thumbnail_url === "string" && file.thumbnail_url.trim()) ||
-                              (file.variant_urls && typeof file.variant_urls === "object" && !Array.isArray(file.variant_urls) && (file.variant_urls.popup || file.variant_urls.thumb || file.variant_urls.landing || file.variant_urls.slider || file.variant_urls.print)) ||
-                              (file.url && typeof file.url === "string" && file.url.trim()) ||
-                              (file.file_path && typeof file.file_path === "string" && file.file_path.trim() ? (file.file_path.startsWith("http") ? file.file_path : `${API_URL}/${file.file_path}`) : null);
-
-                            if (!pdfUrl) {
-                              return (
-                                <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center bg-gray-50">
-                                  <div className="bg-red-50 rounded-full p-2 mb-1">
-                                    <FileText className="w-5 h-5 text-red-500" />
-                                  </div>
-                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
-                                    URL Missing
-                                  </span>
-                                </div>
-                              );
-                            }
-
+                    <div className="relative border border-gray-100 rounded-[6px] w-full h-full flex items-center justify-center">
+                      {"uuid" in file && file.is_processing ? (
+                        <div className="w-full h-full flex flex-col gap-2 items-center justify-center bg-gray-200">
+                          <p className="text-gray-500 font-medium text-xs">
+                            Processing...
+                          </p>
+                        </div>
+                      ) : isFilePDF ? (
+                        (() => {
+                          if (!("uuid" in file)) {
                             return (
                               <div className="relative w-full h-full overflow-hidden">
                                 <iframe
-                                  src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                  src={URL.createObjectURL((file as any).file)}
                                   className="w-full h-full pointer-events-none border-none"
                                   tabIndex={-1}
                                   scrolling="no"
@@ -1958,464 +2321,543 @@ function TourFloorPlans({ type = "", orderData = null }: TourFloorPlansProps) {
                                 <div className="absolute inset-0 bg-transparent" />
                               </div>
                             );
-                          })()
-                        ) : !("uuid" in file) ? (
+                          }
+
+                          if (
+                            userType === "agent" &&
+                            !orderData?.release_media_before_payment &&
+                            orderData?.payment_status !== "PAID" &&
+                            !(file as any).is_complimentary
+                          ) {
+                            return (
+                              <PdfPlaceholder
+                                className="w-full h-full"
+                                message="service is not paid yet"
+                              />
+                            );
+                          }
+
+                          const pdfUrl =
+                            (file.thumbnail_url &&
+                              typeof file.thumbnail_url === "string" &&
+                              file.thumbnail_url.trim()) ||
+                            (file.variant_urls &&
+                              typeof file.variant_urls === "object" &&
+                              !Array.isArray(file.variant_urls) &&
+                              (file.variant_urls.popup ||
+                                file.variant_urls.thumb ||
+                                file.variant_urls.landing ||
+                                file.variant_urls.slider ||
+                                file.variant_urls.print)) ||
+                            (file.url &&
+                              typeof file.url === "string" &&
+                              file.url.trim()) ||
+                            (file.file_path &&
+                            typeof file.file_path === "string" &&
+                            file.file_path.trim()
+                              ? file.file_path.startsWith("http")
+                                ? file.file_path
+                                : `${API_URL}/${file.file_path}`
+                              : null);
+
+                          if (!pdfUrl) {
+                            return (
+                              <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center bg-gray-50">
+                                <div className="bg-red-50 rounded-full p-2 mb-1">
+                                  <FileText className="w-5 h-5 text-red-500" />
+                                </div>
+                                <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
+                                  URL Missing
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="relative w-full h-full overflow-hidden">
+                              <iframe
+                                src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                className="w-full h-full pointer-events-none border-none"
+                                tabIndex={-1}
+                                scrolling="no"
+                              />
+                              <div className="absolute inset-0 bg-transparent" />
+                            </div>
+                          );
+                        })()
+                      ) : !("uuid" in file) ? (
+                        <OptimizedImagePreview
+                          file={(file as any).file}
+                          className="max-w-full max-h-full"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            "uuid" in file
+                              ? file.variant_urls?.thumb ||
+                                file.thumbnail_url ||
+                                file.url ||
+                                (file.file_path
+                                  ? `${API_URL}/${file.file_path}`
+                                  : "")
+                              : URL.createObjectURL((file as any).file)
+                          }
+                          alt="preview"
+                          className="max-w-full max-h-full"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Checkbox controls for Branded & Unbranded */}
+                  {type !== "confirm" && (
+                    <div className="flex items-center justify-between gap-1 w-[220px] px-1 py-0.5 text-[11px]">
+                      <label
+                        className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
+                          isBranded
+                            ? "bg-blue-100 text-blue-800 border-blue-300 font-semibold"
+                            : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isBranded}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setFloorPlanSubtype?.(
+                              fileTargetId,
+                              isBranded ? null : "branded_floorplan",
+                            );
+                          }}
+                          className="h-3 w-3 accent-blue-600 cursor-pointer"
+                        />
+                        <span>
+                          Branded {brandedRank ? `(#${brandedRank})` : ""}
+                        </span>
+                      </label>
+                      <label
+                        className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
+                          isUnbranded
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold"
+                            : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isUnbranded}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setFloorPlanSubtype?.(
+                              fileTargetId,
+                              isUnbranded ? null : "unbranded_floorplan",
+                            );
+                          }}
+                          className="h-3 w-3 accent-emerald-600 cursor-pointer"
+                        />
+                        <span>
+                          Unbranded {unbrandedRank ? `(#${unbrandedRank})` : ""}
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* floorFiles mapping removed */}
+          </div>
+        </div>
+
+        {type !== "confirm" && (
+          <div className="mt-8">
+            <p className="text-[#666666] text-[24px] px-3">Photos</p>
+
+            {(currentTourPhotos || [])?.length > 0 ? (
+              <div className="mt-4 w-full grid grid-cols-3 sm:grid-cols-6 gap-2 p-3">
+                {currentTourPhotos?.map((file, idx) => {
+                  const isEditing =
+                    activeMarkerIndex !== null || !!activeApiSnapshotUuid;
+
+                  const handleDragStart = (e: React.DragEvent) => {
+                    const fileObj = !("uuid" in file)
+                      ? {
+                          file: (file as any).file,
+                          thumbnail_url: URL.createObjectURL(
+                            (file as any).file,
+                          ),
+                          url: URL.createObjectURL((file as any).file),
+                        }
+                      : {
+                          file_path:
+                            file.file_path ||
+                            (file as any).variants?.thumb ||
+                            (file as any).variants?.landing ||
+                            (file as any).variants?.popup,
+                          url:
+                            file.url ||
+                            file.variant_urls?.landing ||
+                            file.variant_urls?.popup ||
+                            file.variant_urls?.thumb,
+                          thumbnail_url:
+                            file.variant_urls?.popup ||
+                            file.variant_urls?.thumb ||
+                            file.thumbnail_url ||
+                            file.url,
+                          variant_urls: file.variant_urls,
+                        };
+
+                    e.dataTransfer.setData(
+                      "text/plain",
+                      !("uuid" in file) ? (file as any).file.name : file.uuid,
+                    );
+                    e.dataTransfer.effectAllowed = "copy";
+                    draggedFileRef.current = fileObj;
+                    setDraggedFile(fileObj);
+
+                    setTimeout(() => {
+                      imageContainerRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      });
+                    }, 50);
+                  };
+
+                  return (
+                    <div
+                      key={idx}
+                      draggable
+                      onDragStart={handleDragStart}
+                      className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${
+                        isEditing
+                          ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100"
+                          : "cursor-grab active:cursor-grabbing"
+                      }`}
+                      onClick={() => handlePhotoClick(file)}
+                    >
+                      <div className="relative w-full h-[160px] pointer-events-none">
+                        {!("uuid" in file) ? (
                           <OptimizedImagePreview
                             file={(file as any).file}
-                            className="max-w-full max-h-full"
+                            className="w-full h-full object-cover"
                           />
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={
-                              "uuid" in file
-                                ? file.variant_urls?.thumb ||
-                                  file.thumbnail_url ||
+                              file.variant_urls?.thumb ||
+                              file.url ||
+                              (file.file_path
+                                ? `${API_URL}/${file.file_path}`
+                                : "")
+                            }
+                            alt="preview"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <span className="text-white text-[12px] font-bold bg-[#4290E9] px-3 py-1 rounded shadow-lg">
+                              CLICK TO USE
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-4 mx-3 border border-dashed border-gray-300 bg-white rounded-lg p-8 text-center text-[#666666] font-medium text-[14px] flex flex-col items-center justify-center gap-3">
+                <svg
+                  className="w-10 h-10 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z"
+                  />
+                </svg>
+                <span>
+                  No Photo is available to attach as snapshot, please select /
+                  approve some photos from the available media.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {showPhotoSelector && (
+          <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center font-alexandria p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Select Snapshot Photo
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Click any photo below to attach it to the selected floor
+                    plan coordinates
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPhotoSelector(false);
+                    setClickPos(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-200 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {currentTourPhotos?.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400">
+                    No photos available to select.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {currentTourPhotos?.map((file, idx) => {
+                      const isLocal = !("uuid" in file);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectPhotoForClick(file)}
+                          className="group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-[#4290E9] hover:ring-2 hover:ring-[#4290E9]/20 transition-all duration-200 cursor-pointer shadow-sm"
+                        >
+                          <div className="relative w-full h-[120px]">
+                            {isLocal ? (
+                              <OptimizedImagePreview
+                                file={(file as any).file}
+                                className="w-full h-full object-cover animate-none"
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={
+                                  file.variant_urls?.thumb ||
                                   file.url ||
                                   (file.file_path
                                     ? `${API_URL}/${file.file_path}`
                                     : "")
-                                : URL.createObjectURL((file as any).file)
-                            }
-                            alt="preview"
-                            className="max-w-full max-h-full"
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Checkbox controls for Branded & Unbranded */}
-                    {type !== "confirm" && (
-                      <div className="flex items-center justify-between gap-1 w-[220px] px-1 py-0.5 text-[11px]">
-                        <label
-                          className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
-                            isBranded
-                              ? "bg-blue-100 text-blue-800 border-blue-300 font-semibold"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          }`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isBranded}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setFloorPlanSubtype?.(fileTargetId, isBranded ? null : "branded_floorplan");
-                            }}
-                            className="h-3 w-3 accent-blue-600 cursor-pointer"
-                          />
-                          Branded
-                        </label>
-                        <label
-                          className={`flex items-center gap-1 cursor-pointer select-none px-1.5 py-0.5 rounded border transition-colors ${
-                            isUnbranded
-                              ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-                          }`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isUnbranded}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              setFloorPlanSubtype?.(fileTargetId, isUnbranded ? null : "unbranded_floorplan");
-                            }}
-                            className="h-3 w-3 accent-emerald-600 cursor-pointer"
-                          />
-                          Unbranded
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* floorFiles mapping removed */}
-            </div>
-          </div>
-
-          {type !== "confirm" && (
-            <div className="mt-8">
-              <p className="text-[#666666] text-[24px] px-3">Photos</p>
-
-              {(currentTourPhotos || [])?.length > 0 ? (
-                <div className="mt-4 w-full grid grid-cols-3 sm:grid-cols-6 gap-2 p-3">
-                  {currentTourPhotos?.map((file, idx) => {
-                    const isEditing =
-                      activeMarkerIndex !== null || !!activeApiSnapshotUuid;
-
-                    const handleDragStart = (e: React.DragEvent) => {
-                      const fileObj = !("uuid" in file)
-                        ? {
-                            file: (file as any).file,
-                            thumbnail_url: URL.createObjectURL((file as any).file),
-                            url: URL.createObjectURL((file as any).file),
-                          }
-                        : {
-                            file_path:
-                              file.file_path ||
-                              (file as any).variants?.thumb ||
-                              (file as any).variants?.landing ||
-                              (file as any).variants?.popup,
-                            url:
-                              file.url ||
-                              file.variant_urls?.landing ||
-                              file.variant_urls?.popup ||
-                              file.variant_urls?.thumb,
-                            thumbnail_url:
-                              file.variant_urls?.popup ||
-                              file.variant_urls?.thumb ||
-                              file.thumbnail_url ||
-                              file.url,
-                            variant_urls: file.variant_urls,
-                          };
-
-                      e.dataTransfer.setData(
-                        "text/plain",
-                        !("uuid" in file) ? (file as any).file.name : file.uuid,
-                      );
-                      e.dataTransfer.effectAllowed = "copy";
-                      draggedFileRef.current = fileObj;
-                      setDraggedFile(fileObj);
-
-                      setTimeout(() => {
-                        imageContainerRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "center",
-                        });
-                      }, 50);
-                    };
-
-                    return (
-                      <div
-                        key={idx}
-                        draggable
-                        onDragStart={handleDragStart}
-                        className={`bg-[#BBBBBB] h-auto relative transition-all duration-200 ${
-                          isEditing
-                            ? "cursor-pointer ring-2 ring-transparent hover:ring-[#4290E9] scale-[0.98] hover:scale-100"
-                            : "cursor-grab active:cursor-grabbing"
-                        }`}
-                        onClick={() => handlePhotoClick(file)}
-                      >
-                        <div className="relative w-full h-[160px] pointer-events-none">
-                          {!("uuid" in file) ? (
-                            <OptimizedImagePreview
-                              file={(file as any).file}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={
-                                file.variant_urls?.thumb ||
-                                file.url ||
-                                (file.file_path
-                                  ? `${API_URL}/${file.file_path}`
-                                  : "")
-                              }
-                              alt="preview"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-
-                          {isEditing && (
-                            <div className="absolute inset-0 bg-[#4290E9]/30 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <span className="text-white text-[12px] font-bold bg-[#4290E9] px-3 py-1 rounded shadow-lg">
-                                CLICK TO USE
+                                }
+                                alt="preview"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                            <div className="absolute inset-0 bg-[#4290E9]/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="text-white text-[11px] font-bold bg-[#4290E9] px-2.5 py-1 rounded shadow">
+                                USE PHOTO
                               </span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mt-4 mx-3 border border-dashed border-gray-300 bg-white rounded-lg p-8 text-center text-[#666666] font-medium text-[14px] flex flex-col items-center justify-center gap-3">
-                  <svg
-                    className="w-10 h-10 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z"
-                    />
-                  </svg>
-                  <span>
-                    No Photo is available to attach as snapshot, please select /
-                    approve some photos from the available media.
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {showPhotoSelector && (
-            <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center font-alexandria p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">
-                      Select Snapshot Photo
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Click any photo below to attach it to the selected floor
-                      plan coordinates
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPhotoSelector(false);
-                      setClickPos(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-200 rounded-full"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6">
-                  {currentTourPhotos?.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400">
-                      No photos available to select.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {currentTourPhotos?.map((file, idx) => {
-                        const isLocal = !("uuid" in file);
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => handleSelectPhotoForClick(file)}
-                            className="group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 hover:border-[#4290E9] hover:ring-2 hover:ring-[#4290E9]/20 transition-all duration-200 cursor-pointer shadow-sm"
-                          >
-                            <div className="relative w-full h-[120px]">
-                              {isLocal ? (
-                                <OptimizedImagePreview
-                                  file={(file as any).file}
-                                  className="w-full h-full object-cover animate-none"
-                                />
-                              ) : (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={
-                                    file.variant_urls?.thumb ||
-                                    file.url ||
-                                    (file.file_path
-                                      ? `${API_URL}/${file.file_path}`
-                                      : "")
-                                  }
-                                  alt="preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              )}
-                              <div className="absolute inset-0 bg-[#4290E9]/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="text-white text-[11px] font-bold bg-[#4290E9] px-2.5 py-1 rounded shadow">
-                                  USE PHOTO
-                                </span>
-                              </div>
-                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50 flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setShowPhotoSelector(false);
-                      setClickPos(null);
-                    }}
-                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      {/* Fullscreen Snapshot Lightbox Modal */}
-      {fullscreenSnapshot && isMounted && createPortal(
-        <div
-          className="fixed inset-0 z-[99999] bg-white opacity-100 flex flex-col justify-between items-center select-none animate-in fade-in duration-150 font-alexandria"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeFullscreenSnapshot();
-          }}
-        >
-          {/* Top Controls Bar */}
-          <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
-            {/* Counter & Name */}
-            <div className="flex items-center gap-3">
-              {allSnapshots.length > 0 && (
-                <span className="text-[#1b365d] text-sm font-semibold tracking-wide bg-gray-100/90 px-3 py-1.5 rounded-full border border-gray-200/80 shadow-sm font-alexandria">
-                  {fullscreenSnapshotIndex + 1} / {allSnapshots.length}
-                </span>
-              )}
-              {(fullscreenSnapshot.name || previewMarker?.name) && (
-                <span className="text-gray-800 text-sm sm:text-base font-bold uppercase truncate max-w-md font-alexandria">
-                  {fullscreenSnapshot.name || previewMarker?.name}
-                </span>
-              )}
-            </div>
-
-            {/* Zoom & Action Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-gray-100/90 backdrop-blur-md px-2 py-1 rounded-full border border-gray-200/80 shadow-sm">
-                {lightboxZoom > 1 && (
-                  <button
-                    onClick={() => {
-                      setLightboxZoom(1);
-                      setLightboxPan({ x: 0, y: 0 });
-                    }}
-                    className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all cursor-pointer mr-0.5"
-                    title="Reset Zoom (100%)"
-                  >
-                    <RotateCcw size={15} />
-                  </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                <button
-                  onClick={() =>
-                    setLightboxZoom((prev) =>
-                      Math.max(1, +(prev - 0.25).toFixed(2)),
-                    )
-                  }
-                  disabled={lightboxZoom <= 1}
-                  className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
-                  title="Zoom Out"
-                >
-                  <ZoomOut size={18} />
-                </button>
-                <span className="text-[#1b365d] text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
-                  {Math.round(lightboxZoom * 100)}%
-                </span>
-                <button
-                  onClick={() =>
-                    setLightboxZoom((prev) =>
-                      Math.min(3, +(prev + 0.25).toFixed(2)),
-                    )
-                  }
-                  disabled={lightboxZoom >= 3}
-                  className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
-                  title="Zoom In"
-                >
-                  <ZoomIn size={18} />
-                </button>
               </div>
 
-              <button
-                onClick={closeFullscreenSnapshot}
-                className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-[#1b365d] flex items-center justify-center border border-gray-200 transition-all cursor-pointer ml-2 shadow-sm"
-                title="Close (Esc)"
-              >
-                <X size={20} />
-              </button>
+              <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowPhotoSelector(false);
+                    setClickPos(null);
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
-
-          {/* Center Image Display Area */}
+        )}
+      </div>
+      {/* Fullscreen Snapshot Lightbox Modal */}
+      {fullscreenSnapshot &&
+        isMounted &&
+        createPortal(
           <div
-            className="relative w-full flex-1 flex items-center justify-center overflow-hidden px-4 py-2"
-            onMouseDown={(e) => {
-              if (lightboxZoom > 1) {
-                setIsLightboxDragging(true);
-                setLightboxDragStart({
-                  x: e.clientX - lightboxPan.x,
-                  y: e.clientY - lightboxPan.y,
-                });
-              }
+            className="fixed inset-0 z-[99999] bg-white opacity-100 flex flex-col justify-between items-center select-none animate-in fade-in duration-150 font-alexandria"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeFullscreenSnapshot();
             }}
-            onMouseMove={(e) => {
-              if (isLightboxDragging && lightboxZoom > 1) {
-                setLightboxPan({
-                  x: e.clientX - lightboxDragStart.x,
-                  y: e.clientY - lightboxDragStart.y,
-                });
-              }
-            }}
-            onMouseUp={() => setIsLightboxDragging(false)}
-            onMouseLeave={() => setIsLightboxDragging(false)}
           >
-            {/* Left Navigation Arrow */}
-            {allSnapshots.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrevSnapshot();
-                }}
-                className="absolute left-4 sm:left-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
-                title="Previous Snapshot"
-              >
-                <ChevronLeft size={22} />
-              </button>
-            )}
+            {/* Top Controls Bar */}
+            <div className="w-full z-50 flex items-center justify-between px-4 sm:px-8 py-4 bg-white border-b border-gray-200">
+              {/* Counter & Name */}
+              <div className="flex items-center gap-3">
+                {allSnapshots.length > 0 && (
+                  <span className="text-[#1b365d] text-sm font-semibold tracking-wide bg-gray-100/90 px-3 py-1.5 rounded-full border border-gray-200/80 shadow-sm font-alexandria">
+                    {fullscreenSnapshotIndex + 1} / {allSnapshots.length}
+                  </span>
+                )}
+                {(fullscreenSnapshot.name || previewMarker?.name) && (
+                  <span className="text-gray-800 text-sm sm:text-base font-bold uppercase truncate max-w-md font-alexandria">
+                    {fullscreenSnapshot.name || previewMarker?.name}
+                  </span>
+                )}
+              </div>
 
-            {/* Main Image */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={
-                fullscreenSnapshot.file
-                  ? URL.createObjectURL(fullscreenSnapshot.file)
-                  : fullscreenSnapshot.variant_urls?.popup ||
-                    fullscreenSnapshot.variant_urls?.landing ||
-                    fullscreenSnapshot.url ||
-                    (fullscreenSnapshot.file_path
-                      ? fullscreenSnapshot.file_path.startsWith("http")
-                        ? fullscreenSnapshot.file_path
-                        : `${API_URL}/${fullscreenSnapshot.file_path}`
-                      : "")
-              }
-              alt={fullscreenSnapshot.name || "Snapshot"}
-              className={`max-h-[72vh] max-w-[90vw] object-contain transition-transform select-none ${
-                lightboxZoom > 1 ? "cursor-grab active:cursor-grabbing" : ""
-              }`}
-              style={{
-                transform: `scale(${lightboxZoom}) translate(${
-                  lightboxPan.x / lightboxZoom
-                }px, ${lightboxPan.y / lightboxZoom}px)`,
-                transition: isLightboxDragging ? "none" : "transform 0.15s ease-out",
+              {/* Zoom & Action Controls */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-gray-100/90 backdrop-blur-md px-2 py-1 rounded-full border border-gray-200/80 shadow-sm">
+                  {lightboxZoom > 1 && (
+                    <button
+                      onClick={() => {
+                        setLightboxZoom(1);
+                        setLightboxPan({ x: 0, y: 0 });
+                      }}
+                      className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all cursor-pointer mr-0.5"
+                      title="Reset Zoom (100%)"
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() =>
+                      setLightboxZoom((prev) =>
+                        Math.max(1, +(prev - 0.25).toFixed(2)),
+                      )
+                    }
+                    disabled={lightboxZoom <= 1}
+                    className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut size={18} />
+                  </button>
+                  <span className="text-[#1b365d] text-xs font-semibold px-1 min-w-[40px] text-center font-alexandria">
+                    {Math.round(lightboxZoom * 100)}%
+                  </span>
+                  <button
+                    onClick={() =>
+                      setLightboxZoom((prev) =>
+                        Math.min(3, +(prev + 0.25).toFixed(2)),
+                      )
+                    }
+                    disabled={lightboxZoom >= 3}
+                    className="p-1.5 text-gray-700 hover:text-[#1b365d] hover:bg-gray-200 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                    title="Zoom In"
+                  >
+                    <ZoomIn size={18} />
+                  </button>
+                </div>
+
+                <button
+                  onClick={closeFullscreenSnapshot}
+                  className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-[#1b365d] flex items-center justify-center border border-gray-200 transition-all cursor-pointer ml-2 shadow-sm"
+                  title="Close (Esc)"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Center Image Display Area */}
+            <div
+              className="relative w-full flex-1 flex items-center justify-center overflow-hidden px-4 py-2"
+              onMouseDown={(e) => {
+                if (lightboxZoom > 1) {
+                  setIsLightboxDragging(true);
+                  setLightboxDragStart({
+                    x: e.clientX - lightboxPan.x,
+                    y: e.clientY - lightboxPan.y,
+                  });
+                }
               }}
-            />
+              onMouseMove={(e) => {
+                if (isLightboxDragging && lightboxZoom > 1) {
+                  setLightboxPan({
+                    x: e.clientX - lightboxDragStart.x,
+                    y: e.clientY - lightboxDragStart.y,
+                  });
+                }
+              }}
+              onMouseUp={() => setIsLightboxDragging(false)}
+              onMouseLeave={() => setIsLightboxDragging(false)}
+            >
+              {/* Left Navigation Arrow */}
+              {allSnapshots.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevSnapshot();
+                  }}
+                  className="absolute left-4 sm:left-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
+                  title="Previous Snapshot"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
 
-            {/* Right Navigation Arrow */}
-            {allSnapshots.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNextSnapshot();
+              {/* Main Image */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  fullscreenSnapshot.file
+                    ? URL.createObjectURL(fullscreenSnapshot.file)
+                    : fullscreenSnapshot.variant_urls?.popup ||
+                      fullscreenSnapshot.variant_urls?.landing ||
+                      fullscreenSnapshot.url ||
+                      (fullscreenSnapshot.file_path
+                        ? fullscreenSnapshot.file_path.startsWith("http")
+                          ? fullscreenSnapshot.file_path
+                          : `${API_URL}/${fullscreenSnapshot.file_path}`
+                        : "")
+                }
+                alt={fullscreenSnapshot.name || "Snapshot"}
+                className={`max-h-[72vh] max-w-[90vw] object-contain transition-transform select-none ${
+                  lightboxZoom > 1 ? "cursor-grab active:cursor-grabbing" : ""
+                }`}
+                style={{
+                  transform: `scale(${lightboxZoom}) translate(${
+                    lightboxPan.x / lightboxZoom
+                  }px, ${lightboxPan.y / lightboxZoom}px)`,
+                  transition: isLightboxDragging
+                    ? "none"
+                    : "transform 0.15s ease-out",
                 }}
-                className="absolute right-4 sm:right-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
-                title="Next Snapshot"
-              >
-                <ChevronRight size={22} />
-              </button>
-            )}
-          </div>
+              />
 
-          {/* Bottom Info Bar: Title & Description */}
-          <div className="w-full bg-white border-t border-gray-200 py-3.5 px-6 flex flex-col items-center justify-center text-center max-w-4xl mx-auto z-50">
-            <h3 className="text-base sm:text-lg font-bold text-[#1b365d] uppercase tracking-wide font-alexandria">
-              {fullscreenSnapshot.name || "Snapshot"}
-            </h3>
-            {fullscreenSnapshot.description && (
-              <p className="text-xs sm:text-sm text-gray-600 font-alexandria leading-relaxed mt-1 max-w-2xl">
-                {fullscreenSnapshot.description}
-              </p>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+              {/* Right Navigation Arrow */}
+              {allSnapshots.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextSnapshot();
+                  }}
+                  className="absolute right-4 sm:right-8 z-50 p-3 rounded-full bg-gray-100/90 hover:bg-gray-200 text-[#1b365d] shadow-md border border-gray-200/80 transition-all cursor-pointer hover:scale-105"
+                  title="Next Snapshot"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+            </div>
+
+            {/* Bottom Info Bar: Title & Description */}
+            <div className="w-full bg-white border-t border-gray-200 py-3.5 px-6 flex flex-col items-center justify-center text-center max-w-4xl mx-auto z-50">
+              <h3 className="text-base sm:text-lg font-bold text-[#1b365d] uppercase tracking-wide font-alexandria">
+                {fullscreenSnapshot.name || "Snapshot"}
+              </h3>
+              {fullscreenSnapshot.description && (
+                <p className="text-xs sm:text-sm text-gray-600 font-alexandria leading-relaxed mt-1 max-w-2xl">
+                  {fullscreenSnapshot.description}
+                </p>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

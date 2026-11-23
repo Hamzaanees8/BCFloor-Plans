@@ -171,7 +171,7 @@ const EmailTemplatesSettings = () => {
             }
         };
         initSigs();
-    }, [fetchSignatures, organizationId, setOrganizationId]);
+    }, [fetchTemplates, fetchSignatures, organizationId, setOrganizationId]);
 
     const handleSignatureDelete = async (sigUuid: string) => {
         if (!organizationId) return;

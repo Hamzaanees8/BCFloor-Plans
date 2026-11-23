@@ -59,7 +59,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
     onOpenInvoice
 }) => {
     const { userType } = useAppContext();
-    const { filesData } = useFileManagerContext();
+    const { filesData, tourDefaultSettings } = useFileManagerContext();
     const [name, setName] = useState(initialName);
     const [subtype, setSubtype] = useState<string | null>(initialSubtype);
     const [autoDetectedSubtype, setAutoDetectedSubtype] = useState<string | null>(null);
@@ -80,14 +80,41 @@ const PhotoPreviewModal: React.FC<Props> = ({
         setTimeout(() => setIsCopied(false), 2000);
     };
 
-    const existingGroups = Array.from(new Set(filesData?.files?.map(f => f.group).filter(Boolean) || [])) as string[];
-    const allSuggestions = Array.from(new Set([...(suggestions || defaultMediaOptions), ...existingGroups]));
+    const existingGroups = Array.from(
+        new Set(
+            filesData?.files
+                ?.filter((f: any) => {
+                    if (type === 'floor_plans') {
+                        return (
+                            f.service?.category?.name === 'Floor Plan' ||
+                            f.service?.name?.toLowerCase().includes('floor plan') ||
+                            f.subtype === 'branded_floorplan' ||
+                            f.subtype === 'unbranded_floorplan'
+                        );
+                    }
+                    return true;
+                })
+                .map(f => f.group)
+                .filter(Boolean) || []
+        )
+    ) as string[];
+    const resolvedFloorplanSuggestions = (suggestions && suggestions.length > 0)
+        ? suggestions
+        : (Array.isArray(tourDefaultSettings?.floorplan_names) && tourDefaultSettings.floorplan_names.length > 0)
+            ? tourDefaultSettings.floorplan_names
+            : ["Dimensions PDF", "Branded Floor Plan", "UnBranded Floor Plan", "Branded Image", "Unbranded Image", "Additional Files"];
+
+    const allSuggestions = Array.from(new Set([...(type === 'floor_plans' ? resolvedFloorplanSuggestions : (suggestions || defaultMediaOptions)), ...existingGroups]));
     const [mediaUrl, setMediaUrl] = useState<string>('');
     const urlRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (open) {
-            setName(initialName);
+            const cleanInitialName =
+                (type === 'floor_plans' || type === 'floor_plan') && (initialName === 'photo' || initialName === 'photo.jpg' || !initialName)
+                    ? 'Floor Plan'
+                    : initialName;
+            setName(cleanInitialName);
             setSubtype(initialSubtype);
             setAutoDetectedSubtype(null);
             setVideoMessage('');
@@ -402,7 +429,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
                 {onSave && userType !== 'agent' && (type === 'floor_plans' || file?.service?.category?.name === 'Floor Plan' || file?.service?.name?.toLowerCase().includes('floor plan')) && (
                     <div className="mt-2 space-y-1.5 font-alexandria">
-                        <Label className="text-[#7d7d7d] text-[13px] font-semibold">Floor Plan Type</Label>
+                        <Label className="text-[#7d7d7d] text-[13px] font-semibold">Floor Plan Branding</Label>
                         <div className="grid grid-cols-3 gap-2">
                             <button
                                 type="button"
@@ -443,7 +470,9 @@ const PhotoPreviewModal: React.FC<Props> = ({
 
                 {onSave && userType !== 'agent' && (
                     <div className="mt-2 space-y-2 relative" ref={dropdownRef}>
-                        <Label className="text-[#7d7d7d] text-[14px]">Media Name</Label>
+                        <Label className="text-[#7d7d7d] text-[14px]">
+                            {type === 'floor_plans' ? 'Floor Plan Type' : 'Media Name'}
+                        </Label>
                         <div className="relative">
                             <Input
                                 value={name}
@@ -452,7 +481,7 @@ const PhotoPreviewModal: React.FC<Props> = ({
                                     setOpenDropdown(true);
                                 }}
                                 onFocus={() => setOpenDropdown(true)}
-                                placeholder="Select or Type Media Name"
+                                placeholder={type === 'floor_plans' ? 'Select or Type Floor Plan Type' : 'Select or Type Media Name'}
                                 className="w-full h-[42px] border text-[#696868] border-[#7d7d7d] pr-10"
                             />
                             {name && (

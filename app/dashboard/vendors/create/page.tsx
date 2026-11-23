@@ -1392,9 +1392,20 @@ const VendorForm = () => {
 
       if (googleSuccess === "true") {
         toast.success("Google Calendar connected successfully!");
-        const idToUse = userId || currentUser?.uuid;
-        if (idToUse) {
-          GetOne(idToUse).then((data) => {
+        let vendorUuidToFetch = userId || currentUser?.uuid;
+        if (!vendorUuidToFetch && typeof window !== "undefined") {
+          try {
+            const userInfo = localStorage.getItem("userInfo");
+            if (userInfo) {
+              const parsed = JSON.parse(userInfo);
+              vendorUuidToFetch = parsed.uuid || "";
+            }
+          } catch (e) {
+            console.error("Failed to parse userInfo for calendar refresh", e);
+          }
+        }
+        if (vendorUuidToFetch) {
+          GetOne(vendorUuidToFetch).then((data) => {
             if (data?.data) {
               setCurrentUser(data.data);
             }

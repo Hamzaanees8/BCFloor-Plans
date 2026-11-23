@@ -115,6 +115,7 @@ const Service: React.FC<
     tourSettings?.always_enable_sorting ??
     tourDefaultSettings?.always_enable_sorting,
   );
+  const isSortingActive = isAlwaysSort || fileManagerMode === "reorder";
   const [replacingFile, setReplacingFile] = useState<File | null>(null);
   const [openPreview, setOpenPreview] = useState(false);
   const [mediaUploaded, setMediaUploaded] = useState<boolean>(false);
@@ -212,14 +213,19 @@ const Service: React.FC<
       });
     };
   }, [fileItems]);
-  const floorPlans = [
-    "Dimensions PDF",
-    "Branded Floor Plan",
-    "UnBranded Floor Plan",
-    "Branded Image",
-    "Unbranded Image",
-    "Additional Files",
-  ];
+  const floorPlans = useMemo(() => {
+    if (Array.isArray(tourDefaultSettings?.floorplan_names) && tourDefaultSettings.floorplan_names.length > 0) {
+      return tourDefaultSettings.floorplan_names;
+    }
+    return [
+      "Dimensions PDF",
+      "Branded Floor Plan",
+      "UnBranded Floor Plan",
+      "Branded Image",
+      "Unbranded Image",
+      "Additional Files",
+    ];
+  }, [tourDefaultSettings?.floorplan_names]);
 
   const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -597,6 +603,28 @@ const Service: React.FC<
     bookingToUse?.uuid,
   ]);
 
+  const { brandedRankMap, unbrandedRankMap } = useMemo(() => {
+    const bMap = new Map<string, number>();
+    const uMap = new Map<string, number>();
+    let bCount = 0;
+    let uCount = 0;
+    fileItems.forEach((item) => {
+      const f = item.originalData;
+      if (!f) return;
+      const targetId = f.uuid || f.name || f.file?.name || "";
+      const isB = f.subtype === "branded_floorplan" || f.subtype === "branded";
+      const isU = f.subtype === "unbranded_floorplan" || f.subtype === "unbranded";
+      if (isB) {
+        bCount++;
+        bMap.set(targetId, bCount);
+      } else if (isU) {
+        uCount++;
+        uMap.set(targetId, uCount);
+      }
+    });
+    return { brandedRankMap: bMap, unbrandedRankMap: uMap };
+  }, [fileItems]);
+
   const renderFileItem = useCallback(
     (item: FileItem, isDragging?: boolean) => {
       const isLocal = item.status === "local";
@@ -651,22 +679,24 @@ const Service: React.FC<
       const fileTargetId =
         file.uuid || file.name || (file as any).file?.name || "";
 
-      let displayType = "2D Floor Plan";
-      if (isBranded) {
-        displayType = "Branded Floor Plan";
-      } else if (isUnbranded) {
-        displayType = "Unbranded Floor Plan";
-      } else if (isLocal) {
+      const brandedRank = brandedRankMap.get(fileTargetId);
+      const unbrandedRank = unbrandedRankMap.get(fileTargetId);
+
+      let displayType = "Floor Plan";
+      if (isLocal) {
         displayType =
-          file.type === "photo"
-            ? "Floor Plan"
-            : file.type || "Floor Plan";
+          file.group && file.group.trim()
+            ? file.group.trim()
+            : file.type && file.type !== "photo" && file.type !== "document" && file.type !== "pdf"
+              ? file.type
+              : "Floor Plan";
       } else {
         displayType =
-          file.group ||
-          (file.type === "photo"
-            ? "Floor Plan"
-            : file.type || "Floor Plan");
+          file.group && file.group.trim()
+            ? file.group.trim()
+            : file.type && file.type !== "photo" && file.type !== "document" && file.type !== "pdf"
+              ? file.type
+              : "Floor Plan";
       }
 
       return (
@@ -674,38 +704,61 @@ const Service: React.FC<
           className={`justify-self-center group w-full ${isDragging ? "opacity-80 scale-105" : ""}`}
         >
           <div>
-            <p
-              className={`uppercase font-semibold ${userType}-text pl-2 pb-2 block truncate w-full pr-2`}
-              style={{
-                fontSize:
-                  imagesPerRow >= 6
-                    ? "10px"
-                    : imagesPerRow >= 5
-                      ? "13px"
-                      : "18px",
-              }}
-              title={displayType}
-            >
-              {displayType}
-              {file.is_hidden && (
-                <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">
-                  Hidden
-                </span>
+            <div className="flex items-center justify-between pl-2 pb-2 pr-2">
+              <p
+                className={`uppercase font-semibold ${userType}-text block truncate flex-1`}
+                style={{
+                  fontSize:
+                    imagesPerRow >= 6
+                      ? "10px"
+                      : imagesPerRow >= 5
+                        ? "13px"
+                        : "18px",
+                }}
+                title={displayType}
+              >
+                {displayType}
+                {file.is_hidden && (
+                  <span className="ml-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold">
+                    Hidden
+                  </span>
+                )}
+              </p>
+              {isSortingActive && (
+                <div
+                  className="flex items-center justify-center w-[22px] h-[22px] text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing select-none shrink-0 ml-1"
+                  title="Drag to reorder"
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle cx="5.5" cy="3" r="1.25" />
+                    <circle cx="10.5" cy="3" r="1.25" />
+                    <circle cx="5.5" cy="8" r="1.25" />
+                    <circle cx="10.5" cy="8" r="1.25" />
+                    <circle cx="5.5" cy="13" r="1.25" />
+                    <circle cx="10.5" cy="13" r="1.25" />
+                  </svg>
+                </div>
               )}
-            </p>
+            </div>
             <div
               className="relative w-full aspect-[4/3] border border-[#A8A8A8] rounded-[6px] overflow-hidden"
               style={{ backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }}
             >
               {/* Subtype Badge Indicator */}
               {isBranded && (
-                <span className="absolute top-1 left-1 z-30 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
-                  ✓ Branded
+                <span className="absolute top-1 left-1 z-30 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none flex items-center gap-1">
+                  ✓ {brandedRank === 1 ? "Primary Branded (#1)" : `Branded (#${brandedRank || 1})`}
                 </span>
               )}
               {isUnbranded && (
-                <span className="absolute top-1 left-1 z-30 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none">
-                  ✓ Unbranded
+                <span className="absolute top-1 left-1 z-30 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none flex items-center gap-1">
+                  ✓ {unbrandedRank === 1 ? "Primary Unbranded (#1)" : `Unbranded (#${unbrandedRank || 1})`}
                 </span>
               )}
               {isLocal ? (
@@ -1145,7 +1198,7 @@ const Service: React.FC<
                   }}
                   className="h-3 w-3 accent-blue-600 cursor-pointer"
                 />
-                <span>Branded</span>
+                <span>Branded {brandedRank ? `(#${brandedRank})` : ""}</span>
               </label>
               <label
                 className={`flex-1 flex items-center justify-center gap-1 cursor-pointer select-none px-1.5 py-1 rounded border transition-colors ${
@@ -1167,7 +1220,7 @@ const Service: React.FC<
                   }}
                   className="h-3 w-3 accent-emerald-600 cursor-pointer"
                 />
-                <span>Unbranded</span>
+                <span>Unbranded {unbrandedRank ? `(#${unbrandedRank})` : ""}</span>
               </label>
             </div>
           </div>
@@ -1305,6 +1358,9 @@ const Service: React.FC<
       setFilesToHide,
       setFloorFiles,
       setFloorPlanSubtype,
+      brandedRankMap,
+      unbrandedRankMap,
+      isSortingActive,
       userType,
       vendorName,
     ],
@@ -1748,6 +1804,7 @@ const Service: React.FC<
               serviceUuid={currentService?.uuid || ""}
               reviewFilesEnabled={reviewFilesEnabled}
               onSave={onSave}
+              floorPlanSuggestions={floorPlans}
             />
           </div>
         </div>
@@ -1864,6 +1921,14 @@ const Service: React.FC<
             <p className="text-[13px] text-blue-700 leading-relaxed font-medium">
               Your uploads are undergoing Admin Approval. Once approved by the
               administrator, they will be released to the booking agent.
+            </p>
+          </div>
+        )}
+        {fileItems.length > 0 && (
+          <div className="w-[95%] max-w-[1200px] mb-4 p-3.5 border border-blue-200 bg-blue-50/70 rounded-[8px] flex items-start sm:items-center gap-3 font-alexandria shadow-sm self-center">
+            <span className="text-[18px] text-blue-600 mt-0.5 sm:mt-0">ℹ️</span>
+            <p className="text-[12px] sm:text-[13px] text-blue-900 leading-relaxed font-medium">
+              <strong className="font-semibold text-blue-950">Public Tour Display:</strong> The top-ranked branded and unbranded floor plans (#1) will be featured as the primary view in their respective tours. Switch to Reorder mode to rearrange their display order.
             </p>
           </div>
         )}
@@ -1984,23 +2049,58 @@ const Service: React.FC<
             : selectedImageUrl
         }
         title={
-          editingFile
-            ? "file" in editingFile
-              ? editingFile.type
-              : (editingFile as Files).group ||
-                (editingFile as Files).type ||
-                "2D Floor Plan"
-            : "2D Floor Plan"
+          (() => {
+            if (!editingFile) return "Floor Plan";
+            if ("file" in editingFile) {
+              if (editingFile.group && typeof editingFile.group === "string" && editingFile.group.trim()) {
+                return editingFile.group.trim();
+              }
+              if (editingFile.type && editingFile.type !== "photo" && editingFile.type !== "document" && editingFile.type !== "pdf") {
+                return editingFile.type;
+              }
+              return "Floor Plan";
+            }
+            const f = editingFile as Files;
+            if (f.group && typeof f.group === "string" && f.group.trim()) {
+              return f.group.trim();
+            }
+            if (f.type && f.type !== "photo" && f.type !== "document" && f.type !== "pdf") {
+              return f.type;
+            }
+            return "Floor Plan";
+          })()
         }
         initialName={
+          (() => {
+            if (!editingFile) return "Floor Plan";
+            if ("file" in editingFile) {
+              if (editingFile.group && typeof editingFile.group === "string" && editingFile.group.trim()) {
+                return editingFile.group.trim();
+              }
+              if (editingFile.type && editingFile.type !== "photo" && editingFile.type !== "document" && editingFile.type !== "pdf") {
+                return editingFile.type;
+              }
+              return "Floor Plan";
+            }
+            const f = editingFile as Files;
+            if (f.group && typeof f.group === "string" && f.group.trim()) {
+              return f.group.trim();
+            }
+            if (f.type && f.type !== "photo" && f.type !== "document" && f.type !== "pdf") {
+              return f.type;
+            }
+            return "Floor Plan";
+          })()
+        }
+        initialSubtype={
           editingFile
             ? "file" in editingFile
-              ? editingFile.type
-              : (editingFile as Files).group ||
-                (editingFile as Files).type ||
-                "2D Floor Plan"
-            : ""
+              ? (editingFile as any).subtype
+              : (editingFile as Files).subtype
+            : null
         }
+        type="floor_plans"
+        suggestions={floorPlans}
         isPaid={Boolean(
           orderData?.release_media_before_payment ||
           bookingToUse?.payment_status === "PAID" ||
@@ -2017,7 +2117,7 @@ const Service: React.FC<
             ? (editingFile as Files).is_agent_approved
             : false
         }
-        onSave={(newName) => {
+        onSave={(newName, newSubtype) => {
           if (!editingFile) return;
 
           if ("file" in editingFile) {
@@ -2025,30 +2125,79 @@ const Service: React.FC<
             setFloorFiles((prev) =>
               prev.map((f) => {
                 if (f.file === editingFile.file) {
-                  return { ...f, type: newName };
+                  return {
+                    ...f,
+                    type: newName,
+                    group: newName,
+                    subtype: newSubtype !== undefined ? newSubtype : f.subtype,
+                  };
                 }
                 return f;
               }),
             );
+            setFileItems((prev) =>
+              prev.map((item) => {
+                if (item.originalData && "file" in item.originalData && item.originalData.file === editingFile.file) {
+                  return {
+                    ...item,
+                    originalData: {
+                      ...item.originalData,
+                      type: newName,
+                      group: newName,
+                      subtype: newSubtype !== undefined ? newSubtype : item.originalData.subtype,
+                    },
+                  };
+                }
+                return item;
+              }),
+            );
           } else {
             // Saved
+            const targetUuid = (editingFile as Files).uuid;
+            setChangedFileUuids((prevSet) => {
+              const newSet = new Set(prevSet);
+              newSet.add(targetUuid);
+              return newSet;
+            });
+
             setFilesData((prev) => {
               if (!prev) return prev;
               return {
                 ...prev,
                 files: prev.files.map((f) => {
-                  if (f.uuid === editingFile.uuid) {
-                    setChangedFileUuids((prevSet) => {
-                      const newSet = new Set(prevSet);
-                      newSet.add(f.uuid);
-                      return newSet;
-                    });
-                    return { ...f, group: newName };
+                  if (f.uuid === targetUuid) {
+                    return {
+                      ...f,
+                      group: newName,
+                      type: newName,
+                      subtype: newSubtype !== undefined ? newSubtype : f.subtype,
+                    };
                   }
                   return f;
                 }),
               };
             });
+
+            setFileItems((prev) =>
+              prev.map((item) => {
+                if (item.serverId === targetUuid || (item.originalData && "uuid" in item.originalData && item.originalData.uuid === targetUuid)) {
+                  return {
+                    ...item,
+                    originalData: {
+                      ...item.originalData,
+                      group: newName,
+                      type: newName,
+                      subtype: newSubtype !== undefined ? newSubtype : item.originalData?.subtype,
+                    },
+                  };
+                }
+                return item;
+              }),
+            );
+
+            if (onSave) {
+              onSave();
+            }
           }
         }}
         onDelete={
@@ -2078,7 +2227,6 @@ const Service: React.FC<
               }
             : undefined
         }
-        suggestions={floorPlans}
       />
       <DownloadModal
         open={showDownloadModal}

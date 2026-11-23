@@ -53,7 +53,6 @@ import {
 } from "@/components/ui/tooltip";
 import DynamicMap from "@/components/DYnamicMap";
 import CustomSlideshow from "./CustomPreview";
-import TourFloorPlans from "./TourFloorPlans";
 import TourActivityDialog from "./TourActivityDialog";
 
 interface TourConfimation {
@@ -388,6 +387,100 @@ const TourConfirm = ({
   >("branded");
   const activeTourType = isPublicView ? publicTourType : previewTourType;
 
+  const currentTourFloorFiles = React.useMemo(() => {
+    const rawFiles = isPublicView
+      ? publicFloorPlanFiles
+      : [
+          ...((filesData?.files || orderData?.tours?.[0]?.files || (orderData as any)?.files || []).filter(
+            (file: any) => {
+              const isFloorPlan =
+                file?.service?.name === "2D Floor Plans" ||
+                file?.service?.name === "3D Floor Plans" ||
+                file?.service?.category?.name === "Floor Plan" ||
+                file?.service?.name?.toLowerCase().includes("floor plan") ||
+                file?.service?.category?.name?.toLowerCase().includes("floor plan");
+              return file.type === "photo" && isFloorPlan;
+            },
+          ) || []),
+          ...(fileManagerContext?.floorFiles || []).filter((f: any) => !f.is_deleted),
+        ];
+
+    let floorPlans = (rawFiles || []).filter((file: any) => {
+      if (file.is_hidden) return false;
+      return true;
+    });
+
+    if (userType === "agent") {
+      floorPlans = floorPlans.filter(isMediaApprovedByAgent);
+    }
+
+    return floorPlans.sort((a: any, b: any) => {
+      const orderA = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : 999999;
+      const orderB = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : 999999;
+      if (orderA !== orderB) return orderA - orderB;
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateA - dateB;
+    });
+  }, [
+    isPublicView,
+    publicFloorPlanFiles,
+    filesData?.files,
+    orderData,
+    fileManagerContext?.floorFiles,
+    userType,
+    isMediaApprovedByAgent,
+  ]);
+
+  const activeTourFloorFiles = React.useMemo(() => {
+    const all = currentTourFloorFiles || [];
+    if (activeTourType === "branded") {
+      const branded = all.filter(
+        (f: any) => f.subtype === "branded_floorplan" || f.subtype === "branded",
+      );
+      if (branded.length > 0) return [branded[0]];
+    } else {
+      const unbranded = all.filter(
+        (f: any) => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded",
+      );
+      if (unbranded.length > 0) return [unbranded[0]];
+    }
+    return all.length > 0 ? [all[0]] : [];
+  }, [currentTourFloorFiles, activeTourType]);
+
+  const confirmSnapshots = React.useMemo(() => {
+    const baseSnapshots = (filesData?.snapshots || orderData?.tours?.[0]?.snapshots || [])
+      .filter((snap: any) => !fileManagerContext?.deletedSnapshotUuids?.has(snap.uuid))
+      .map((snap: any) => ({
+        uuid: snap.uuid,
+        x_axis: Number(snap.x_axis),
+        y_axis: Number(snap.y_axis),
+        file_name: snap.file_name,
+        floorImageUrl: snap.file_name,
+        name: snap.name ?? undefined,
+        description: snap.description ?? undefined,
+        file_path: snap.file_path,
+        url: snap.url,
+        thumbnail_url: snap.thumbnail_url,
+        variant_urls: snap.variant_urls,
+      }));
+
+    const newlyDropped = (fileManagerContext?.droppedMarkers || []).map((marker: any) => ({
+      x_axis: marker.x,
+      y_axis: marker.y,
+      file_name: marker.floorImageUrl,
+      floorImageUrl: marker.floorImageUrl,
+      name: marker.name,
+      description: marker.description,
+      file_path: marker.file_path,
+      url: marker.url,
+      thumbnail_url: marker.thumbnail_url,
+      variant_urls: marker.variant_urls,
+    }));
+
+    return [...baseSnapshots, ...newlyDropped];
+  }, [filesData?.snapshots, orderData, fileManagerContext?.deletedSnapshotUuids, fileManagerContext?.droppedMarkers]);
+
   const getAgentLogo = () => {
     if (!orderData?.agent) return undefined;
     const API_URL =
@@ -599,7 +692,8 @@ const TourConfirm = ({
       );
   const hasFloorPlans = isPublicView
     ? publicFloorPlanFiles && publicFloorPlanFiles.length > 0
-    : orderData?.services?.some((s) =>
+    : (currentTourFloorFiles && currentTourFloorFiles.length > 0) ||
+      orderData?.services?.some((s) =>
         s.service?.name?.toLowerCase().includes("floor plan"),
       );
 
@@ -2328,32 +2422,13 @@ const TourConfirm = ({
 
               {activeTab === "Floorplan" && (
                 <div className="w-full pt-[140px] md:pt-[165px]">
-                  {isPublicView ? (
-                    <PublicTourFloorPlans
-                      floorPlanFiles={
-                        (() => {
-                          const files = publicFloorPlanFiles || [];
-                          if (activeTourType === "branded") {
-                            const branded = files.filter(
-                              (f) => f.subtype === "branded_floorplan" || f.subtype === "branded",
-                            );
-                            if (branded.length > 0) return branded;
-                          } else {
-                            const unbranded = files.filter(
-                              (f) => f.subtype === "unbranded_floorplan" || f.subtype === "unbranded",
-                            );
-                            if (unbranded.length > 0) return unbranded;
-                          }
-                          return files;
-                        })()
-                      }
-                      snapshots={orderData?.tours?.[0]?.snapshots}
-                      tourPhotos={publicTourPhotos as any}
-                      watermarkLogo={actualWatermarkLogo}
-                    />
-                  ) : (
-                    <TourFloorPlans type="confirm" />
-                  )}
+                  <PublicTourFloorPlans
+                    floorPlanFiles={activeTourFloorFiles}
+                    allFloorPlanFiles={currentTourFloorFiles}
+                    snapshots={(isPublicView ? (orderData?.tours?.[0]?.snapshots || []) : confirmSnapshots) as any}
+                    tourPhotos={(publicTourPhotos || currentTourPhotos) as any}
+                    watermarkLogo={actualWatermarkLogo}
+                  />
                 </div>
               )}
               <div

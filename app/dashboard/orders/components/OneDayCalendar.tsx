@@ -3581,6 +3581,7 @@ export default function OneDayCalendar({
     vendorsData,
     selectedVendors,
     propertyTimezone,
+    portalSettings?.allow_booking_through_lunch,
   ]);
 
   const prevDateRef = React.useRef<string>(currentDate);

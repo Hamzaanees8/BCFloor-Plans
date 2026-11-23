@@ -1252,10 +1252,9 @@ const Page = () => {
           );
         }
 
-        toast.success(
-          "Payment processed successfully! This tab will close automatically.",
-          { id: loadingToastId },
-        );
+        toast.success("Payment processed successfully!", {
+          id: loadingToastId,
+        });
 
         if (typeof window !== "undefined") {
           const channel = new BroadcastChannel("billing_payment_channel");

@@ -473,9 +473,10 @@ export async function GetMediaSettings() {
   }
 }
 
-export async function GetTourDefaultSettings() {
+export async function GetTourDefaultSettings(orgUuid?: string) {
   try {
-    const response = await api.get(`/settings/tour_settings`);
+    const url = orgUuid ? `/settings/tour_settings?org_uuid=${orgUuid}` : `/settings/tour_settings`;
+    const response = await api.get(url);
     const data = await response.data;
     return data;
   } catch (error) {
@@ -606,6 +607,9 @@ export interface MediaSettingsPayload {
     matterport_auto_invoice_days?: number;
     matterport_reminder_intervals?: number[];
     always_enable_sorting?: boolean;
+    floorplan_names?: string[];
+    is_custom_floorplans?: boolean;
+    global_floorplan_names?: string[];
   };
 }
 

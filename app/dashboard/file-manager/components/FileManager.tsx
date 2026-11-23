@@ -2467,7 +2467,8 @@ const FileManager = () => {
         console.error("Failed to fetch tour settings", err);
       }
       try {
-        const defaultSettingsRes = await GetTourDefaultSettings();
+        const orgUuid = (orderData as any)?.organization_uuid || (orderData as any)?.organization?.uuid || organization?.uuid;
+        const defaultSettingsRes = await GetTourDefaultSettings(orgUuid);
         if (defaultSettingsRes?.value) {
           setTourDefaultSettings(defaultSettingsRes.value);
         }

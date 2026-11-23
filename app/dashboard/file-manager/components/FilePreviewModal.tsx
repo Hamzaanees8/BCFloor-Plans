@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -438,6 +438,7 @@ interface Props {
   serviceUuid: string;
   reviewFilesEnabled?: boolean;
   onSave?: () => void;
+  floorPlanSuggestions?: string[];
 }
 
 export default function FilePreviewModal({
@@ -449,6 +450,7 @@ export default function FilePreviewModal({
   serviceUuid,
   reviewFilesEnabled,
   onSave,
+  floorPlanSuggestions,
 }: Props) {
   const [localItems, setLocalItems] = useState<PreviewItem[]>([]);
   const [groupLabel, setGroupLabel] = useState("");
@@ -463,7 +465,7 @@ export default function FilePreviewModal({
   }, [onSave]);
 
   const { userType } = useAppContext();
-  const { filesData } = useFileManagerContext();
+  const { filesData, tourDefaultSettings } = useFileManagerContext();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -497,7 +499,17 @@ export default function FilePreviewModal({
     ),
   );
 
-  const baseSuggestions = type === "floor_plans" ? floorPlans : mediaOptions;
+  const dynamicFloorPlans = useMemo(() => {
+    if (floorPlanSuggestions && floorPlanSuggestions.length > 0) {
+      return floorPlanSuggestions;
+    }
+    if (Array.isArray(tourDefaultSettings?.floorplan_names) && tourDefaultSettings.floorplan_names.length > 0) {
+      return tourDefaultSettings.floorplan_names;
+    }
+    return floorPlans;
+  }, [floorPlanSuggestions, tourDefaultSettings?.floorplan_names]);
+
+  const baseSuggestions = type === "floor_plans" ? dynamicFloorPlans : mediaOptions;
   const allSuggestions = Array.from(
     new Set([...baseSuggestions, ...existingGroups]),
   );
@@ -634,7 +646,7 @@ export default function FilePreviewModal({
       const filesToAdd = localItems.map((item, index) => ({
         file: item.file,
         type: item.mediaType || "",
-        group: item.isSelected ? groupLabel : "",
+        group: item.mediaType || (item.isSelected ? groupLabel : ""),
         upload: true,
         service_id: serviceUuid,
         is_admin_approved: userType === "admin" ? true : !reviewFilesEnabled,
