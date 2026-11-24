@@ -80,10 +80,11 @@ const AddDiscountDialog: React.FC<Props> = ({
                     setCodeKey(discount.code_key || "");
                     setCodeDescription(discount.description || "");
                     setCodePercentage(discount.percentage || 0);
-                    if (discount?.services) {
-                        const serviceIds = discount.services.map((service: { id: number }) => service.id);
-                        setSelectedServicesCode(serviceIds);
-                    }
+                    setSelectedServicesCode(
+                        Array.isArray(discount?.services)
+                            ? discount.services.map((service: { id: number }) => service.id)
+                            : []
+                    );
                     setActiveTab("codes");
                 })
                 .catch((err) => console.log("Error fetching Code:", err.message));
@@ -107,10 +108,11 @@ const AddDiscountDialog: React.FC<Props> = ({
 
                     setDateValue(formattedDate);
 
-                    if (discount?.services) {
-                        const serviceIds = discount.services.map((service: { id: number }) => service.id);
-                        setSelectedServices(serviceIds);
-                    }
+                    setSelectedServices(
+                        Array.isArray(discount?.services)
+                            ? discount.services.map((service: { id: number }) => service.id)
+                            : []
+                    );
 
                     setActiveTab("discounts");
                 })
@@ -173,9 +175,6 @@ const AddDiscountDialog: React.FC<Props> = ({
                 }
                 if (codePercentage <= 0 || codePercentage > 99.99) {
                     validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
-                }
-                if (selectedServicesCode.length === 0) {
-                    validationErrors.services = ['The services field is required.'];
                 }
 
                 if (Object.keys(validationErrors).length > 0) {
@@ -254,9 +253,6 @@ const AddDiscountDialog: React.FC<Props> = ({
                 }
                 if (codePercentage <= 0 || codePercentage > 99.99) {
                     validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
-                }
-                if (selectedServicesCode.length === 0) {
-                    validationErrors.services = ['The services field is required.'];
                 }
 
                 if (Object.keys(validationErrors).length > 0) {
@@ -355,9 +351,6 @@ const AddDiscountDialog: React.FC<Props> = ({
                 if (discountPercentage <= 0 || discountPercentage > 99.99) {
                     validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
                 }
-                if (selectedServices.length === 0) {
-                    validationErrors.services = ['The services field is required.'];
-                }
                 if (!dateValue) {
                     validationErrors.expiry_date = ['The expiry date field is required.'];
                 }
@@ -452,9 +445,6 @@ const AddDiscountDialog: React.FC<Props> = ({
                 }
                 if (discountPercentage <= 0 || discountPercentage > 99.99) {
                     validationErrors.percentage = ['The percentage field must be between 0.01 and 99.99.'];
-                }
-                if (selectedServices.length === 0) {
-                    validationErrors.services = ['The services field is required.'];
                 }
                 if (!dateValue) {
                     validationErrors.expiry_date = ['The expiry date field is required.'];
@@ -807,7 +797,7 @@ const AddDiscountDialog: React.FC<Props> = ({
 
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
-                                                <p className='font-normal text-base text-[#424242]'>Required Services <span className="text-red-500">*</span></p>
+                                                <p className='font-normal text-base text-[#424242]'>Services available to this discount</p>
                                                 <div className='flex items-center gap-x-[10px] cursor-pointer relative ' onClick={toggleDropdown}>
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm '
@@ -845,6 +835,9 @@ const AddDiscountDialog: React.FC<Props> = ({
                                                     </div>
                                                 )}
                                             </div>
+                                            <p className="text-xs text-[#7D7D7D] mt-1">
+                                                Leave empty to apply to all services.
+                                            </p>
                                             {fieldErrors.services && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.services[0]}</p>}
                                         </div>
                                         <div className="col-span-2">
@@ -938,7 +931,7 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
-                                                <p className='font-normal text-base text-[#424242]'>Required Services <span className="text-red-500">*</span></p>
+                                                <p className='font-normal text-base text-[#424242]'>Services available to this discount</p>
                                                 <div className='flex items-center gap-x-[10px] relative cursor-pointer' onClick={toggleDropdown} >
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm '
@@ -976,6 +969,9 @@ const AddDiscountDialog: React.FC<Props> = ({
                                                     </div>
                                                 )}
                                             </div>
+                                            <p className="text-xs text-[#7D7D7D] mt-1">
+                                                Leave empty to apply to all services.
+                                            </p>
                                             {fieldErrors.services && <p className='text-red-500 text-[10px] mt-1'>{fieldErrors.services[0]}</p>}
                                         </div>
                                         <div className="col-span-2">

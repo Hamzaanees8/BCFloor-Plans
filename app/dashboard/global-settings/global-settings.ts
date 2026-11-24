@@ -13,7 +13,7 @@ export interface DiscountPayload {
   type: string;
   percentage: number;
   expiry_date: string;
-  services: number[];
+  services?: number[];
   description: string;
   quantity: number;
 }
@@ -21,6 +21,7 @@ export interface CodePayload {
   type: string;
   percentage: number;
   code_key: string;
+  services?: number[];
   description: string;
 }
 
