@@ -144,6 +144,9 @@ const OrderForm = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [showFailedRetryModal, setShowFailedRetryModal] = useState(false);
+    const [orderFailedError, setOrderFailedError] = useState("");
+    const [isRetryingOrder, setIsRetryingOrder] = useState(false);
     const [notifyAgent, setNotifyAgent] = useState(true);
     const [notifyVendor, setNotifyVendor] = useState(true);
     const [notifyAdmin, setNotifyAdmin] = useState(true);
@@ -195,9 +198,34 @@ const OrderForm = () => {
             if (success) {
                 setShowConfirmation(false);
                 setIsSubmitted(true);
+            } else {
+                setShowConfirmation(false);
+                const errorMsg = confirmationRef.current?.getLastError?.() || "Failed to create order";
+                setOrderFailedError(errorMsg);
+                setShowFailedRetryModal(true);
             }
         } finally {
             setIsUpdatingOrder(false);
+        }
+    };
+
+    const handleRetrySubmit = async () => {
+        setIsRetryingOrder(true);
+        try {
+            const success = await confirmationRef.current?.handleSubmitOrder(undefined, {
+                notify_agent: role === 'agent' ? true : notifyAgent,
+                notify_vendor: notifyVendor,
+                notify_admin: role === 'agent' ? true : notifyAdmin,
+            });
+            if (success) {
+                setShowFailedRetryModal(false);
+                setIsSubmitted(true);
+            } else {
+                const errorMsg = confirmationRef.current?.getLastError?.() || "Failed to create order";
+                setOrderFailedError(errorMsg);
+            }
+        } finally {
+            setIsRetryingOrder(false);
         }
     };
 
@@ -758,19 +786,30 @@ const OrderForm = () => {
                         </Button>
                     ) : (
                         <Button
-                            disabled={isLoading || isUpdatingOrder || (isPast && role !== 'admin')}
+                            disabled={isLoading || isUpdatingOrder || isRetryingOrder || (isPast && role !== 'admin')}
                             onClick={async (e) => {
                                 if (isOrderUpdate) {
                                     handleOpenSubmitModal(e);
                                 } else {
-                                    await confirmationRef.current?.handleSubmitOrder(e);
-                                    setIsSubmitted(true);
+                                    setIsUpdatingOrder(true);
+                                    try {
+                                        const success = await confirmationRef.current?.handleSubmitOrder(e);
+                                        if (success) {
+                                            setIsSubmitted(true);
+                                        } else {
+                                            const errorMsg = confirmationRef.current?.getLastError?.() || "Failed to create order";
+                                            setOrderFailedError(errorMsg);
+                                            setShowFailedRetryModal(true);
+                                        }
+                                    } finally {
+                                        setIsUpdatingOrder(false);
+                                    }
                                 }
                             }}
                             className={`w-[110px] md:w-[143px] h-[35px] md:h-[44px] border-[1px] text-[14px] md:text-[16px] font-[400] text-white flex gap-[5px] items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                             style={{ backgroundColor: roleSettings.pageTabColor, borderColor: roleSettings.pageTabColor }}
                         >
-                            {(isLoading || isUpdatingOrder) ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
+                            {(isLoading || isUpdatingOrder || isRetryingOrder) ? <Loader2 className='w-4 h-4 animate-spin' /> : "Submit"}
                         </Button>
                     )}
                 </div>
@@ -903,6 +942,65 @@ const OrderForm = () => {
                             {isUpdatingOrder && <Loader2 className="w-5 h-5 animate-spin" />}
                             <span>OK</span>
                         </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Order Creation Failed - Retry Modal */}
+            <AlertDialog
+                open={showFailedRetryModal}
+                onOpenChange={setShowFailedRetryModal}
+            >
+                <AlertDialogContent className="w-[340px] md:w-[540px] max-w-[540px] rounded-[10px] p-5 md:p-6 gap-4 font-alexandria shadow-lg">
+                    <AlertDialogHeader className="border-b border-[#E4E4E4] pb-3">
+                        <AlertDialogTitle className="flex items-center justify-between text-red-600 text-[18px] font-[600]">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+                                <span>Order Creation Failed</span>
+                            </div>
+                            <AlertDialogCancel
+                                onClick={() => setShowFailedRetryModal(false)}
+                                className="border-none !shadow-none p-0 h-auto bg-transparent hover:bg-transparent"
+                            >
+                                <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
+                            </AlertDialogCancel>
+                        </AlertDialogTitle>
+                    </AlertDialogHeader>
+
+                    <div className="flex items-start gap-3.5 my-1">
+                        <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0 mt-0.5">
+                            <WarningIcon width={24} />
+                        </div>
+                        <div className="flex flex-col gap-1.5 text-[14px]">
+                            <p className="font-[600] text-gray-800">
+                                We could not complete your booking:
+                            </p>
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-[13px] leading-relaxed break-words font-medium">
+                                {orderFailedError || "An unexpected error occurred while processing your order."}
+                            </div>
+                            <p className="text-[#666666] text-[13px] mt-1">
+                                The property has already been saved to your account. You can click <strong>Retry Order</strong> to try creating the order again, or click <strong>Review Details</strong> to adjust your services or schedule.
+                            </p>
+                        </div>
+                    </div>
+
+                    <AlertDialogFooter className="flex flex-col-reverse md:flex-row md:justify-end gap-2.5 pt-2 border-t border-[#E4E4E4]">
+                        <AlertDialogCancel
+                            onClick={() => setShowFailedRetryModal(false)}
+                            disabled={isRetryingOrder}
+                            className="w-full md:w-[150px] h-[40px] text-[15px] font-[500] border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        >
+                            Review Details
+                        </AlertDialogCancel>
+                        <Button
+                            disabled={isRetryingOrder}
+                            onClick={handleRetrySubmit}
+                            className="w-full md:w-[160px] h-[40px] text-[15px] font-[500] text-white flex items-center justify-center gap-2 shadow-sm"
+                            style={{ backgroundColor: roleSettings.pageTabColor }}
+                        >
+                            {isRetryingOrder && <Loader2 className="w-4 h-4 animate-spin" />}
+                            <span>{isRetryingOrder ? "Retrying..." : "Retry Order"}</span>
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

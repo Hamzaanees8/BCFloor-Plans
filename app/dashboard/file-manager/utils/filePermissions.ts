@@ -152,21 +152,38 @@ export const isPaymentAuthorizationValid = ({
     return false;
   }
 
+  // Rule 3: null / undefined -> fallback to checking if service or order is PAID
+  const isServicePaid =
+    currentService?.payment_status?.toUpperCase() === 'PAID' ||
+    (file.service && orderData?.services?.some(
+      (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id) && s.payment_status?.toUpperCase() === 'PAID'
+    ));
+
+  const isOrderPaid = orderData?.payment_status?.toUpperCase() === 'PAID';
+
+  if (!isServicePaid && !isOrderPaid) {
+    return false;
+  }
+
+  const sName = (file.service?.name || '').toLowerCase();
+  const fType = (file.type || '').toLowerCase();
+  const isFloorPlan =
+    sName.includes('floor') ||
+    fType === 'floor_plan' ||
+    fType === 'floorplan' ||
+    fType === 'pdf' ||
+    fType === 'application/pdf';
+
+  if (isFloorPlan) {
+    return true;
+  }
+
   // File must be marked as paid or complimentary
   if (!file.is_paid && !file.is_complimentary) {
     return false;
   }
 
-  // Rule 3: null / undefined -> fallback to checking if service or order is PAID
-  const isServicePaid =
-    currentService?.payment_status === 'PAID' ||
-    (file.service && orderData?.services?.some(
-      (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
-    ));
-
-  const isOrderPaid = orderData?.payment_status === 'PAID';
-
-  return isServicePaid || isOrderPaid;
+  return true;
 };
 
 /**
@@ -208,20 +225,29 @@ export const getDownloadBlockReason = (params: PermissionCheckParams): string =>
       return 'Media access has been revoked';
     }
 
-    if (!file.is_paid && !file.is_complimentary) {
-      return 'File is not available for download';
-    }
-
     const isServicePaid =
-      currentService?.payment_status === 'PAID' ||
+      currentService?.payment_status?.toUpperCase() === 'PAID' ||
       (file.service && orderData?.services?.some(
-        (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid) && s.payment_status === 'PAID'
+        (s: OrderService) => (s.service?.uuid === file.service?.uuid || s.uuid === file.service?.uuid || s.service_id === file.service?.id) && s.payment_status?.toUpperCase() === 'PAID'
       ));
 
-    const isOrderPaid = orderData?.payment_status === 'PAID';
+    const isOrderPaid = orderData?.payment_status?.toUpperCase() === 'PAID';
 
     if (!isServicePaid && !isOrderPaid) {
       return 'Service payment required';
+    }
+
+    const sName = (file.service?.name || '').toLowerCase();
+    const fType = (file.type || '').toLowerCase();
+    const isFloorPlan =
+      sName.includes('floor') ||
+      fType === 'floor_plan' ||
+      fType === 'floorplan' ||
+      fType === 'pdf' ||
+      fType === 'application/pdf';
+
+    if (!isFloorPlan && !file.is_paid && !file.is_complimentary) {
+      return 'File is not available for download';
     }
   }
 

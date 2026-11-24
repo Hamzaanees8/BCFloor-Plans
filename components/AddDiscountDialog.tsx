@@ -938,7 +938,7 @@ const AddDiscountDialog: React.FC<Props> = ({
                                         </div>
                                         <div className="col-span-2">
                                             <div className='flex items-center justify-between' ref={dropdownRef}>
-                                                <p className='font-normal text-base text-[#424242]'>Required Services <span className="text-red-500">*</span></p>
+                                                <p className='font-normal text-base text-[#424242]'>Services available to this discount <span className="text-red-500">*</span></p>
                                                 <div className='flex items-center gap-x-[10px] relative cursor-pointer' onClick={toggleDropdown} >
                                                     <p className='text-base font-semibold font-raleway text-[#6BAE41]'>Add</p>
                                                     <Plus className='w-[18px] h-[18px] bg-[#6BAE41] text-white rounded-sm '

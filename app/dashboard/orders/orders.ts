@@ -112,14 +112,23 @@ function payloadToFormData(payload: OrderPayload): FormData {
           key === "services" ||
           key === "discounts" ||
           key === "notes" ||
-          key === "slots"
+          key === "slots" ||
+          key === "floorplan_areas"
         ) {
-          Object.entries(item).forEach(([subKey, subVal]) => {
-            if (subVal !== undefined && subVal !== null) {
-              const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
-              formData.append(`${key}[${index}][${subKey}]`, valStr);
-            }
-          });
+          if (typeof item === "object" && item !== null) {
+            Object.entries(item).forEach(([subKey, subVal]) => {
+              if (subVal !== undefined && subVal !== null) {
+                if (subKey === "vendor_id" && (subVal === "" || subVal === "all" || subVal === "none")) {
+                  return;
+                }
+                const valStr = typeof subVal === "boolean" ? (subVal ? "1" : "0") : String(subVal);
+                formData.append(`${key}[${index}][${subKey}]`, valStr);
+              }
+            });
+          } else {
+            const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
+            formData.append(`${key}[${index}]`, valStr);
+          }
         } else {
           // ✅ Handles notes and any other string array like notes[0], notes[1]
           const valStr = typeof item === "boolean" ? (item ? "1" : "0") : String(item);
@@ -198,15 +207,35 @@ export async function Create(payload: OrderPayload, token: string, orgSlug?: str
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
+      Accept: "application/json",
     },
     body: formData,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  let data: any = {};
+  if (contentType.includes("application/json")) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(text || `Request failed (${response.status})`);
+    }
+  }
 
   if (!response.ok) {
-    const error = new Error(data.message || "Request failed");
-    (error as FetchErrors).errors = data.errors;
+    let errorMsg = "Request failed";
+    if (data.message) {
+      if (typeof data.message === "object") {
+        errorMsg = Object.values(data.message).flat().join(", ");
+      } else {
+        errorMsg = data.message;
+      }
+    } else if (data.errors && typeof data.errors === "object") {
+      errorMsg = Object.values(data.errors).flat().join(", ");
+    }
+    const error = new Error(errorMsg);
+    (error as FetchErrors).errors = data.errors || (typeof data.message === "object" ? data.message : undefined);
     throw error;
   }
 

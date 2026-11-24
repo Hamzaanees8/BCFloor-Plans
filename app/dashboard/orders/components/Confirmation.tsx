@@ -75,6 +75,7 @@ export type OrderConfirmationHandle = {
     e?: React.MouseEvent<HTMLButtonElement>,
     notificationOptions?: NotificationOptions,
   ) => Promise<boolean>;
+  getLastError?: () => string | null;
 };
 const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
   const {
@@ -118,6 +119,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     (userType as string)?.toLowerCase() || (isBookNowMode ? "agent" : "admin");
   const roleSettings =
     appliedSettings[role as Role] || appliedSettings["admin"];
+  const lastErrorRef = React.useRef<string | null>(null);
 
   const handleDone = () => {
     if (isBookNowMode) {
@@ -736,6 +738,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     }
     if (isLoading) return false;
 
+    lastErrorRef.current = null;
     setIsLoading(true);
 
     try {
@@ -830,11 +833,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
               String(slot.service_id) === String(service.uuid) ||
               (service.id && String(slot.service_id) === String(service.id)),
           );
-          const resolvedVendorId =
+          const rawVendorId =
             (service as any).vendor_id ||
             matchedSlot?.vendor_id ||
             matchedSlot?.vendor?.uuid ||
             undefined;
+          const resolvedVendorId =
+            rawVendorId && rawVendorId !== "all" && rawVendorId !== "none" && rawVendorId !== ""
+              ? rawVendorId
+              : undefined;
 
           return {
             ...(service.service_uuid && { uuid: service.service_uuid }), // Include uuid for existing services
@@ -851,14 +858,15 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         }),
         discounts,
         slots: (() => {
-          // Filter out any slots for services that do not require travel
+          // Filter out any slots for services that do not require travel or have invalid vendor
           const travelSlots = selectedSlots.filter((slot: Slot) => {
             const s = selectedServices.find(
               (sel) =>
                 sel.uuid === slot.service_id ||
                 String(sel.id) === String(slot.service_id),
             );
-            return isServiceRequiringTravel(s, services);
+            const vId = slot.vendor_id || (slot as any).vendor?.uuid;
+            return isServiceRequiringTravel(s, services) && vId && vId !== "all" && vId !== "none";
           });
 
           // Group slots by service_id, vendor_id, and date
@@ -980,8 +988,20 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
       setCreatedOrderUuid(response.data.uuid);
       setIsSubmitted(true);
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit order", err);
+      let errorMsg = "Failed to submit order";
+      if (err?.errors) {
+        if (typeof err.errors === "object") {
+          errorMsg = Object.values(err.errors).flat().join(", ");
+        } else {
+          errorMsg = String(err.errors);
+        }
+      } else if (err?.message) {
+        errorMsg = err.message;
+      }
+      lastErrorRef.current = errorMsg;
+      toast.error(errorMsg);
       setIsSubmitted(false);
       return false;
     } finally {
@@ -1008,6 +1028,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
   const uniqueVendors = Array.from(uniqueVendorsMap.values());
   useImperativeHandle(ref, () => ({
     handleSubmitOrder,
+    getLastError: () => lastErrorRef.current,
   }));
   return (
     <div className="w-full space-y-4">
