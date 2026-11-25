@@ -189,6 +189,9 @@ import {
   isMainInvoice,
   isInvoiceLinkedToService,
   isOrphanInvoice,
+  isServiceInvoice,
+  isSingleServiceOrder,
+  filterVisibleInvoices,
 } from "../invoice/invoice_utils";
 
 export {
@@ -196,6 +199,9 @@ export {
   isMainInvoice,
   isInvoiceLinkedToService,
   isOrphanInvoice,
+  isServiceInvoice,
+  isSingleServiceOrder,
+  filterVisibleInvoices,
 };
 
 
@@ -209,6 +215,10 @@ export function getBestTargetInvoice(
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
     return null;
   }
+
+  // Filter out redundant duplicate service invoices when single service
+  const cleanedInvoices = filterVisibleInvoices(invoicesList);
+  const effectiveInvoices = cleanedInvoices.length > 0 ? cleanedInvoices : invoicesList;
 
   const isCoAgent = isUserCoAgent(userInfo, userType);
   const userUuid = userInfo?.data?.uuid || userInfo?.uuid;
@@ -244,7 +254,7 @@ export function getBestTargetInvoice(
 
   // 1. If serviceUuid or serviceId is provided: filter invoices containing this service
   if (serviceUuid || serviceId != null) {
-    const serviceInvoices = invoicesList.filter((inv: any) =>
+    const serviceInvoices = effectiveInvoices.filter((inv: any) =>
       inv.items?.some((i: any) => {
         const sUuid = i.order_service?.uuid || i.orderService?.uuid || i.order_service_uuid;
         const sId = i.order_service_id || i.order_service?.id || i.orderService?.id;
@@ -297,8 +307,8 @@ export function getBestTargetInvoice(
   }
 
   // 2. Fallback: select the best overall invoice for the order (preferring non-renewals)
-  const activeInvoices = invoicesList.filter((inv: any) => !isVoidOrCancelled(inv.status));
-  const rawOrderPool = activeInvoices.length > 0 ? activeInvoices : invoicesList;
+  const activeInvoices = effectiveInvoices.filter((inv: any) => !isVoidOrCancelled(inv.status));
+  const rawOrderPool = activeInvoices.length > 0 ? activeInvoices : effectiveInvoices;
   const nonRenewalOrderPool = rawOrderPool.filter((inv: any) => !isRenewalInvoice(inv));
   const pool = nonRenewalOrderPool.length > 0 ? nonRenewalOrderPool : rawOrderPool;
 
@@ -456,7 +466,7 @@ export function prepareServiceInvoicePreview(
 export function prepareOrderInvoicePreview(
   invoicesList: any[],
   targetInvoice: any,
-  billing?: BillingItem,
+  billing?: BillingItem | any,
 ) {
   if (!targetInvoice) return null;
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
@@ -613,7 +623,8 @@ export function getServiceSplitInvoices(
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) return [];
   if (!serviceUuid && serviceId == null) return [];
 
-  return invoicesList.filter(
+  const visibleList = filterVisibleInvoices(invoicesList);
+  return visibleList.filter(
     (inv: any) =>
       !isVoidOrCancelled(inv.status) &&
       inv.items?.some((i: any) => {

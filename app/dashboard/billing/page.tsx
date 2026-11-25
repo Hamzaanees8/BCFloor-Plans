@@ -40,6 +40,8 @@ import {
   isRenewalInvoice,
   isMainInvoice,
   isInvoiceLinkedToService,
+  filterVisibleInvoices,
+  isSingleServiceOrder,
 } from "../invoice/invoice_utils";
 import {
   ChevronDown,
@@ -646,7 +648,9 @@ const Page = () => {
               isRenewalInvoice(inv),
           );
 
+      const isSingleSvc = isSingleServiceOrder(selectedBilling?.services, list);
       if (
+        !isSingleSvc &&
         selectedServiceId &&
         list.some(
           (inv) =>
@@ -660,6 +664,7 @@ const Page = () => {
             inv.items?.length === 1,
         );
       }
+      list = filterVisibleInvoices(list, selectedBilling?.services);
 
       if (isCoAgentUser) {
         list = list.filter((inv) => {
@@ -747,7 +752,8 @@ const Page = () => {
       setInvoicesLoading(true);
       setActionLoading({ id: serviceId || billing.order_id, action });
       const res = await GetInvoicesByOrder(billing.order_uuid);
-      const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+      const rawInvoicesList = Array.isArray(res.data) ? res.data : [res.data];
+      const invoicesList = filterVisibleInvoices(rawInvoicesList, billing.services);
 
       const isCoAgent =
         userType === "agent" && isUserCoAgent(currentUser, userType);
@@ -1547,7 +1553,9 @@ const Page = () => {
         setFetchingInvoice(true);
       }
       const res = await GetInvoicesByOrder(orderUuid);
-      const invoicesList = Array.isArray(res.data) ? res.data : [res.data];
+      const rawInvoicesList = Array.isArray(res.data) ? res.data : [res.data];
+      const currentBilling = billings.find((b) => b.order_uuid === orderUuid);
+      const invoicesList = filterVisibleInvoices(rawInvoicesList, currentBilling?.services);
       const targetInvoice = getBestTargetInvoice(invoicesList, serviceUuid);
 
       if (targetInvoice) {
@@ -3971,8 +3979,13 @@ const Page = () => {
                         isRenewalInvoice(inv),
                     );
 
-                // If single-service invoices exist for this service, prefer them over consolidated
+                const isSingleSvc = isSingleServiceOrder(
+                  selectedBilling?.services,
+                  filteredList,
+                );
+                // If single-service invoices exist for this service, prefer them over consolidated (multi-service only)
                 if (
+                  !isSingleSvc &&
                   selectedServiceId &&
                   filteredList.some(
                     (inv) =>
@@ -3986,6 +3999,10 @@ const Page = () => {
                       inv.items?.length === 1,
                   );
                 }
+                filteredList = filterVisibleInvoices(
+                  filteredList,
+                  selectedBilling?.services,
+                );
 
                 if (isCoAgentUser) {
                   // For Co-Agent, strictly show their own invoice only (1 invoice)

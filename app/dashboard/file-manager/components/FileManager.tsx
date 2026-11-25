@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useEffect, useState, useRef } from "react";
 import { BackArrow } from "@/components/Icons";
@@ -68,6 +68,7 @@ import {
   isInvoiceLinkedToService,
 } from "../../invoice/invoice_utils";
 import DeleteInvoiceModal from "../../invoice/components/DeleteInvoiceModal";
+import OrderBillingModal from "./OrderBillingModal";
 
 type OrerServices = NonNullable<Order>["services"][0];
 
@@ -836,42 +837,7 @@ const FileManager = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (showInvoicesModal && !invoicesLoading && invoices.length > 0) {
-      const isCoAgentUser =
-        userType === "agent" && isUserCoAgent(currentUser, userType);
-      const baseList = modalInvoices || invoices;
-      const filteredList = isCoAgentUser
-        ? baseList.filter(
-            (inv) =>
-              inv.agent_type === "co-agent" ||
-              (currentUser?.uuid &&
-                (inv.agent?.uuid === currentUser.uuid ||
-                  inv.agent_uuid === currentUser.uuid)) ||
-              (currentUser?.email && inv.agent?.email === currentUser.email),
-          )
-        : baseList;
 
-      const activeList = filteredList.filter(
-        (inv) => (inv.status || "").toLowerCase() !== "void",
-      );
-      const candidates = activeList.length > 0 ? activeList : filteredList;
-
-      if (candidates.length === 1) {
-        setShowInvoicesModal(false);
-        setModalInvoices(null);
-        setModalTitle(null);
-        setViewingInvoice(candidates[0]);
-      }
-    }
-  }, [
-    showInvoicesModal,
-    invoicesLoading,
-    modalInvoices,
-    invoices,
-    userType,
-    currentUser,
-  ]);
 
   const serviceIdFromURL = searchParams.get("serviceId");
 
@@ -3218,8 +3184,8 @@ const FileManager = () => {
           backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #E4E4E4), black 5%)`,
         }}
       >
-        {/* Invoices List Modal */}
-        <Dialog
+        {/* Order Billing & Invoices Modal - Exact Billing Screen UI Layout */}
+        <OrderBillingModal
           open={showInvoicesModal}
           onOpenChange={(open) => {
             setShowInvoicesModal(open);
@@ -3228,332 +3194,13 @@ const FileManager = () => {
               setModalTitle(null);
             }
           }}
-        >
-          <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[8px] p-0 font-alexandria overflow-hidden [&>button]:hidden">
-            <DialogHeader className="p-4 md:p-6 border-b border-[#E4E4E4] bg-white">
-              <DialogTitle
-                className="flex items-center justify-between text-[18px] font-[600] uppercase"
-                style={{ color: `var(--${userType}-page-tab-color)` }}
-              >
-                {modalTitle ||
-                  (modalInvoices ? "Split Service Invoices" : "Order Invoices")}
-                <Button
-                  className="border-none !shadow-none bg-transparent hover:bg-transparent p-0"
-                  onClick={() => {
-                    setShowInvoicesModal(false);
-                    setModalInvoices(null);
-                    setModalTitle(null);
-                  }}
-                >
-                  <X className="!w-[20px] !h-[20px] cursor-pointer text-[#7D7D7D]" />
-                </Button>
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-10 bg-white">
-              {invoicesLoading ? (
-                <div className="flex justify-center py-10">
-                  <Loader2
-                    className="h-8 w-8 animate-spin"
-                    style={{ color: `var(--${userType}-page-tab-color)` }}
-                  />
-                </div>
-              ) : (
-                (() => {
-                  const isCoAgentUser =
-                    userType === "agent" &&
-                    isUserCoAgent(currentUser, userType);
-                  const baseList = modalInvoices || invoices;
-                  const filteredList = isCoAgentUser
-                    ? baseList.filter(
-                        (inv) =>
-                          inv.agent_type === "co-agent" ||
-                          (currentUser?.uuid &&
-                            (inv.agent?.uuid === currentUser.uuid ||
-                              inv.agent_uuid === currentUser.uuid)) ||
-                          (currentUser?.email &&
-                            inv.agent?.email === currentUser.email),
-                      )
-                    : baseList;
-
-                  if (filteredList.length === 0) {
-                    return (
-                      <div className="text-center py-10 italic text-[#666666]">
-                        No invoices found for this order.
-                      </div>
-                    );
-                  }
-
-                  // Sort: Main invoice first, then service order invoices, then hosting renewals, then by issued_at descending
-                  const sortedList = [...filteredList].sort((a, b) => {
-                    const aMain = isMainInvoice(a) ? 1 : 0;
-                    const bMain = isMainInvoice(b) ? 1 : 0;
-                    if (aMain !== bMain) return bMain - aMain;
-
-                    const aRenewal = isRenewalInvoice(a) ? 1 : 0;
-                    const bRenewal = isRenewalInvoice(b) ? 1 : 0;
-                    if (aRenewal !== bRenewal) return aRenewal - bRenewal;
-
-                    return (
-                      new Date(b.issued_at || 0).getTime() -
-                      new Date(a.issued_at || 0).getTime()
-                    );
-                  });
-
-                  return (
-                    <div className="flex flex-col gap-4">
-                      {sortedList.map((invoice) => {
-                        const status = (
-                          invoice.status || "unpaid"
-                        ).toUpperCase();
-                        let badgeBg = "#E06D5E";
-                        if (status === "PAID") badgeBg = "#6BAE41";
-                        else if (status === "ISSUED") badgeBg = "#4A90E2";
-                        else if (status === "VOID") badgeBg = "#A0A0A0";
-                        else if (
-                          status === "PARTIAL_PAID" ||
-                          status === "PARTIALLY_PAID" ||
-                          status === "PARTIAL"
-                        )
-                          badgeBg = "#F5A623";
-                        else if (status === "REFUNDED") badgeBg = "#D0021B";
-
-                        return (
-                          <div
-                            key={invoice.uuid}
-                            className="group flex flex-col p-4 sm:p-5 rounded-[6px] border border-[#E4E4E4] transition-all duration-300 gap-3"
-                            style={{
-                              backgroundColor: `color-mix(in srgb, var(--${userType}-page-bg, #EEEEEE), white 70%)`,
-                            }}
-                          >
-                            {/* Top Header Row: Title & inline badges on left, Total & Paid on right */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200/60 pb-3">
-                              <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                                <span className="font-alexandria text-[16px] font-[500] text-[#1C1C1C] whitespace-nowrap">
-                                  Invoice #
-                                  {invoice.invoice_number || invoice.id}
-                                </span>
-                                <span
-                                  className="text-white px-[12px] py-[2px] rounded-[100px] text-[10px] font-bold whitespace-nowrap"
-                                  style={{ backgroundColor: badgeBg }}
-                                >
-                                  {status}
-                                </span>
-                                {isRenewalInvoice(invoice) ? (
-                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200 whitespace-nowrap">
-                                    Hosting Renewal
-                                  </span>
-                                ) : isMainInvoice(invoice) ? (
-                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase border border-emerald-300 whitespace-nowrap">
-                                    Main Invoice
-                                  </span>
-                                ) : isInvoiceLinkedToService(invoice) ? (
-                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200 whitespace-nowrap">
-                                    Service Invoice
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300 whitespace-nowrap">
-                                    Orphan Invoice
-                                  </span>
-                                )}
-                                {invoice.agent_type && (
-                                  <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200 whitespace-nowrap">
-                                    {invoice.agent_type}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center gap-1 shrink-0">
-                                <p className="font-alexandria text-[18px] sm:text-[20px] font-[500] text-[#1C1C1C]">
-                                  ${parseFloat(invoice.total).toFixed(2)}
-                                </p>
-                                {parseFloat(invoice.paid_amount) > 0 && (
-                                  <p className="text-[12px] text-[#6BAE41] font-[500]">
-                                    Paid: $
-                                    {parseFloat(invoice.paid_amount).toFixed(2)}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Middle Details */}
-                            <div className="flex flex-col gap-1 text-[13px] text-[#666666] py-0.5">
-                              <p>
-                                Agent: {invoice.agent?.first_name}{" "}
-                                {invoice.agent?.last_name} (
-                                {invoice.agent?.email})
-                              </p>
-                              <p>
-                                Issued:{" "}
-                                {new Date(
-                                  invoice.issued_at,
-                                ).toLocaleDateString()}
-                              </p>
-                              {invoice.items && invoice.items.length > 0 && (
-                                <p className="text-[12px] text-gray-500 line-clamp-1">
-                                  Services:{" "}
-                                  {invoice.items
-                                    .map(
-                                      (i: any) =>
-                                        i.description || "Service Item",
-                                    )
-                                    .join(", ")}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Bottom Action Footer Row: All buttons on right */}
-                            <div className="pt-2.5 border-t border-gray-200/60 flex items-center gap-2 flex-wrap justify-end">
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setShowInvoicesModal(false);
-                                  setViewingInvoice(invoice);
-                                }}
-                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white"
-                              >
-                                View Invoice
-                              </Button>
-                              <Button
-                                variant="outline"
-                                disabled={downloadingInvoiceUuid === invoice.uuid}
-                                onClick={() => handleDownloadInvoice(invoice)}
-                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5"
-                              >
-                                {downloadingInvoiceUuid === invoice.uuid ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Download className="h-3 w-3" />
-                                )}
-                                Download
-                              </Button>
-                              {isAdmin &&
-                                !["paid", "void", "refunded"].includes(
-                                  (invoice.status || "").toLowerCase(),
-                                ) && (
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setShowInvoicesModal(false);
-                                      setViewingInvoice(invoice);
-                                      setEditingInvoiceData(
-                                        JSON.parse(JSON.stringify(invoice)),
-                                      );
-                                      setIsEditingInvoice(true);
-                                    }}
-                                    className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                    Edit Invoice
-                                  </Button>
-                                )}
-                              {userType !== "vendor" &&
-                                status !== "PAID" &&
-                                status !== "VOID" &&
-                                status !== "REFUNDED" &&
-                                status !== "PARTIALLY_REFUNDED" &&
-                                (currentUser?.uuid ===
-                                (invoice.agent?.uuid || invoice.agent_uuid) ? (
-                                  (() => {
-                                    const missingSvcs =
-                                      getMissingServicesForInvoice(invoice);
-                                    return missingSvcs.length > 0 ? (
-                                      <TooltipProvider delayDuration={0}>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="inline-block cursor-not-allowed">
-                                              <Button
-                                                disabled
-                                                className="h-[30px] text-xs px-3 font-medium text-white opacity-50 cursor-not-allowed rounded-[6px] agent-bg border-none"
-                                              >
-                                                Pay Now
-                                              </Button>
-                                            </span>
-                                          </TooltipTrigger>
-                                          {renderAgentBlockedTooltipContent(
-                                            missingSvcs,
-                                          )}
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    ) : (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(invoice);
-                                        }}
-                                        className="h-[30px] text-xs px-3 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm agent-bg border-none"
-                                      >
-                                        Pay Now
-                                      </Button>
-                                    );
-                                  })()
-                                ) : (
-                                  <div className="flex gap-2">
-                                    {(userType === "admin" ||
-                                      (invoice.agent_type === "co-agent" &&
-                                        invoice.split_details)) && (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(
-                                            invoice,
-                                            "on_behalf",
-                                          );
-                                        }}
-                                        className="h-[30px] text-xs px-3 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm admin-bg border-none"
-                                      >
-                                        Pay on Behalf
-                                      </Button>
-                                    )}
-                                    {userType !== "admin" && (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handlePayInvoice(invoice, "self");
-                                        }}
-                                        className="h-[30px] text-xs px-3 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm agent-bg border-none"
-                                      >
-                                        Pay Self
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))}
-                              {isAdmin &&
-                                ![
-                                  "paid",
-                                  "void",
-                                  "refunded",
-                                  "partially_paid",
-                                  "partial_paid",
-                                ].includes(
-                                  (invoice.status || "").toLowerCase(),
-                                ) &&
-                                parseFloat(invoice.paid_amount || "0") <= 0 && (
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setDeleteInvoiceModal({
-                                        open: true,
-                                        invoice,
-                                      });
-                                    }}
-                                    className="h-[30px] text-xs px-3 font-medium border border-red-500 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                    Delete Invoice
-                                  </Button>
-                                )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+          orderId={orderId || orderData?.id}
+          orderUuid={orderData?.uuid}
+          orderData={orderData}
+          invoices={invoices}
+          onRefreshInvoices={refreshInvoices}
+          filesData={filesData}
+        />
 
         {/* Invoice Document View Modal */}
         <Dialog
@@ -3994,33 +3641,8 @@ const FileManager = () => {
           </Button>
           {userType !== "vendor" && (
             <Button
-              onClick={() => {
-                const isCoAgentUser =
-                  userType === "agent" && isUserCoAgent(currentUser, userType);
-                const baseList = invoices;
-                const filteredList = isCoAgentUser
-                  ? baseList.filter(
-                      (inv) =>
-                        inv.agent_type === "co-agent" ||
-                        (currentUser?.uuid &&
-                          (inv.agent?.uuid === currentUser.uuid ||
-                            inv.agent_uuid === currentUser.uuid)) ||
-                        (currentUser?.email &&
-                          inv.agent?.email === currentUser.email),
-                    )
-                  : baseList;
-
-                const activeInvoices = filteredList.filter(
-                  (inv) => (inv.status || "").toLowerCase() !== "void",
-                );
-                const candidates =
-                  activeInvoices.length > 0 ? activeInvoices : filteredList;
-
-                if (candidates.length === 1) {
-                  setViewingInvoice(candidates[0]);
-                  return;
-                }
-
+              onClick={async () => {
+                await refreshInvoices();
                 setModalInvoices(null);
                 setModalTitle(null);
                 setShowInvoicesModal(true);

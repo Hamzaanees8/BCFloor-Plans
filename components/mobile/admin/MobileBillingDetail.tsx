@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, formatOrderDate, type BillingItem } from '@/app/dashboard/billing/billing'
+import { getBillings, isVoidOrCancelled, isPaidOrSucceeded, isRefunded, isPartiallyRefunded, formatOrderDate, filterVisibleInvoices, type BillingItem } from '@/app/dashboard/billing/billing'
 import { GetInvoicesByOrder, PayInvoiceWithStripe, MarkPaid, DownloadInvoice } from '@/app/dashboard/invoice/invoice_api'
 import RefundModal from '@/app/dashboard/invoice/components/RefundModal'
 import InvoiceDocument from '@/app/dashboard/invoice/components/InvoiceDocument'
@@ -78,7 +78,8 @@ export default function MobileBillingDetail({ orderId, onBack }: MobileBillingDe
       if (match) {
         setBilling(match)
         const invRes = await GetInvoicesByOrder(match.order_uuid)
-        const invoicesList = Array.isArray(invRes.data) ? invRes.data : [invRes.data].filter(Boolean)
+        const rawInvoicesList = Array.isArray(invRes.data) ? invRes.data : [invRes.data].filter(Boolean)
+        const invoicesList = filterVisibleInvoices(rawInvoicesList, match.services)
         setInvoices(invoicesList)
       } else {
         toast.error('Order billing record not found')
