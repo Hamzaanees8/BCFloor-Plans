@@ -343,7 +343,11 @@ export default function OrderBillingModal({
       primaryInvoice?.tax_details || billing.tax_details || null;
 
     const orderHasSplits =
-      Boolean((billing as any)?.split_invoice || (billing as any)?.order?.split_invoice || orderData?.split_invoice) ||
+      Boolean(
+        (billing as any)?.split_invoice ||
+        (billing as any)?.order?.split_invoice ||
+        orderData?.split_invoice,
+      ) ||
       rawInvoices.some(
         (inv: any) =>
           inv.agent_type === "co-agent" ||
@@ -376,14 +380,18 @@ export default function OrderBillingModal({
     const subtotalVal =
       orderHasSplits && combinedInvoicesSubtotal > 0
         ? combinedInvoicesSubtotal
-        : primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0 && !orderHasSplits
+        : primaryInvoice &&
+            parseFloat(primaryInvoice.subtotal || "0") > 0 &&
+            !orderHasSplits
           ? parseFloat(primaryInvoice.subtotal)
           : billing.total_amount || 0;
 
     const taxAmount =
       orderHasSplits && combinedInvoicesTax > 0
         ? combinedInvoicesTax
-        : primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0 && !orderHasSplits
+        : primaryInvoice &&
+            parseFloat(primaryInvoice.tax_amount || "0") > 0 &&
+            !orderHasSplits
           ? parseFloat(primaryInvoice.tax_amount)
           : billing.tax_amount != null
             ? billing.tax_amount
@@ -392,7 +400,9 @@ export default function OrderBillingModal({
     const grandTotalVal =
       orderHasSplits && combinedInvoicesTotal > 0
         ? combinedInvoicesTotal
-        : primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0 && !orderHasSplits
+        : primaryInvoice &&
+            parseFloat(primaryInvoice.total || "0") > 0 &&
+            !orderHasSplits
           ? parseFloat(primaryInvoice.total)
           : billing.grand_total != null
             ? billing.grand_total
@@ -462,7 +472,8 @@ export default function OrderBillingModal({
       l.has_link === true ||
       (l.has_link !== false &&
         ((typeof l.link === "string" && l.link.trim() !== "") ||
-          ((l.link === null || l.link === undefined) && Boolean(l.uuid || l.id))));
+          ((l.link === null || l.link === undefined) &&
+            Boolean(l.uuid || l.id))));
 
     const servicesWithoutMedia =
       userType === "agent" && filesData
@@ -524,6 +535,7 @@ export default function OrderBillingModal({
       shouldShowPayAll,
       orderInvoiceUrl,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [billing, invoices, currentUser, userType, filesData]);
 
   // Handle PDF Download
@@ -1359,13 +1371,18 @@ export default function OrderBillingModal({
 
                   {(() => {
                     const orderHasSplits =
-                      Boolean((billing as any)?.split_invoice || (billing as any)?.order?.split_invoice || orderData?.split_invoice) ||
+                      Boolean(
+                        (billing as any)?.split_invoice ||
+                        (billing as any)?.order?.split_invoice ||
+                        orderData?.split_invoice,
+                      ) ||
                       invoices.some(
                         (inv: any) =>
                           inv.agent_type === "co-agent" ||
                           inv.agent_type === "co_agent" ||
                           inv.is_co_agent ||
-                          (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                          (inv.split_details?.splits &&
+                            inv.split_details.splits.length > 1),
                       );
 
                     let mainSplitPct = 50;
@@ -1373,11 +1390,14 @@ export default function OrderBillingModal({
                     let coAgentName = "Co-Agent";
 
                     const splitInv = invoices.find(
-                      (inv: any) => inv.split_details?.splits && inv.split_details.splits.length > 0,
+                      (inv: any) =>
+                        inv.split_details?.splits &&
+                        inv.split_details.splits.length > 0,
                     );
                     if (splitInv?.split_details?.splits) {
                       const primarySplit = splitInv.split_details.splits.find(
-                        (s: any) => s.type === "primary" || s.role === "primary",
+                        (s: any) =>
+                          s.type === "primary" || s.role === "primary",
                       );
                       const coSplit = splitInv.split_details.splits.find(
                         (s: any) =>
@@ -1385,8 +1405,10 @@ export default function OrderBillingModal({
                           s.type === "co_agent" ||
                           s.role === "co-agent",
                       );
-                      if (primarySplit?.percentage) mainSplitPct = Number(primarySplit.percentage);
-                      if (coSplit?.percentage) coSplitPct = Number(coSplit.percentage);
+                      if (primarySplit?.percentage)
+                        mainSplitPct = Number(primarySplit.percentage);
+                      if (coSplit?.percentage)
+                        coSplitPct = Number(coSplit.percentage);
                       if (coSplit?.name) coAgentName = coSplit.name;
                     } else {
                       const rawCo =
@@ -1404,7 +1426,10 @@ export default function OrderBillingModal({
                       if (coList.length > 0) {
                         const firstCo = coList[0];
                         const pct = Number(
-                          firstCo.split || firstCo.split_percentage || firstCo.percentage || 50,
+                          firstCo.split ||
+                            firstCo.split_percentage ||
+                            firstCo.percentage ||
+                            50,
                         );
                         coSplitPct = pct;
                         mainSplitPct = 100 - pct;
@@ -1416,306 +1441,366 @@ export default function OrderBillingModal({
                       }
                     }
 
-                    const mainAgentInvoices = invoices.filter(
-                      (inv: any) =>
-                        inv.agent_type === "primary" ||
-                        (!inv.split_details &&
-                          inv.agent_type !== "co-agent" &&
-                          inv.agent_type !== "co_agent"),
-                    );
-                    const coAgentInvoices = invoices.filter(
-                      (inv: any) =>
-                        inv.agent_type === "co-agent" ||
-                        inv.agent_type === "co_agent" ||
-                        inv.is_co_agent ||
-                        (inv.split_details && inv.agent_type !== "primary"),
-                    );
-
-                    const renderOrderServiceCard = (service: any, currentSplitMultiplier: number, isCoAgentSection: boolean) => {
-                    const serviceUuid =
-                      service.uuid || service.order_service_uuid;
-                    const serviceTargetInvoice = getBestTargetInvoice(
-                      invoices,
-                      serviceUuid,
-                      service.service_id,
-                      currentUser,
-                      userType,
-                    );
-
-                    const isServiceRefunded =
-                      isRefunded(service.status) ||
-                      isRefunded(serviceTargetInvoice?.status);
-                    const isServicePartiallyRefunded =
-                      !isServiceRefunded &&
-                      (isPartiallyRefunded(service.status) ||
-                        isPartiallyRefunded(serviceTargetInvoice?.status));
-                    const isServicePaid =
-                      (isPaidOrSucceeded(service.status) ||
-                        isPaidOrSucceeded(serviceTargetInvoice?.status) ||
-                        billing.status === "paid" ||
-                        (parseFloat(serviceTargetInvoice?.paid_amount || 0) >
-                          0 &&
-                          parseFloat(serviceTargetInvoice?.paid_amount || 0) >=
-                            parseFloat(serviceTargetInvoice?.total || 0) -
-                              0.01)) &&
-                      !isServiceRefunded &&
-                      !isServicePartiallyRefunded;
-                    const isServiceInProgress =
-                      userType === "agent" &&
-                      !isServicePaid &&
-                      !isServiceRefunded &&
-                      !isServicePartiallyRefunded &&
-                      orderCalculations.servicesWithoutMedia.some(
-                        (s: any) =>
-                          (service.uuid && s.uuid === service.uuid) ||
-                          (service.order_service_uuid &&
-                            s.order_service_uuid === service.order_service_uuid) ||
-                          s.service_id === service.service_id,
+                    const renderOrderServiceCard = (
+                      service: any,
+                      currentSplitMultiplier: number,
+                      isCoAgentSection: boolean,
+                    ) => {
+                      const serviceUuid =
+                        service.uuid || service.order_service_uuid;
+                      const serviceTargetInvoice = getBestTargetInvoice(
+                        invoices,
+                        serviceUuid,
+                        service.service_id,
+                        currentUser,
+                        userType,
                       );
-                    const isServiceCompleted = !isServiceInProgress;
 
-                    const pricing = getServiceActualInvoicePricing({
-                      invoices,
-                      service,
-                      splitMultiplier: currentSplitMultiplier,
-                      isCoAgentUser: isCoAgentSection,
-                      userType,
-                      currentUser,
-                      fallbackTaxRate: orderCalculations.taxRate,
-                    });
+                      const isServiceRefunded =
+                        isRefunded(service.status) ||
+                        isRefunded(serviceTargetInvoice?.status);
+                      const isServicePartiallyRefunded =
+                        !isServiceRefunded &&
+                        (isPartiallyRefunded(service.status) ||
+                          isPartiallyRefunded(serviceTargetInvoice?.status));
+                      const isServicePaid =
+                        (isPaidOrSucceeded(service.status) ||
+                          isPaidOrSucceeded(serviceTargetInvoice?.status) ||
+                          billing.status === "paid" ||
+                          (parseFloat(serviceTargetInvoice?.paid_amount || 0) >
+                            0 &&
+                            parseFloat(
+                              serviceTargetInvoice?.paid_amount || 0,
+                            ) >=
+                              parseFloat(serviceTargetInvoice?.total || 0) -
+                                0.01)) &&
+                        !isServiceRefunded &&
+                        !isServicePartiallyRefunded;
+                      const isServiceInProgress =
+                        userType === "agent" &&
+                        !isServicePaid &&
+                        !isServiceRefunded &&
+                        !isServicePartiallyRefunded &&
+                        orderCalculations.servicesWithoutMedia.some(
+                          (s: any) =>
+                            (service.uuid && s.uuid === service.uuid) ||
+                            (service.order_service_uuid &&
+                              s.order_service_uuid ===
+                                service.order_service_uuid) ||
+                            s.service_id === service.service_id,
+                        );
+                      const isServiceCompleted = !isServiceInProgress;
 
-                    return (
-                      <div
-                        key={service.service_id}
-                        className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            {/* Service Header Row */}
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-4">
-                                <p className="font-semibold text-gray-800">
-                                  {service.service_name}
-                                </p>
-                                <span
-                                  className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2 ${
-                                    isServicePartiallyRefunded
-                                      ? "bg-[#D97706]"
-                                      : isServicePaid
-                                        ? "bg-[#6BAE41]"
-                                        : isServiceRefunded
-                                          ? "bg-[#DC9600]"
-                                          : service.status === "pending"
+                      const pricing = getServiceActualInvoicePricing({
+                        invoices,
+                        service,
+                        splitMultiplier: currentSplitMultiplier,
+                        isCoAgentUser: isCoAgentSection,
+                        userType,
+                        currentUser,
+                        fallbackTaxRate: orderCalculations.taxRate,
+                      });
+
+                      return (
+                        <div
+                          key={service.service_id}
+                          className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              {/* Service Header Row */}
+                              <div className="flex justify-between items-center mb-2">
+                                <div className="flex items-center gap-4">
+                                  <p className="font-semibold text-gray-800">
+                                    {service.service_name}
+                                  </p>
+                                  <span
+                                    className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2 ${
+                                      isServicePartiallyRefunded
+                                        ? "bg-[#D97706]"
+                                        : isServicePaid
+                                          ? "bg-[#6BAE41]"
+                                          : isServiceRefunded
                                             ? "bg-[#DC9600]"
-                                            : service.status === "cancelled"
-                                              ? "bg-[#E06D5E]"
-                                              : "bg-[#7D7D7D]"
-                                  }`}
-                                >
-                                  {isServicePartiallyRefunded
-                                    ? "partially refunded"
-                                    : isServicePaid
-                                      ? "paid"
-                                      : isServiceRefunded
-                                        ? "refunded"
-                                        : service.status || "unpaid"}
-                                </span>
-                              </div>
+                                            : service.status === "pending"
+                                              ? "bg-[#DC9600]"
+                                              : service.status === "cancelled"
+                                                ? "bg-[#E06D5E]"
+                                                : "bg-[#7D7D7D]"
+                                    }`}
+                                  >
+                                    {isServicePartiallyRefunded
+                                      ? "partially refunded"
+                                      : isServicePaid
+                                        ? "paid"
+                                        : isServiceRefunded
+                                          ? "refunded"
+                                          : service.status || "unpaid"}
+                                  </span>
+                                </div>
 
-                              {/* Service Action Buttons */}
-                              <div className="flex gap-2">
-                                {!isServiceCompleted && role === "agent" ? (
-                                  <>
+                                {/* Service Action Buttons */}
+                                <div className="flex gap-2">
+                                  {!isServiceCompleted && role === "agent" ? (
+                                    <>
+                                      <Button
+                                        disabled
+                                        className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                      >
+                                        Invoice
+                                      </Button>
+                                      <Button
+                                        disabled
+                                        className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                      >
+                                        In Progress
+                                      </Button>
+                                    </>
+                                  ) : serviceTargetInvoice ? (
                                     <Button
-                                      disabled
-                                      className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                      onClick={() =>
+                                        handleOpenInvoiceDoc(
+                                          serviceTargetInvoice,
+                                          serviceUuid,
+                                          service.service_id,
+                                        )
+                                      }
+                                      className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor =
+                                          roleSettings.pageTabColor;
+                                        e.currentTarget.style.color = "white";
+                                        e.currentTarget.style.borderColor =
+                                          roleSettings.pageTabColor;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor =
+                                          "white";
+                                        e.currentTarget.style.color = "#666666";
+                                        e.currentTarget.style.borderColor =
+                                          "#BBBBBB";
+                                      }}
                                     >
                                       Invoice
                                     </Button>
+                                  ) : (
                                     <Button
                                       disabled
                                       className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
                                     >
-                                      In Progress
+                                      No Invoice
                                     </Button>
-                                  </>
-                                ) : serviceTargetInvoice ? (
-                                  <Button
-                                    onClick={() =>
-                                      handleOpenInvoiceDoc(
-                                        serviceTargetInvoice,
-                                        serviceUuid,
-                                        service.service_id,
-                                      )
-                                    }
-                                    className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor =
-                                        roleSettings.pageTabColor;
-                                      e.currentTarget.style.color = "white";
-                                      e.currentTarget.style.borderColor =
-                                        roleSettings.pageTabColor;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor =
-                                        "white";
-                                      e.currentTarget.style.color = "#666666";
-                                      e.currentTarget.style.borderColor =
-                                        "#BBBBBB";
-                                    }}
-                                  >
-                                    Invoice
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    disabled
-                                    className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
-                                  >
-                                    No Invoice
-                                  </Button>
-                                )}
+                                  )}
 
-                                {!isServicePaid &&
-                                  !isServiceRefunded &&
-                                  !isServicePartiallyRefunded &&
-                                  (isServiceCompleted || role !== "agent") && (
+                                  {!isServicePaid &&
+                                    !isServiceRefunded &&
+                                    !isServicePartiallyRefunded &&
+                                    (isServiceCompleted ||
+                                      role !== "agent") && (
+                                      <>
+                                        <Button
+                                          onClick={() => {
+                                            if (serviceTargetInvoice) {
+                                              handlePayInvoice(
+                                                serviceTargetInvoice,
+                                              );
+                                            }
+                                          }}
+                                          disabled={actionLoading !== null}
+                                          className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                          style={{
+                                            backgroundColor:
+                                              roleSettings.pageTabColor,
+                                          }}
+                                        >
+                                          {role === "agent"
+                                            ? "Pay to Download"
+                                            : "Pay Now"}
+                                        </Button>
+
+                                        {role === "admin" &&
+                                          serviceTargetInvoice && (
+                                            <Button
+                                              onClick={() =>
+                                                handleOpenManualPayment(
+                                                  serviceTargetInvoice,
+                                                )
+                                              }
+                                              disabled={actionLoading !== null}
+                                              className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                            >
+                                              Mark Paid
+                                            </Button>
+                                          )}
+                                      </>
+                                    )}
+                                  {isServicePaid && (
                                     <>
                                       <Button
-                                        onClick={() => {
-                                          if (serviceTargetInvoice) {
-                                            handlePayInvoice(
-                                              serviceTargetInvoice,
-                                            );
-                                          }
-                                        }}
-                                        disabled={actionLoading !== null}
-                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                        style={{
-                                          backgroundColor:
-                                            roleSettings.pageTabColor,
-                                        }}
+                                        disabled
+                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
                                       >
-                                        {role === "agent" ? "Pay to Download" : "Pay Now"}
+                                        Paid
                                       </Button>
-
                                       {role === "admin" &&
                                         serviceTargetInvoice && (
                                           <Button
-                                            onClick={() =>
-                                              handleOpenManualPayment(
+                                            variant="outline"
+                                            onClick={() => {
+                                              setSelectedRefundInvoice(
                                                 serviceTargetInvoice,
-                                              )
-                                            }
-                                            disabled={actionLoading !== null}
-                                            className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                              );
+                                              setRefundDefaultAmount(
+                                                pricing.totalPrice,
+                                              );
+                                              setRefundModalOpen(true);
+                                            }}
+                                            className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
                                           >
-                                            Mark Paid
+                                            <RotateCcw className="h-4 w-4 mr-2" />{" "}
+                                            Refund
                                           </Button>
                                         )}
                                     </>
                                   )}
-                              {isServicePaid && (
-                                  <>
-                                    <Button
-                                      disabled
-                                      className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
-                                    >
-                                      Paid
-                                    </Button>
-                                    {role === "admin" &&
-                                      serviceTargetInvoice && (
-                                        <Button
-                                          variant="outline"
-                                          onClick={() => {
-                                            setSelectedRefundInvoice(
-                                              serviceTargetInvoice,
-                                            );
-                                            setRefundDefaultAmount(
-                                              pricing.totalPrice,
-                                            );
-                                            setRefundModalOpen(true);
-                                          }}
-                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
-                                        >
-                                          <RotateCcw className="h-4 w-4 mr-2" />{" "}
-                                          Refund
-                                        </Button>
-                                      )}
-                                  </>
-                                )}
 
-                                {isServicePartiallyRefunded && (
-                                  <>
-                                    <Button
-                                      disabled
-                                      className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[120px] bg-[#D97706] cursor-not-allowed opacity-90"
-                                    >
-                                      Partially Refunded
-                                    </Button>
-                                    {role === "admin" &&
-                                      serviceTargetInvoice && (
-                                        <Button
-                                          variant="outline"
-                                          onClick={() => {
-                                            setSelectedRefundInvoice(
-                                              serviceTargetInvoice,
-                                            );
-                                            setRefundDefaultAmount(
-                                              pricing.totalPrice,
-                                            );
-                                            setRefundModalOpen(true);
-                                          }}
-                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
-                                        >
-                                          <RotateCcw className="h-4 w-4 mr-2" />{" "}
-                                          Refund
-                                        </Button>
-                                      )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Service Pricing Details - EXACT 1:1 COLORS FROM BILLING SCREEN */}
-                            <div className="text-sm text-gray-600 space-y-0.5">
-                              <p>
-                                Base Price:{" "}
-                                <span className="font-medium text-gray-800">
-                                  {pricing.originalPrice &&
-                                  pricing.discountAmount &&
-                                  pricing.discountAmount > 0 ? (
+                                  {isServicePartiallyRefunded && (
                                     <>
-                                      <span className="line-through text-gray-400 font-normal mr-1.5">
-                                        {pricing.originalPrice.toLocaleString(
-                                          "en-US",
-                                          {
-                                            style: "currency",
-                                            currency: "USD",
-                                          },
+                                      <Button
+                                        disabled
+                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[120px] bg-[#D97706] cursor-not-allowed opacity-90"
+                                      >
+                                        Partially Refunded
+                                      </Button>
+                                      {role === "admin" &&
+                                        serviceTargetInvoice && (
+                                          <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                              setSelectedRefundInvoice(
+                                                serviceTargetInvoice,
+                                              );
+                                              setRefundDefaultAmount(
+                                                pricing.totalPrice,
+                                              );
+                                              setRefundModalOpen(true);
+                                            }}
+                                            className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                          >
+                                            <RotateCcw className="h-4 w-4 mr-2" />{" "}
+                                            Refund
+                                          </Button>
                                         )}
-                                      </span>
-                                      <span>
-                                        {pricing.basePrice.toLocaleString(
-                                          "en-US",
-                                          {
-                                            style: "currency",
-                                            currency: "USD",
-                                          },
-                                        )}
-                                      </span>
                                     </>
-                                  ) : (
-                                    pricing.basePrice.toLocaleString("en-US", {
-                                      style: "currency",
-                                      currency: "USD",
-                                    })
                                   )}
-                                </span>
-                                {pricing.discountAmount &&
-                                pricing.discountAmount > 0 ? (
-                                  <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Discount: -
-                                    {pricing.discountAmount.toLocaleString(
+                                </div>
+                              </div>
+
+                              {/* Service Pricing Details - EXACT 1:1 COLORS FROM BILLING SCREEN */}
+                              <div className="text-sm text-gray-600 space-y-0.5">
+                                <p>
+                                  Base Price:{" "}
+                                  <span className="font-medium text-gray-800">
+                                    {pricing.originalPrice &&
+                                    pricing.discountAmount &&
+                                    pricing.discountAmount > 0 ? (
+                                      <>
+                                        <span className="line-through text-gray-400 font-normal mr-1.5">
+                                          {pricing.originalPrice.toLocaleString(
+                                            "en-US",
+                                            {
+                                              style: "currency",
+                                              currency: "USD",
+                                            },
+                                          )}
+                                        </span>
+                                        <span>
+                                          {pricing.basePrice.toLocaleString(
+                                            "en-US",
+                                            {
+                                              style: "currency",
+                                              currency: "USD",
+                                            },
+                                          )}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      pricing.basePrice.toLocaleString(
+                                        "en-US",
+                                        {
+                                          style: "currency",
+                                          currency: "USD",
+                                        },
+                                      )
+                                    )}
+                                  </span>
+                                  {pricing.discountAmount &&
+                                  pricing.discountAmount > 0 ? (
+                                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      Discount: -
+                                      {pricing.discountAmount.toLocaleString(
+                                        "en-US",
+                                        {
+                                          style: "currency",
+                                          currency: "USD",
+                                        },
+                                      )}
+                                    </span>
+                                  ) : null}
+                                  {orderHasSplits && (
+                                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                      {Math.round(currentSplitMultiplier * 100)}
+                                      % share
+                                    </span>
+                                  )}
+                                </p>
+
+                                {pricing.taxDetails &&
+                                Object.keys(pricing.taxDetails).length > 0 ? (
+                                  Object.entries(pricing.taxDetails).map(
+                                    ([taxKey, taxVal]: [string, any]) => {
+                                      const rate =
+                                        taxVal?.rate ?? pricing.appliedTaxRate;
+                                      const amt = parseFloat(
+                                        taxVal?.amount || 0,
+                                      );
+                                      return (
+                                        <p
+                                          key={taxKey}
+                                          className="text-xs text-gray-500"
+                                        >
+                                          {taxKey} ({rate}%):{" "}
+                                          <span className="font-medium">
+                                            {amt.toLocaleString("en-US", {
+                                              style: "currency",
+                                              currency: "USD",
+                                            })}
+                                          </span>
+                                        </p>
+                                      );
+                                    },
+                                  )
+                                ) : pricing.taxAmount > 0 ? (
+                                  <p className="text-xs text-gray-500">
+                                    {pricing.appliedTaxRate > 0
+                                      ? `Tax (${pricing.appliedTaxRate}%):`
+                                      : "Tax:"}{" "}
+                                    <span className="font-medium">
+                                      {pricing.taxAmount.toLocaleString(
+                                        "en-US",
+                                        {
+                                          style: "currency",
+                                          currency: "USD",
+                                        },
+                                      )}
+                                    </span>
+                                  </p>
+                                ) : null}
+
+                                <p className="text-[13px] font-semibold text-gray-700">
+                                  Total Price:{" "}
+                                  <span className="text-[#6BAE41]">
+                                    {pricing.totalPrice.toLocaleString(
                                       "en-US",
                                       {
                                         style: "currency",
@@ -1723,163 +1808,109 @@ export default function OrderBillingModal({
                                       },
                                     )}
                                   </span>
-                                ) : null}
-                              
-                                {orderHasSplits && (
-                                  <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                                    {Math.round(currentSplitMultiplier * 100)}% share
-                                  </span>
-                                )}</p>
-
-                              {pricing.taxDetails &&
-                              Object.keys(pricing.taxDetails).length > 0 ? (
-                                Object.entries(pricing.taxDetails).map(
-                                  ([taxKey, taxVal]: [string, any]) => {
-                                    const rate =
-                                      taxVal?.rate ?? pricing.appliedTaxRate;
-                                    const amt = parseFloat(taxVal?.amount || 0);
-                                    return (
-                                      <p
-                                        key={taxKey}
-                                        className="text-xs text-gray-500"
-                                      >
-                                        {taxKey} ({rate}%):{" "}
-                                        <span className="font-medium">
-                                          {amt.toLocaleString("en-US", {
-                                            style: "currency",
-                                            currency: "USD",
-                                          })}
-                                        </span>
-                                      </p>
-                                    );
-                                  },
-                                )
-                              ) : pricing.taxAmount > 0 ? (
-                                <p className="text-xs text-gray-500">
-                                  {pricing.appliedTaxRate > 0
-                                    ? `Tax (${pricing.appliedTaxRate}%):`
-                                    : "Tax:"}{" "}
-                                  <span className="font-medium">
-                                    {pricing.taxAmount.toLocaleString("en-US", {
-                                      style: "currency",
-                                      currency: "USD",
-                                    })}
-                                  </span>
                                 </p>
-                              ) : null}
 
-                              <p className="text-[13px] font-semibold text-gray-700">
-                                Total Price:{" "}
-                                <span className="text-[#6BAE41]">
-                                  {pricing.totalPrice.toLocaleString("en-US", {
-                                    style: "currency",
-                                    currency: "USD",
-                                  })}
-                                </span>
-                              </p>
+                                {(() => {
+                                  const servicePaidAmount =
+                                    pricing.paidAmount ?? 0;
+                                  const serviceRefundedAmount =
+                                    pricing.refundedAmount ?? 0;
+                                  return (
+                                    <>
+                                      {servicePaidAmount > 0 && (
+                                        <p className="text-xs text-gray-600">
+                                          Amount Paid:{" "}
+                                          <span className="font-semibold text-[#6BAE41]">
+                                            {servicePaidAmount.toLocaleString(
+                                              "en-US",
+                                              {
+                                                style: "currency",
+                                                currency: "USD",
+                                              },
+                                            )}
+                                          </span>
+                                        </p>
+                                      )}
 
+                                      {serviceRefundedAmount > 0 && (
+                                        <p className="text-xs text-gray-600">
+                                          Amount Refunded:{" "}
+                                          <span className="font-semibold text-red-500">
+                                            {serviceRefundedAmount.toLocaleString(
+                                              "en-US",
+                                              {
+                                                style: "currency",
+                                                currency: "USD",
+                                              },
+                                            )}
+                                          </span>
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Scheduled slot strip */}
                               {(() => {
-                                const servicePaidAmount =
-                                  pricing.paidAmount ?? 0;
-                                const serviceRefundedAmount =
-                                  pricing.refundedAmount ?? 0;
+                                const serviceSlot = billing.slots.find(
+                                  (s) => s.service_id === service.service_id,
+                                );
+                                if (!serviceSlot) return null;
                                 return (
-                                  <>
-                                    {servicePaidAmount > 0 && (
-                                      <p className="text-xs text-gray-600">
-                                        Amount Paid:{" "}
-                                        <span className="font-semibold text-[#6BAE41]">
-                                          {servicePaidAmount.toLocaleString(
-                                            "en-US",
-                                            {
-                                              style: "currency",
-                                              currency: "USD",
-                                            },
-                                          )}
-                                        </span>
-                                      </p>
-                                    )}
-
-                                    {serviceRefundedAmount > 0 && (
-                                      <p className="text-xs text-gray-600">
-                                        Amount Refunded:{" "}
-                                        <span className="font-semibold text-red-500">
-                                          {serviceRefundedAmount.toLocaleString(
-                                            "en-US",
-                                            {
-                                              style: "currency",
-                                              currency: "USD",
-                                            },
-                                          )}
-                                        </span>
-                                      </p>
-                                    )}
-                                  </>
+                                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
+                                    <div>
+                                      <span className="font-semibold">
+                                        Scheduled:
+                                      </span>{" "}
+                                      {formatOrderDate(serviceSlot.slot_date)}{" "}
+                                      at {serviceSlot.start_time} -{" "}
+                                      {serviceSlot.end_time}
+                                    </div>
+                                  </div>
                                 );
                               })()}
-                            </div>
 
-                            {/* Scheduled slot strip */}
-                            {(() => {
-                              const serviceSlot = billing.slots.find(
-                                (s) => s.service_id === service.service_id,
-                              );
-                              if (!serviceSlot) return null;
-                              return (
-                                <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
-                                  <div>
-                                    <span className="font-semibold">
-                                      Scheduled:
-                                    </span>{" "}
-                                    {formatOrderDate(serviceSlot.slot_date)} at{" "}
-                                    {serviceSlot.start_time} -{" "}
-                                    {serviceSlot.end_time}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Service-specific invoice link */}
-                            {service.related_invoices &&
-                              service.related_invoices.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {service.related_invoices.map(
-                                    (invoice: any, invoiceIndex: number) => (
-                                      <div
-                                        key={invoiceIndex}
-                                        className="flex items-center gap-2"
-                                      >
-                                        <ExternalLink
-                                          className="w-3 h-3 flex-shrink-0"
-                                          style={{
-                                            color: roleSettings.activeColor,
-                                          }}
-                                        />
-                                        <a
-                                          href={invoice.invoice_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-xs font-medium hover:underline truncate"
-                                          style={{
-                                            color: roleSettings.activeColor,
-                                          }}
-                                          title={invoice.invoice_url}
+                              {/* Service-specific invoice link */}
+                              {service.related_invoices &&
+                                service.related_invoices.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {service.related_invoices.map(
+                                      (invoice: any, invoiceIndex: number) => (
+                                        <div
+                                          key={invoiceIndex}
+                                          className="flex items-center gap-2"
                                         >
-                                          Service Invoice {invoiceIndex + 1}
-                                        </a>
-                                        <span className="text-xs text-gray-500">
-                                          ({formatOrderDate(invoice.paid_at)})
-                                        </span>
-                                      </div>
-                                    ),
-                                  )}
-                                </div>
-                              )}
+                                          <ExternalLink
+                                            className="w-3 h-3 flex-shrink-0"
+                                            style={{
+                                              color: roleSettings.activeColor,
+                                            }}
+                                          />
+                                          <a
+                                            href={invoice.invoice_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs font-medium hover:underline truncate"
+                                            style={{
+                                              color: roleSettings.activeColor,
+                                            }}
+                                            title={invoice.invoice_url}
+                                          >
+                                            Service Invoice {invoiceIndex + 1}
+                                          </a>
+                                          <span className="text-xs text-gray-500">
+                                            ({formatOrderDate(invoice.paid_at)})
+                                          </span>
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                    );
+                      );
                     };
 
                     if (orderHasSplits) {
@@ -1899,7 +1930,13 @@ export default function OrderBillingModal({
                               </div>
                               <div className="p-4 space-y-3 bg-white">
                                 <div className="space-y-3">
-                                  {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                  {billing.services.map((service) =>
+                                    renderOrderServiceCard(
+                                      service,
+                                      coSplitPct / 100,
+                                      true,
+                                    ),
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1910,7 +1947,10 @@ export default function OrderBillingModal({
                       return (
                         <Accordion
                           type="multiple"
-                          defaultValue={["main-agent-section", "co-agent-section"]}
+                          defaultValue={[
+                            "main-agent-section",
+                            "co-agent-section",
+                          ]}
                           className="w-full space-y-4"
                         >
                           <AccordionItem
@@ -1927,7 +1967,13 @@ export default function OrderBillingModal({
                             </AccordionTrigger>
                             <AccordionContent className="p-4 space-y-3 bg-white">
                               <div className="space-y-3">
-                                {billing.services.map((service) => renderOrderServiceCard(service, mainSplitPct / 100, false))}
+                                {billing.services.map((service) =>
+                                  renderOrderServiceCard(
+                                    service,
+                                    mainSplitPct / 100,
+                                    false,
+                                  ),
+                                )}
                               </div>
                             </AccordionContent>
                           </AccordionItem>
@@ -1938,7 +1984,9 @@ export default function OrderBillingModal({
                           >
                             <AccordionTrigger className="px-5 py-3.5 bg-[#DBEAFE] hover:bg-[#BFDBFE] border-b border-[#BFDBFE] text-blue-950 text-sm font-semibold uppercase tracking-wide">
                               <div className="flex items-center gap-2.5">
-                                <span>Co-Agent Invoices & Services ({coAgentName})</span>
+                                <span>
+                                  Co-Agent Invoices & Services ({coAgentName})
+                                </span>
                                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
                                   {coSplitPct}% Share
                                 </span>
@@ -1946,7 +1994,13 @@ export default function OrderBillingModal({
                             </AccordionTrigger>
                             <AccordionContent className="p-4 space-y-3 bg-white">
                               <div className="space-y-3">
-                                {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                {billing.services.map((service) =>
+                                  renderOrderServiceCard(
+                                    service,
+                                    coSplitPct / 100,
+                                    true,
+                                  ),
+                                )}
                               </div>
                             </AccordionContent>
                           </AccordionItem>
@@ -1956,7 +2010,9 @@ export default function OrderBillingModal({
 
                     return (
                       <div className="space-y-3">
-                        {billing.services.map((service) => renderOrderServiceCard(service, 1, false))}
+                        {billing.services.map((service) =>
+                          renderOrderServiceCard(service, 1, false),
+                        )}
                       </div>
                     );
                   })()}

@@ -222,7 +222,9 @@ const Page = () => {
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] =
     useState<any>(null);
   const [isRefundReceiptOpen, setIsRefundReceiptOpen] = useState(false);
-  const [downloadingInvoiceUuid, setDownloadingInvoiceUuid] = useState<string | null>(null);
+  const [downloadingInvoiceUuid, setDownloadingInvoiceUuid] = useState<
+    string | null
+  >(null);
 
   const handleDownloadInvoice = async (inv: any) => {
     if (!inv?.uuid) return;
@@ -759,7 +761,10 @@ const Page = () => {
       setActionLoading({ id: serviceId || billing.order_id, action });
       const res = await GetInvoicesByOrder(billing.order_uuid);
       const rawInvoicesList = Array.isArray(res.data) ? res.data : [res.data];
-      const invoicesList = filterVisibleInvoices(rawInvoicesList, billing.services);
+      const invoicesList = filterVisibleInvoices(
+        rawInvoicesList,
+        billing.services,
+      );
 
       const isCoAgent =
         userType === "agent" && isUserCoAgent(currentUser, userType);
@@ -1243,7 +1248,9 @@ const Page = () => {
     processedSessionIdRef.current = sessionId;
 
     const processStripePayment = async () => {
-      const loadingToastId = toast.loading("Processing your payment, please wait...");
+      const loadingToastId = toast.loading(
+        "Processing your payment, please wait...",
+      );
 
       try {
         const response = await fetch(
@@ -1561,7 +1568,10 @@ const Page = () => {
       const res = await GetInvoicesByOrder(orderUuid);
       const rawInvoicesList = Array.isArray(res.data) ? res.data : [res.data];
       const currentBilling = billings.find((b) => b.order_uuid === orderUuid);
-      const invoicesList = filterVisibleInvoices(rawInvoicesList, currentBilling?.services);
+      const invoicesList = filterVisibleInvoices(
+        rawInvoicesList,
+        currentBilling?.services,
+      );
       const targetInvoice = getBestTargetInvoice(invoicesList, serviceUuid);
 
       if (targetInvoice) {
@@ -1949,7 +1959,9 @@ const Page = () => {
                 const safeTotalPaid = Math.max(0, billing.total_paid || 0);
                 const rawRemaining = rowGrandTotal - safeTotalPaid;
                 const rowRemaining =
-                  billing.status === "paid" || isRowOrderRefunded || rawRemaining <= 0.02
+                  billing.status === "paid" ||
+                  isRowOrderRefunded ||
+                  rawRemaining <= 0.02
                     ? 0
                     : Math.max(0, rawRemaining);
 
@@ -2170,42 +2182,53 @@ const Page = () => {
                           billing.tax_details ||
                           null;
                         const orderHasSplits =
-                          Boolean((billing as any).split_invoice || (billing as any).order?.split_invoice) ||
+                          Boolean(
+                            (billing as any).split_invoice ||
+                            (billing as any).order?.split_invoice,
+                          ) ||
                           orderInvoices.some(
                             (inv: any) =>
                               inv.agent_type === "co-agent" ||
                               inv.agent_type === "co_agent" ||
                               inv.is_co_agent ||
-                              (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                              (inv.split_details?.splits &&
+                                inv.split_details.splits.length > 1),
                           );
 
                         const nonVoidOrderInvoices = orderInvoices.filter(
-                          (inv) => !isVoidOrCancelled(inv.status) && !isRenewalInvoice(inv),
+                          (inv) =>
+                            !isVoidOrCancelled(inv.status) &&
+                            !isRenewalInvoice(inv),
                         );
 
-                        const combinedInvoicesTotal = nonVoidOrderInvoices.reduce(
-                          (sum, inv) => sum + parseFloat(inv.total || "0"),
-                          0,
-                        );
-                        const combinedInvoicesSubtotal = nonVoidOrderInvoices.reduce(
-                          (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
-                          0,
-                        );
+                        const combinedInvoicesTotal =
+                          nonVoidOrderInvoices.reduce(
+                            (sum, inv) => sum + parseFloat(inv.total || "0"),
+                            0,
+                          );
+                        const combinedInvoicesSubtotal =
+                          nonVoidOrderInvoices.reduce(
+                            (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
+                            0,
+                          );
                         const combinedInvoicesTax = nonVoidOrderInvoices.reduce(
                           (sum, inv) => sum + parseFloat(inv.tax_amount || "0"),
                           0,
                         );
-                        const combinedInvoicesPaid = nonVoidOrderInvoices.reduce(
-                          (sum, inv) => sum + parseFloat(inv.paid_amount || "0"),
-                          0,
-                        );
+                        const combinedInvoicesPaid =
+                          nonVoidOrderInvoices.reduce(
+                            (sum, inv) =>
+                              sum + parseFloat(inv.paid_amount || "0"),
+                            0,
+                          );
 
                         const subtotalVal =
                           orderHasSplits && combinedInvoicesSubtotal > 0
                             ? combinedInvoicesSubtotal
                             : primaryInvoice &&
-                              parseFloat(primaryInvoice.subtotal || "0") > 0 &&
-                              !orderHasSplits
+                                parseFloat(primaryInvoice.subtotal || "0") >
+                                  0 &&
+                                !orderHasSplits
                               ? parseFloat(primaryInvoice.subtotal)
                               : billing.total_amount != null
                                 ? billing.total_amount
@@ -2214,8 +2237,9 @@ const Page = () => {
                           orderHasSplits && combinedInvoicesTax > 0
                             ? combinedInvoicesTax
                             : primaryInvoice &&
-                              parseFloat(primaryInvoice.tax_amount || "0") > 0 &&
-                              !orderHasSplits
+                                parseFloat(primaryInvoice.tax_amount || "0") >
+                                  0 &&
+                                !orderHasSplits
                               ? parseFloat(primaryInvoice.tax_amount)
                               : billing.tax_amount != null
                                 ? billing.tax_amount
@@ -2224,8 +2248,8 @@ const Page = () => {
                           orderHasSplits && combinedInvoicesTotal > 0
                             ? combinedInvoicesTotal
                             : primaryInvoice &&
-                              parseFloat(primaryInvoice.total || "0") > 0 &&
-                              !orderHasSplits
+                                parseFloat(primaryInvoice.total || "0") > 0 &&
+                                !orderHasSplits
                               ? parseFloat(primaryInvoice.total)
                               : billing.grand_total != null
                                 ? billing.grand_total
@@ -2239,7 +2263,8 @@ const Page = () => {
                           orderHasSplits && combinedInvoicesPaid > 0
                             ? combinedInvoicesPaid
                             : Math.max(0, billing.total_paid || 0);
-                        const rawRowRemaining = effectiveGrandTotal - safeRowTotalPaid;
+                        const rawRowRemaining =
+                          effectiveGrandTotal - safeRowTotalPaid;
                         const displayRemaining =
                           isOrderPaid ||
                           isOrderRefunded ||
@@ -2339,7 +2364,9 @@ const Page = () => {
                                                     "view",
                                                   )
                                                 }
-                                                disabled={actionLoading !== null}
+                                                disabled={
+                                                  actionLoading !== null
+                                                }
                                                 className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
                                                 onMouseEnter={(e) => {
                                                   e.currentTarget.style.backgroundColor =
@@ -2654,9 +2681,7 @@ const Page = () => {
                                                     (slot) => slot.vendor_name,
                                                   )
                                                   .filter(
-                                                    (
-                                                      name,
-                                                    ): name is string =>
+                                                    (name): name is string =>
                                                       Boolean(
                                                         name && name.trim(),
                                                       ),
@@ -2785,7 +2810,8 @@ const Page = () => {
                                                       </span>
                                                       <span className="font-semibold text-gray-500 line-through">
                                                         {(
-                                                          (subtotalVal + packageDiscountVal)
+                                                          subtotalVal +
+                                                          packageDiscountVal
                                                         ).toLocaleString(
                                                           "en-US",
                                                           {
@@ -2804,9 +2830,7 @@ const Page = () => {
                                                       </span>
                                                       <span className="font-semibold text-emerald-600">
                                                         -
-                                                        {(
-                                                          packageDiscountVal
-                                                        ).toLocaleString(
+                                                        {packageDiscountVal.toLocaleString(
                                                           "en-US",
                                                           {
                                                             style: "currency",
@@ -2833,38 +2857,52 @@ const Page = () => {
                                                 })}
                                               </span>
                                             </div>
-                                            {orderTaxDetails && Object.keys(orderTaxDetails).length > 0 ? (
-                                              Object.entries(orderTaxDetails).map(([taxKey, taxVal]: [string, any]) => {
-                                                const rate = taxVal?.rate ?? taxRate;
-                                                const amt = parseFloat(taxVal?.amount || 0);
-                                                return (
-                                                  <div key={taxKey}>
-                                                    <span className="text-gray-500 block text-xs">
-                                                      {taxKey} ({rate}%)
-                                                    </span>
-                                                    <span className="font-semibold text-[#DC9600]">
-                                                      {(
-                                                        amt
-                                                      ).toLocaleString("en-US", {
-                                                        style: "currency",
-                                                        currency: "USD",
-                                                      })}
-                                                    </span>
-                                                  </div>
-                                                );
-                                              })
+                                            {orderTaxDetails &&
+                                            Object.keys(orderTaxDetails)
+                                              .length > 0 ? (
+                                              Object.entries(
+                                                orderTaxDetails,
+                                              ).map(
+                                                ([taxKey, taxVal]: [
+                                                  string,
+                                                  any,
+                                                ]) => {
+                                                  const rate =
+                                                    taxVal?.rate ?? taxRate;
+                                                  const amt = parseFloat(
+                                                    taxVal?.amount || 0,
+                                                  );
+                                                  return (
+                                                    <div key={taxKey}>
+                                                      <span className="text-gray-500 block text-xs">
+                                                        {taxKey} ({rate}%)
+                                                      </span>
+                                                      <span className="font-semibold text-[#DC9600]">
+                                                        {amt.toLocaleString(
+                                                          "en-US",
+                                                          {
+                                                            style: "currency",
+                                                            currency: "USD",
+                                                          },
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                },
+                                              )
                                             ) : taxRate > 0 ? (
                                               <div>
                                                 <span className="text-gray-500 block text-xs">
                                                   GST/HST ({taxRate}%)
                                                 </span>
                                                 <span className="font-semibold text-[#DC9600]">
-                                                  {(
-                                                    taxAmount
-                                                  ).toLocaleString("en-US", {
-                                                    style: "currency",
-                                                    currency: "USD",
-                                                  })}
+                                                  {taxAmount.toLocaleString(
+                                                    "en-US",
+                                                    {
+                                                      style: "currency",
+                                                      currency: "USD",
+                                                    },
+                                                  )}
                                                 </span>
                                               </div>
                                             ) : null}
@@ -2873,12 +2911,13 @@ const Page = () => {
                                                 Grand Total
                                               </span>
                                               <span className="font-bold text-gray-800">
-                                                {(
-                                                  grandTotalVal
-                                                ).toLocaleString("en-US", {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                })}
+                                                {grandTotalVal.toLocaleString(
+                                                  "en-US",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "USD",
+                                                  },
+                                                )}
                                               </span>
                                             </div>
                                             <div>
@@ -2886,12 +2925,13 @@ const Page = () => {
                                                 Total Paid
                                               </span>
                                               <span className="font-semibold text-[#6BAE41]">
-                                                {(
-                                                  safeRowTotalPaid
-                                                ).toLocaleString("en-US", {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                })}
+                                                {safeRowTotalPaid.toLocaleString(
+                                                  "en-US",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "USD",
+                                                  },
+                                                )}
                                               </span>
                                             </div>
                                             {totalRefunded > 0 && (
@@ -2900,12 +2940,13 @@ const Page = () => {
                                                   Total Refunded
                                                 </span>
                                                 <span className="font-semibold text-red-500">
-                                                  {(
-                                                    totalRefunded
-                                                  ).toLocaleString("en-US", {
-                                                    style: "currency",
-                                                    currency: "USD",
-                                                  })}
+                                                  {totalRefunded.toLocaleString(
+                                                    "en-US",
+                                                    {
+                                                      style: "currency",
+                                                      currency: "USD",
+                                                    },
+                                                  )}
                                                 </span>
                                               </div>
                                             )}
@@ -2914,12 +2955,13 @@ const Page = () => {
                                                 Balance Due
                                               </span>
                                               <span className="font-bold text-[#E06D5E]">
-                                                {(
-                                                  displayRemaining
-                                                ).toLocaleString("en-US", {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                })}
+                                                {displayRemaining.toLocaleString(
+                                                  "en-US",
+                                                  {
+                                                    style: "currency",
+                                                    currency: "USD",
+                                                  },
+                                                )}
                                               </span>
                                             </div>
                                           </div>
@@ -3119,14 +3161,14 @@ const Page = () => {
                                             <span className="font-semibold text-[#6BAE41]">
                                               {(isOrderRefunded
                                                 ? 0
-                                                : Math.max(0, billing.total_paid || 0)
-                                              ).toLocaleString(
-                                                "en-US",
-                                                {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                },
-                                              )}
+                                                : Math.max(
+                                                    0,
+                                                    billing.total_paid || 0,
+                                                  )
+                                              ).toLocaleString("en-US", {
+                                                style: "currency",
+                                                currency: "USD",
+                                              })}
                                             </span>
                                           </div>
                                           <div>
@@ -3160,13 +3202,18 @@ const Page = () => {
                                     </h3>
                                     {(() => {
                                       const orderHasSplits =
-                                        Boolean((billing as any).split_invoice || (billing as any).order?.split_invoice) ||
+                                        Boolean(
+                                          (billing as any).split_invoice ||
+                                          (billing as any).order?.split_invoice,
+                                        ) ||
                                         orderInvoices.some(
                                           (inv: any) =>
                                             inv.agent_type === "co-agent" ||
                                             inv.agent_type === "co_agent" ||
                                             inv.is_co_agent ||
-                                            (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                                            (inv.split_details?.splits &&
+                                              inv.split_details.splits.length >
+                                                1),
                                         );
 
                                       let mainSplitPct = 50;
@@ -3174,42 +3221,63 @@ const Page = () => {
                                       let coAgentName = "Co-Agent";
 
                                       const splitInv = orderInvoices.find(
-                                        (inv: any) => inv.split_details?.splits && inv.split_details.splits.length > 0,
+                                        (inv: any) =>
+                                          inv.split_details?.splits &&
+                                          inv.split_details.splits.length > 0,
                                       );
                                       if (splitInv?.split_details?.splits) {
-                                        const primarySplit = splitInv.split_details.splits.find(
-                                          (s: any) => s.type === "primary" || s.role === "primary",
-                                        );
-                                        const coSplit = splitInv.split_details.splits.find(
-                                          (s: any) =>
-                                            s.type === "co-agent" ||
-                                            s.type === "co_agent" ||
-                                            s.role === "co-agent",
-                                        );
-                                        if (primarySplit?.percentage) mainSplitPct = Number(primarySplit.percentage);
-                                        if (coSplit?.percentage) coSplitPct = Number(coSplit.percentage);
-                                        if (coSplit?.name) coAgentName = coSplit.name;
+                                        const primarySplit =
+                                          splitInv.split_details.splits.find(
+                                            (s: any) =>
+                                              s.type === "primary" ||
+                                              s.role === "primary",
+                                          );
+                                        const coSplit =
+                                          splitInv.split_details.splits.find(
+                                            (s: any) =>
+                                              s.type === "co-agent" ||
+                                              s.type === "co_agent" ||
+                                              s.role === "co-agent",
+                                          );
+                                        if (primarySplit?.percentage)
+                                          mainSplitPct = Number(
+                                            primarySplit.percentage,
+                                          );
+                                        if (coSplit?.percentage)
+                                          coSplitPct = Number(
+                                            coSplit.percentage,
+                                          );
+                                        if (coSplit?.name)
+                                          coAgentName = coSplit.name;
                                       } else {
                                         const rawCo =
                                           (billing as any).co_agents ||
                                           (billing as any).coagents ||
                                           (billing as any).order?.co_agents;
                                         let coList: any[] = [];
-                                        if (Array.isArray(rawCo)) coList = rawCo;
+                                        if (Array.isArray(rawCo))
+                                          coList = rawCo;
                                         else if (typeof rawCo === "string") {
                                           try {
                                             const parsed = JSON.parse(rawCo);
-                                            if (Array.isArray(parsed)) coList = parsed;
+                                            if (Array.isArray(parsed))
+                                              coList = parsed;
                                           } catch {}
                                         }
                                         if (coList.length > 0) {
                                           const firstCo = coList[0];
                                           const pct = Number(
-                                            firstCo.split || firstCo.split_percentage || firstCo.percentage || 50,
+                                            firstCo.split ||
+                                              firstCo.split_percentage ||
+                                              firstCo.percentage ||
+                                              50,
                                           );
                                           coSplitPct = pct;
                                           mainSplitPct = 100 - pct;
-                                          if (firstCo.name || firstCo.first_name) {
+                                          if (
+                                            firstCo.name ||
+                                            firstCo.first_name
+                                          ) {
                                             coAgentName =
                                               firstCo.name ||
                                               `${firstCo.first_name || ""} ${firstCo.last_name || ""}`.trim();
@@ -3217,116 +3285,122 @@ const Page = () => {
                                         }
                                       }
 
-                                      const mainAgentInvoices = orderInvoices.filter(
-                                        (inv: any) =>
-                                          inv.agent_type === "primary" ||
-                                          (!inv.split_details &&
-                                            inv.agent_type !== "co-agent" &&
-                                            inv.agent_type !== "co_agent"),
-                                      );
-                                      const coAgentInvoices = orderInvoices.filter(
-                                        (inv: any) =>
-                                          inv.agent_type === "co-agent" ||
-                                          inv.agent_type === "co_agent" ||
-                                          inv.is_co_agent ||
-                                          (inv.split_details && inv.agent_type !== "primary"),
-                                      );
+                                      // const mainAgentInvoices = orderInvoices.filter(
+                                      //   (inv: any) =>
+                                      //     inv.agent_type === "primary" ||
+                                      //     (!inv.split_details &&
+                                      //       inv.agent_type !== "co-agent" &&
+                                      //       inv.agent_type !== "co_agent"),
+                                      // );
+                                      // const coAgentInvoices = orderInvoices.filter(
+                                      //   (inv: any) =>
+                                      //     inv.agent_type === "co-agent" ||
+                                      //     inv.agent_type === "co_agent" ||
+                                      //     inv.is_co_agent ||
+                                      //     (inv.split_details && inv.agent_type !== "primary"),
+                                      // );
 
-                                      const renderOrderServiceCard = (service: any, currentSplitMultiplier: number, isCoAgentSection: boolean) => {
-                                      const serviceUuid =
-                                        service.uuid ||
-                                        service.order_service_uuid;
-                                      const serviceTargetInvoice =
-                                        getBestTargetInvoice(
-                                          orderInvoices,
-                                          serviceUuid,
-                                          service.service_id,
-                                          currentUser,
-                                          userType,
-                                        );
+                                      const renderOrderServiceCard = (
+                                        service: any,
+                                        currentSplitMultiplier: number,
+                                        isCoAgentSection: boolean,
+                                      ) => {
+                                        const serviceUuid =
+                                          service.uuid ||
+                                          service.order_service_uuid;
+                                        const serviceTargetInvoice =
+                                          getBestTargetInvoice(
+                                            orderInvoices,
+                                            serviceUuid,
+                                            service.service_id,
+                                            currentUser,
+                                            userType,
+                                          );
 
-                                      const isServiceRefunded =
-                                        isRefunded(service.status) ||
-                                        isRefunded(
-                                          serviceTargetInvoice?.status,
-                                        );
-                                      const isServicePartiallyRefunded =
-                                        !isServiceRefunded &&
-                                        (isPartiallyRefunded(service.status) ||
-                                          isPartiallyRefunded(
+                                        const isServiceRefunded =
+                                          isRefunded(service.status) ||
+                                          isRefunded(
                                             serviceTargetInvoice?.status,
-                                          ));
-                                      const isServicePaid =
-                                        (isPaidOrSucceeded(service.status) ||
-                                          isPaidOrSucceeded(
-                                            serviceTargetInvoice?.status,
+                                          );
+                                        const isServicePartiallyRefunded =
+                                          !isServiceRefunded &&
+                                          (isPartiallyRefunded(
+                                            service.status,
                                           ) ||
-                                          billing.status === "paid" ||
-                                          (parseFloat(
-                                            serviceTargetInvoice?.paid_amount ||
-                                              0,
-                                          ) > 0 &&
-                                            parseFloat(
+                                            isPartiallyRefunded(
+                                              serviceTargetInvoice?.status,
+                                            ));
+                                        const isServicePaid =
+                                          (isPaidOrSucceeded(service.status) ||
+                                            isPaidOrSucceeded(
+                                              serviceTargetInvoice?.status,
+                                            ) ||
+                                            billing.status === "paid" ||
+                                            (parseFloat(
                                               serviceTargetInvoice?.paid_amount ||
                                                 0,
-                                            ) >=
+                                            ) > 0 &&
                                               parseFloat(
-                                                serviceTargetInvoice?.total ||
+                                                serviceTargetInvoice?.paid_amount ||
                                                   0,
-                                              ) -
-                                                0.01)) &&
-                                        !isServiceRefunded &&
-                                        !isServicePartiallyRefunded;
-                                      const isServiceVoid =
-                                        hasLoadedInvoices &&
-                                        !isRowInvoicesLoading &&
-                                        serviceTargetInvoice === null;
+                                              ) >=
+                                                parseFloat(
+                                                  serviceTargetInvoice?.total ||
+                                                    0,
+                                                ) -
+                                                  0.01)) &&
+                                          !isServiceRefunded &&
+                                          !isServicePartiallyRefunded;
+                                        const isServiceVoid =
+                                          hasLoadedInvoices &&
+                                          !isRowInvoicesLoading &&
+                                          serviceTargetInvoice === null;
 
-                                      // Agent media restriction per service
-                                      const serviceNumericId =
-                                        service.service_id;
-                                      const svcMediaSet =
-                                        rowServiceMedia[billing.order_uuid];
-                                      const serviceHasMedia =
-                                        svcMediaSet === undefined ||
-                                        svcMediaSet.has(serviceNumericId) ||
-                                        svcMediaSet.has(
-                                          String(serviceNumericId),
-                                        ) ||
-                                        (service.order_service_uuid &&
+                                        // Agent media restriction per service
+                                        const serviceNumericId =
+                                          service.service_id;
+                                        const svcMediaSet =
+                                          rowServiceMedia[billing.order_uuid];
+                                        const serviceHasMedia =
+                                          svcMediaSet === undefined ||
+                                          svcMediaSet.has(serviceNumericId) ||
                                           svcMediaSet.has(
-                                            service.order_service_uuid,
-                                          )) ||
-                                        (service.uuid &&
-                                          svcMediaSet.has(service.uuid));
-                                      const servicePayBlockedByMedia =
-                                        userType === "agent" &&
-                                        svcMediaSet !== undefined &&
-                                        !serviceHasMedia;
+                                            String(serviceNumericId),
+                                          ) ||
+                                          (service.order_service_uuid &&
+                                            svcMediaSet.has(
+                                              service.order_service_uuid,
+                                            )) ||
+                                          (service.uuid &&
+                                            svcMediaSet.has(service.uuid));
+                                        const servicePayBlockedByMedia =
+                                          userType === "agent" &&
+                                          svcMediaSet !== undefined &&
+                                          !serviceHasMedia;
 
-                                      const shouldHideServicePay =
-                                        actualOrderCancelled ||
-                                        isServiceVoid ||
-                                        isServicePaid ||
-                                        isServicePartiallyRefunded ||
-                                        isServiceRefunded;
-                                      const isServiceInProgress =
-                                        servicePayBlockedByMedia &&
-                                        !shouldHideServicePay;
-                                      return (
-                                        <div
-                                          key={service.service_id}
-                                          className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
-                                        >
-                                          <div className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                              <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-4 mb-2">
-                                                  <p className="font-semibold text-gray-800">
-                                                    {service.service_name}
-                                                  </p>
-                                                  <span
-                                                    className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2
+                                        const shouldHideServicePay =
+                                          actualOrderCancelled ||
+                                          isServiceVoid ||
+                                          isServicePaid ||
+                                          isServicePartiallyRefunded ||
+                                          isServiceRefunded;
+                                        const isServiceInProgress =
+                                          servicePayBlockedByMedia &&
+                                          !shouldHideServicePay;
+                                        return (
+                                          <div
+                                            key={service.service_id}
+                                            className="border border-[#BBBBBB] rounded-[6px] bg-white p-4 transition-all"
+                                          >
+                                            <div className="flex justify-between items-start">
+                                              <div className="flex-1">
+                                                <div className="flex justify-between items-center">
+                                                  <div className="flex items-center gap-4 mb-2">
+                                                    <p className="font-semibold text-gray-800">
+                                                      {service.service_name}
+                                                    </p>
+                                                    <span
+                                                      className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2
                                                    ${
                                                      isServicePartiallyRefunded
                                                        ? "bg-[#D97706]"
@@ -3343,216 +3417,264 @@ const Page = () => {
                                                                ? "bg-[#E06D5E]"
                                                                : "bg-[#7D7D7D]"
                                                    }`}
-                                                  >
-                                                    {isServicePartiallyRefunded
-                                                      ? "partially refunded"
-                                                      : isServicePaid
-                                                        ? "paid"
-                                                        : isServiceRefunded
-                                                          ? "refunded"
-                                                          : isServiceVoid
-                                                            ? "no invoice"
-                                                            : service.status ||
-                                                              "unpaid"}
-                                                  </span>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                   {isRowInvoicesLoading &&
-                                                   !hasLoadedInvoices ? (
-                                                     <Button
-                                                       disabled
-                                                       className="h-[30px] px-3 bg-gray-50 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
-                                                     >
-                                                       <Loader2 className="h-3 w-3 animate-spin mr-1" />{" "}
-                                                       Loading
-                                                     </Button>
-                                                   ) : isServiceInProgress ? (
-                                                     <>
-                                                       <Button
-                                                         disabled
-                                                         className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
-                                                       >
-                                                         Invoice
-                                                       </Button>
-                                                       <Button
-                                                         disabled
-                                                         className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
-                                                       >
-                                                         In Progress
-                                                       </Button>
-                                                     </>
-                                                   ) : serviceTargetInvoice ? (
-                                                     <Button
-                                                       onClick={() =>
-                                                         handleInvoiceAction(
-                                                           billing,
-                                                           "view",
-                                                           serviceUuid,
-                                                           service.amount,
-                                                           service.service_id,
-                                                         )
-                                                       }
-                                                       disabled={
-                                                         actionLoading !== null
-                                                       }
-                                                       className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
-                                                       onMouseEnter={(e) => {
-                                                         e.currentTarget.style.backgroundColor =
-                                                           roleSettings.pageTabColor;
-                                                         e.currentTarget.style.color =
-                                                           "white";
-                                                         e.currentTarget.style.borderColor =
-                                                           roleSettings.pageTabColor;
-                                                       }}
-                                                       onMouseLeave={(e) => {
-                                                         e.currentTarget.style.backgroundColor =
-                                                           "white";
-                                                         e.currentTarget.style.color =
-                                                           "#666666";
-                                                         e.currentTarget.style.borderColor =
-                                                           "#BBBBBB";
-                                                       }}
-                                                     >
-                                                       {actionLoading?.id ===
-                                                         serviceUuid &&
-                                                       actionLoading?.action ===
-                                                         "view" ? (
-                                                         <>
-                                                           <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                           Loading...
-                                                         </>
-                                                       ) : (
-                                                         "Invoice"
-                                                       )}
-                                                     </Button>
-                                                   ) : (
-                                                     <Button
-                                                       disabled
-                                                       className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
-                                                     >
-                                                       No Invoice
-                                                     </Button>
-                                                   )}
-
-                                                   {!shouldHideServicePay && !isServiceInProgress && (
-                                                     <>
-                                                       <Button
-                                                         onClick={() =>
-                                                           handleInvoiceAction(
-                                                             billing,
-                                                             "pay",
-                                                             serviceUuid,
-                                                             service.amount,
-                                                             service.service_id,
-                                                           )
-                                                         }
-                                                         disabled={
-                                                           actionLoading !==
-                                                           null
-                                                         }
-                                                         className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                                         style={{
-                                                           backgroundColor:
-                                                             roleSettings.pageTabColor,
-                                                         }}
-                                                       >
-                                                         {actionLoading?.id ===
-                                                           serviceUuid &&
-                                                         actionLoading?.action ===
-                                                           "pay" ? (
-                                                           <>
-                                                             <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                             Processing...
-                                                           </>
-                                                         ) : (
-                                                           userType === "agent" ? "Pay to Download" : "Pay Now"
-                                                         )}
-                                                       </Button>
-
-                                                       {role === "admin" && (
-                                                         <Button
-                                                           onClick={async () => {
-                                                             try {
-                                                               setActionLoading({
-                                                                 id: serviceUuid,
-                                                                 action: "pay",
-                                                               });
-                                                               const res =
-                                                                 await GetInvoicesByOrder(
-                                                                   billing.order_uuid,
-                                                                 );
-                                                               const invoicesList =
-                                                                 Array.isArray(
-                                                                   res.data,
-                                                                 )
-                                                                   ? res.data
-                                                                   : [res.data];
-                                                               const targetInvoice =
-                                                                 getBestTargetInvoice(
-                                                                   invoicesList,
-                                                                   serviceUuid,
-                                                                   undefined,
-                                                                   currentUser,
-                                                                   userType,
-                                                                 );
-
-                                                               if (
-                                                                 targetInvoice &&
-                                                                 !isVoidOrCancelled(
-                                                                   targetInvoice.status,
-                                                                 )
-                                                               ) {
-                                                                 handleOpenManualPayment(
-                                                                   targetInvoice,
-                                                                 );
-                                                               } else {
-                                                                 toast.error(
-                                                                   "No valid invoice found for this service.",
-                                                                 );
-                                                               }
-                                                             } catch (err) {
-                                                               console.error(
-                                                                 err,
-                                                               );
-                                                               toast.error(
-                                                                 "Failed to load invoice.",
-                                                               );
-                                                             } finally {
-                                                               setActionLoading(
-                                                                 null,
-                                                               );
-                                                             }
-                                                           }}
-                                                           disabled={
-                                                             actionLoading !==
-                                                             null
-                                                           }
-                                                           className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
-                                                         >
-                                                           {actionLoading?.id ===
-                                                             serviceUuid &&
-                                                           actionLoading?.action ===
-                                                             "pay" ? (
-                                                             <>
-                                                               <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                               Loading...
-                                                             </>
-                                                           ) : (
-                                                             "Mark Paid"
-                                                           )}
-                                                         </Button>
-                                                       )}
-                                                     </>
-                                                   )}
-{isServicePaid &&
-                                                    !isServiceRefunded &&
-                                                    !isServicePartiallyRefunded && (
+                                                    >
+                                                      {isServicePartiallyRefunded
+                                                        ? "partially refunded"
+                                                        : isServicePaid
+                                                          ? "paid"
+                                                          : isServiceRefunded
+                                                            ? "refunded"
+                                                            : isServiceVoid
+                                                              ? "no invoice"
+                                                              : service.status ||
+                                                                "unpaid"}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex gap-2">
+                                                    {isRowInvoicesLoading &&
+                                                    !hasLoadedInvoices ? (
+                                                      <Button
+                                                        disabled
+                                                        className="h-[30px] px-3 bg-gray-50 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
+                                                      >
+                                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />{" "}
+                                                        Loading
+                                                      </Button>
+                                                    ) : isServiceInProgress ? (
                                                       <>
                                                         <Button
                                                           disabled
-                                                          className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                                                          className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
                                                         >
-                                                          Paid
+                                                          Invoice
+                                                        </Button>
+                                                        <Button
+                                                          disabled
+                                                          className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                                        >
+                                                          In Progress
+                                                        </Button>
+                                                      </>
+                                                    ) : serviceTargetInvoice ? (
+                                                      <Button
+                                                        onClick={() =>
+                                                          handleInvoiceAction(
+                                                            billing,
+                                                            "view",
+                                                            serviceUuid,
+                                                            service.amount,
+                                                            service.service_id,
+                                                          )
+                                                        }
+                                                        disabled={
+                                                          actionLoading !== null
+                                                        }
+                                                        className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                                        onMouseEnter={(e) => {
+                                                          e.currentTarget.style.backgroundColor =
+                                                            roleSettings.pageTabColor;
+                                                          e.currentTarget.style.color =
+                                                            "white";
+                                                          e.currentTarget.style.borderColor =
+                                                            roleSettings.pageTabColor;
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                          e.currentTarget.style.backgroundColor =
+                                                            "white";
+                                                          e.currentTarget.style.color =
+                                                            "#666666";
+                                                          e.currentTarget.style.borderColor =
+                                                            "#BBBBBB";
+                                                        }}
+                                                      >
+                                                        {actionLoading?.id ===
+                                                          serviceUuid &&
+                                                        actionLoading?.action ===
+                                                          "view" ? (
+                                                          <>
+                                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                            Loading...
+                                                          </>
+                                                        ) : (
+                                                          "Invoice"
+                                                        )}
+                                                      </Button>
+                                                    ) : (
+                                                      <Button
+                                                        disabled
+                                                        className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                                      >
+                                                        No Invoice
+                                                      </Button>
+                                                    )}
+
+                                                    {!shouldHideServicePay &&
+                                                      !isServiceInProgress && (
+                                                        <>
+                                                          <Button
+                                                            onClick={() =>
+                                                              handleInvoiceAction(
+                                                                billing,
+                                                                "pay",
+                                                                serviceUuid,
+                                                                service.amount,
+                                                                service.service_id,
+                                                              )
+                                                            }
+                                                            disabled={
+                                                              actionLoading !==
+                                                              null
+                                                            }
+                                                            className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                            style={{
+                                                              backgroundColor:
+                                                                roleSettings.pageTabColor,
+                                                            }}
+                                                          >
+                                                            {actionLoading?.id ===
+                                                              serviceUuid &&
+                                                            actionLoading?.action ===
+                                                              "pay" ? (
+                                                              <>
+                                                                <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                                Processing...
+                                                              </>
+                                                            ) : userType ===
+                                                              "agent" ? (
+                                                              "Pay to Download"
+                                                            ) : (
+                                                              "Pay Now"
+                                                            )}
+                                                          </Button>
+
+                                                          {role === "admin" && (
+                                                            <Button
+                                                              onClick={async () => {
+                                                                try {
+                                                                  setActionLoading(
+                                                                    {
+                                                                      id: serviceUuid,
+                                                                      action:
+                                                                        "pay",
+                                                                    },
+                                                                  );
+                                                                  const res =
+                                                                    await GetInvoicesByOrder(
+                                                                      billing.order_uuid,
+                                                                    );
+                                                                  const invoicesList =
+                                                                    Array.isArray(
+                                                                      res.data,
+                                                                    )
+                                                                      ? res.data
+                                                                      : [
+                                                                          res.data,
+                                                                        ];
+                                                                  const targetInvoice =
+                                                                    getBestTargetInvoice(
+                                                                      invoicesList,
+                                                                      serviceUuid,
+                                                                      undefined,
+                                                                      currentUser,
+                                                                      userType,
+                                                                    );
+
+                                                                  if (
+                                                                    targetInvoice &&
+                                                                    !isVoidOrCancelled(
+                                                                      targetInvoice.status,
+                                                                    )
+                                                                  ) {
+                                                                    handleOpenManualPayment(
+                                                                      targetInvoice,
+                                                                    );
+                                                                  } else {
+                                                                    toast.error(
+                                                                      "No valid invoice found for this service.",
+                                                                    );
+                                                                  }
+                                                                } catch (err) {
+                                                                  console.error(
+                                                                    err,
+                                                                  );
+                                                                  toast.error(
+                                                                    "Failed to load invoice.",
+                                                                  );
+                                                                } finally {
+                                                                  setActionLoading(
+                                                                    null,
+                                                                  );
+                                                                }
+                                                              }}
+                                                              disabled={
+                                                                actionLoading !==
+                                                                null
+                                                              }
+                                                              className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                                            >
+                                                              {actionLoading?.id ===
+                                                                serviceUuid &&
+                                                              actionLoading?.action ===
+                                                                "pay" ? (
+                                                                <>
+                                                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                                  Loading...
+                                                                </>
+                                                              ) : (
+                                                                "Mark Paid"
+                                                              )}
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                    {isServicePaid &&
+                                                      !isServiceRefunded &&
+                                                      !isServicePartiallyRefunded && (
+                                                        <>
+                                                          <Button
+                                                            disabled
+                                                            className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                                                          >
+                                                            Paid
+                                                          </Button>
+                                                          {role === "admin" && (
+                                                            <Button
+                                                              variant="outline"
+                                                              onClick={(e) =>
+                                                                handleRefundClick(
+                                                                  e,
+                                                                  billing.order_uuid,
+                                                                  serviceUuid,
+                                                                  service.amount,
+                                                                )
+                                                              }
+                                                              disabled={
+                                                                actionLoading !==
+                                                                null
+                                                              }
+                                                              className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                                            >
+                                                              {actionLoading?.id ===
+                                                                serviceUuid &&
+                                                              actionLoading?.action ===
+                                                                "refund" ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                              ) : (
+                                                                <RotateCcw className="h-4 w-4 mr-2" />
+                                                              )}{" "}
+                                                              Refund
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+
+                                                    {isServicePartiallyRefunded && (
+                                                      <>
+                                                        <Button
+                                                          disabled
+                                                          className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[120px] bg-[#D97706] cursor-not-allowed opacity-90"
+                                                        >
+                                                          Partially Refunded
                                                         </Button>
                                                         {role === "admin" && (
                                                           <Button
@@ -3584,267 +3706,314 @@ const Page = () => {
                                                         )}
                                                       </>
                                                     )}
-
-                                                  {isServicePartiallyRefunded && (
-                                                    <>
-                                                      <Button
-                                                        disabled
-                                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[120px] bg-[#D97706] cursor-not-allowed opacity-90"
-                                                      >
-                                                        Partially Refunded
-                                                      </Button>
-                                                      {role === "admin" && (
-                                                        <Button
-                                                          variant="outline"
-                                                          onClick={(e) =>
-                                                            handleRefundClick(
-                                                              e,
-                                                              billing.order_uuid,
-                                                              serviceUuid,
-                                                              service.amount,
-                                                            )
-                                                          }
-                                                          disabled={
-                                                            actionLoading !==
-                                                            null
-                                                          }
-                                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
-                                                        >
-                                                          {actionLoading?.id ===
-                                                            serviceUuid &&
-                                                          actionLoading?.action ===
-                                                            "refund" ? (
-                                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                          ) : (
-                                                            <RotateCcw className="h-4 w-4 mr-2" />
-                                                          )}{" "}
-                                                          Refund
-                                                        </Button>
-                                                      )}
-                                                    </>
-                                                  )}
+                                                  </div>
                                                 </div>
-                                              </div>
-                                              <div className="text-sm text-gray-600 space-y-0.5">
-                                                {(() => {
-                                                  const pricing =
-                                                    getServiceActualInvoicePricing(
-                                                      {
-                                                        invoices: orderInvoices,
-                                                        service,
-                                                        splitMultiplier: currentSplitMultiplier,
-                                                        isCoAgentUser: isCoAgentSection,
-                                                        userType,
-                                                        currentUser,
-                                                        fallbackTaxRate:
-                                                          taxRate,
-                                                      },
-                                                    );
+                                                <div className="text-sm text-gray-600 space-y-0.5">
+                                                  {(() => {
+                                                    const pricing =
+                                                      getServiceActualInvoicePricing(
+                                                        {
+                                                          invoices:
+                                                            orderInvoices,
+                                                          service,
+                                                          splitMultiplier:
+                                                            currentSplitMultiplier,
+                                                          isCoAgentUser:
+                                                            isCoAgentSection,
+                                                          userType,
+                                                          currentUser,
+                                                          fallbackTaxRate:
+                                                            taxRate,
+                                                        },
+                                                      );
 
-                                                  const serviceBasePrice =
-                                                    pricing.basePrice;
-                                                  const serviceTaxAmount =
-                                                    pricing.taxAmount;
-                                                  const serviceTotalPrice =
-                                                    pricing.totalPrice;
-                                                  const effectiveTaxRate =
-                                                    pricing.appliedTaxRate;
-                                                  const serviceTaxDetails =
-                                                    pricing.taxDetails;
-                                                  const servicePaidAmount =
-                                                    pricing.paidAmount ?? 0;
-                                                  const serviceRefundedAmount =
-                                                    pricing.refundedAmount ?? 0;
-                                                  const serviceOriginalPrice =
-                                                    pricing.originalPrice;
-                                                  const serviceDiscountAmount =
-                                                    pricing.discountAmount;
+                                                    const serviceBasePrice =
+                                                      pricing.basePrice;
+                                                    const serviceTaxAmount =
+                                                      pricing.taxAmount;
+                                                    const serviceTotalPrice =
+                                                      pricing.totalPrice;
+                                                    const effectiveTaxRate =
+                                                      pricing.appliedTaxRate;
+                                                    const serviceTaxDetails =
+                                                      pricing.taxDetails;
+                                                    const servicePaidAmount =
+                                                      pricing.paidAmount ?? 0;
+                                                    const serviceRefundedAmount =
+                                                      pricing.refundedAmount ??
+                                                      0;
+                                                    const serviceOriginalPrice =
+                                                      pricing.originalPrice;
+                                                    const serviceDiscountAmount =
+                                                      pricing.discountAmount;
 
-                                                  return (
-                                                    <>
-                                                      <p>
-                                                        Base Price:{" "}
-                                                        <span className="font-medium text-gray-800">
-                                                          {serviceOriginalPrice && serviceDiscountAmount && serviceDiscountAmount > 0 ? (
-                                                            <>
-                                                              <span className="line-through text-gray-400 font-normal mr-1.5">
-                                                                {serviceOriginalPrice.toLocaleString("en-US", {
-                                                                  style: "currency",
-                                                                  currency: "USD",
-                                                                })}
-                                                              </span>
-                                                              <span>
-                                                                {serviceBasePrice.toLocaleString("en-US", {
-                                                                  style: "currency",
-                                                                  currency: "USD",
-                                                                })}
-                                                              </span>
-                                                            </>
-                                                          ) : (
-                                                            serviceBasePrice.toLocaleString("en-US", {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            })
+                                                    return (
+                                                      <>
+                                                        <p>
+                                                          Base Price:{" "}
+                                                          <span className="font-medium text-gray-800">
+                                                            {serviceOriginalPrice &&
+                                                            serviceDiscountAmount &&
+                                                            serviceDiscountAmount >
+                                                              0 ? (
+                                                              <>
+                                                                <span className="line-through text-gray-400 font-normal mr-1.5">
+                                                                  {serviceOriginalPrice.toLocaleString(
+                                                                    "en-US",
+                                                                    {
+                                                                      style:
+                                                                        "currency",
+                                                                      currency:
+                                                                        "USD",
+                                                                    },
+                                                                  )}
+                                                                </span>
+                                                                <span>
+                                                                  {serviceBasePrice.toLocaleString(
+                                                                    "en-US",
+                                                                    {
+                                                                      style:
+                                                                        "currency",
+                                                                      currency:
+                                                                        "USD",
+                                                                    },
+                                                                  )}
+                                                                </span>
+                                                              </>
+                                                            ) : (
+                                                              serviceBasePrice.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )
+                                                            )}
+                                                          </span>
+                                                          {serviceDiscountAmount &&
+                                                          serviceDiscountAmount >
+                                                            0 ? (
+                                                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                              Discount: -
+                                                              {serviceDiscountAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          ) : null}
+                                                          {(orderHasSplits ||
+                                                            isCoAgentShared) && (
+                                                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                                              {Math.round(
+                                                                currentSplitMultiplier *
+                                                                  100,
+                                                              )}
+                                                              % share
+                                                            </span>
                                                           )}
-                                                        </span>
-                                                        {serviceDiscountAmount && serviceDiscountAmount > 0 ? (
-                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                            Discount: -{serviceDiscountAmount.toLocaleString("en-US", {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            })}
-                                                          </span>
+                                                        </p>
+                                                        {serviceTaxDetails &&
+                                                        Object.keys(
+                                                          serviceTaxDetails,
+                                                        ).length > 0 ? (
+                                                          Object.entries(
+                                                            serviceTaxDetails,
+                                                          ).map(
+                                                            ([taxKey, taxVal]: [
+                                                              string,
+                                                              any,
+                                                            ]) => {
+                                                              const rate =
+                                                                taxVal?.rate ??
+                                                                effectiveTaxRate;
+                                                              const amt =
+                                                                parseFloat(
+                                                                  taxVal?.amount ||
+                                                                    0,
+                                                                );
+                                                              return (
+                                                                <p
+                                                                  key={taxKey}
+                                                                  className="text-xs text-gray-500"
+                                                                >
+                                                                  {taxKey} (
+                                                                  {rate}%):{" "}
+                                                                  <span className="font-medium">
+                                                                    {amt.toLocaleString(
+                                                                      "en-US",
+                                                                      {
+                                                                        style:
+                                                                          "currency",
+                                                                        currency:
+                                                                          "USD",
+                                                                      },
+                                                                    )}
+                                                                  </span>
+                                                                </p>
+                                                              );
+                                                            },
+                                                          )
+                                                        ) : serviceTaxAmount >
+                                                          0 ? (
+                                                          <p className="text-xs text-gray-500">
+                                                            {effectiveTaxRate >
+                                                            0
+                                                              ? "Tax (" +
+                                                                effectiveTaxRate +
+                                                                "%):"
+                                                              : "Tax:"}{" "}
+                                                            <span className="font-medium">
+                                                              {serviceTaxAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
                                                         ) : null}
-                                                        {(orderHasSplits || isCoAgentShared) && (
-                                                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                                                            {Math.round(currentSplitMultiplier * 100)}% share
+                                                        <p className="text-[13px] font-semibold text-gray-700">
+                                                          Total Price:{" "}
+                                                          <span className="text-[#6BAE41]">
+                                                            {serviceTotalPrice.toLocaleString(
+                                                              "en-US",
+                                                              {
+                                                                style:
+                                                                  "currency",
+                                                                currency: "USD",
+                                                              },
+                                                            )}
                                                           </span>
+                                                        </p>
+                                                        {servicePaidAmount >
+                                                          0 && (
+                                                          <p className="text-xs text-gray-600">
+                                                            Amount Paid:{" "}
+                                                            <span className="font-semibold text-[#6BAE41]">
+                                                              {servicePaidAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
                                                         )}
-                                                      </p>
-                                                      {serviceTaxDetails && Object.keys(serviceTaxDetails).length > 0 ? (
-                                                        Object.entries(serviceTaxDetails).map(([taxKey, taxVal]: [string, any]) => {
-                                                          const rate = taxVal?.rate ?? effectiveTaxRate;
-                                                          const amt = parseFloat(taxVal?.amount || 0);
-                                                          return (
-                                                            <p key={taxKey} className="text-xs text-gray-500">
-                                                              {taxKey} ({rate}%):{" "}
-                                                              <span className="font-medium">
-                                                                {amt.toLocaleString("en-US", {
-                                                                  style: "currency",
-                                                                  currency: "USD",
-                                                                })}
-                                                              </span>
-                                                            </p>
-                                                          );
-                                                        })
-                                                      ) : serviceTaxAmount > 0 ? (
-                                                        <p className="text-xs text-gray-500">
-                                                          {effectiveTaxRate > 0 ? ("Tax (" + effectiveTaxRate + "%):") : "Tax:"}{" "}
-                                                          <span className="font-medium">
-                                                            {serviceTaxAmount.toLocaleString("en-US", {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            })}
-                                                          </span>
-                                                        </p>
-                                                      ) : null}
-                                                      <p className="text-[13px] font-semibold text-gray-700">
-                                                        Total Price:{" "}
-                                                        <span className="text-[#6BAE41]">
-                                                          {serviceTotalPrice.toLocaleString("en-US", {
-                                                            style: "currency",
-                                                            currency: "USD",
-                                                          })}
-                                                        </span>
-                                                      </p>
-                                                      {servicePaidAmount > 0 && (
-                                                        <p className="text-xs text-gray-600">
-                                                          Amount Paid:{" "}
-                                                          <span className="font-semibold text-[#6BAE41]">
-                                                            {servicePaidAmount.toLocaleString("en-US", {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            })}
-                                                          </span>
-                                                        </p>
-                                                      )}
-                                                      {serviceRefundedAmount > 0 && (
-                                                        <p className="text-xs text-gray-600">
-                                                          Amount Refunded:{" "}
-                                                          <span className="font-semibold text-red-500">
-                                                            {serviceRefundedAmount.toLocaleString("en-US", {
-                                                              style: "currency",
-                                                              currency: "USD",
-                                                            })}
-                                                          </span>
-                                                        </p>
-                                                      )}
-                                                    </>
+                                                        {serviceRefundedAmount >
+                                                          0 && (
+                                                          <p className="text-xs text-gray-600">
+                                                            Amount Refunded:{" "}
+                                                            <span className="font-semibold text-red-500">
+                                                              {serviceRefundedAmount.toLocaleString(
+                                                                "en-US",
+                                                                {
+                                                                  style:
+                                                                    "currency",
+                                                                  currency:
+                                                                    "USD",
+                                                                },
+                                                              )}
+                                                            </span>
+                                                          </p>
+                                                        )}
+                                                      </>
+                                                    );
+                                                  })()}
+                                                </div>
+
+                                                {(() => {
+                                                  const serviceSlot =
+                                                    billing.slots.find(
+                                                      (s) =>
+                                                        s.service_id ===
+                                                        service.service_id,
+                                                    );
+                                                  if (!serviceSlot) return null;
+                                                  return (
+                                                    <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
+                                                      <div>
+                                                        <span className="font-semibold">
+                                                          Scheduled:
+                                                        </span>{" "}
+                                                        {formatOrderDate(
+                                                          serviceSlot.slot_date,
+                                                        )}{" "}
+                                                        at{" "}
+                                                        {serviceSlot.start_time}{" "}
+                                                        - {serviceSlot.end_time}
+                                                      </div>
+                                                    </div>
                                                   );
                                                 })()}
-                                              </div>
 
-                                              {(() => {
-                                                const serviceSlot =
-                                                  billing.slots.find(
-                                                    (s) =>
-                                                      s.service_id ===
-                                                      service.service_id,
-                                                  );
-                                                if (!serviceSlot) return null;
-                                                return (
-                                                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
-                                                    <div>
-                                                      <span className="font-semibold">
-                                                        Scheduled:
-                                                      </span>{" "}
-                                                      {formatOrderDate(
-                                                        serviceSlot.slot_date,
-                                                      )}{" "}
-                                                      at{" "}
-                                                      {serviceSlot.start_time} -{" "}
-                                                      {serviceSlot.end_time}
-                                                    </div>
-                                                  </div>
-                                                );
-                                              })()}
-
-                                              {/* Service-specific invoices */}
-                                              {service.related_invoices &&
-                                                service.related_invoices
-                                                  .length > 0 && (
-                                                  <div className="mt-2 space-y-1">
-                                                    {service.related_invoices.map(
-                                                      (
-                                                        invoice: any,
-                                                        invoiceIndex: number,
-                                                      ) => (
-                                                        <div
-                                                          key={invoiceIndex}
-                                                          className="flex items-center gap-2"
-                                                        >
-                                                          <ExternalLink
-                                                            className="w-3 h-3 flex-shrink-0"
-                                                            style={{
-                                                              color:
-                                                                roleSettings.activeColor,
-                                                            }}
-                                                          />
-                                                          <a
-                                                            href={
-                                                              invoice.invoice_url
-                                                            }
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-xs font-medium hover:underline truncate"
-                                                            style={{
-                                                              color:
-                                                                roleSettings.activeColor,
-                                                            }}
-                                                            title={
-                                                              invoice.invoice_url
-                                                            }
+                                                {/* Service-specific invoices */}
+                                                {service.related_invoices &&
+                                                  service.related_invoices
+                                                    .length > 0 && (
+                                                    <div className="mt-2 space-y-1">
+                                                      {service.related_invoices.map(
+                                                        (
+                                                          invoice: any,
+                                                          invoiceIndex: number,
+                                                        ) => (
+                                                          <div
+                                                            key={invoiceIndex}
+                                                            className="flex items-center gap-2"
                                                           >
-                                                            Service Invoice{" "}
-                                                            {invoiceIndex + 1}
-                                                          </a>
-                                                          <span className="text-xs text-gray-500">
-                                                            (
-                                                            {formatOrderDate(
-                                                              invoice.paid_at,
-                                                            )}
-                                                            )
-                                                          </span>
-                                                        </div>
-                                                      ),
-                                                    )}
-                                                  </div>
-                                                )}
+                                                            <ExternalLink
+                                                              className="w-3 h-3 flex-shrink-0"
+                                                              style={{
+                                                                color:
+                                                                  roleSettings.activeColor,
+                                                              }}
+                                                            />
+                                                            <a
+                                                              href={
+                                                                invoice.invoice_url
+                                                              }
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="text-xs font-medium hover:underline truncate"
+                                                              style={{
+                                                                color:
+                                                                  roleSettings.activeColor,
+                                                              }}
+                                                              title={
+                                                                invoice.invoice_url
+                                                              }
+                                                            >
+                                                              Service Invoice{" "}
+                                                              {invoiceIndex + 1}
+                                                            </a>
+                                                            <span className="text-xs text-gray-500">
+                                                              (
+                                                              {formatOrderDate(
+                                                                invoice.paid_at,
+                                                              )}
+                                                              )
+                                                            </span>
+                                                          </div>
+                                                        ),
+                                                      )}
+                                                    </div>
+                                                  )}
+                                              </div>
                                             </div>
                                           </div>
-                                        </div>
-
-                                      );
+                                        );
                                       };
 
                                       if (orderHasSplits) {
@@ -3855,7 +4024,8 @@ const Page = () => {
                                                 <div className="px-5 py-3.5 bg-[#DBEAFE] border-b border-[#BFDBFE] flex items-center justify-between">
                                                   <div className="flex items-center gap-2.5">
                                                     <span className="text-sm font-semibold uppercase tracking-wide text-blue-950">
-                                                      Co-Agent Services & Invoice
+                                                      Co-Agent Services &
+                                                      Invoice
                                                     </span>
                                                     <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
                                                       {coSplitPct}% Share
@@ -3864,7 +4034,14 @@ const Page = () => {
                                                 </div>
                                                 <div className="p-4 space-y-3 bg-white">
                                                   <div className="space-y-3">
-                                                    {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                                    {billing.services.map(
+                                                      (service) =>
+                                                        renderOrderServiceCard(
+                                                          service,
+                                                          coSplitPct / 100,
+                                                          true,
+                                                        ),
+                                                    )}
                                                   </div>
                                                 </div>
                                               </div>
@@ -3875,7 +4052,10 @@ const Page = () => {
                                         return (
                                           <Accordion
                                             type="multiple"
-                                            defaultValue={["main-agent-section", "co-agent-section"]}
+                                            defaultValue={[
+                                              "main-agent-section",
+                                              "co-agent-section",
+                                            ]}
                                             className="w-full space-y-4"
                                           >
                                             <AccordionItem
@@ -3884,7 +4064,10 @@ const Page = () => {
                                             >
                                               <AccordionTrigger className="px-5 py-3.5 bg-[#E2E8F0] hover:bg-[#CBD5E1] border-b border-[#CBD5E1] text-slate-900 text-sm font-semibold uppercase tracking-wide">
                                                 <div className="flex items-center gap-2.5">
-                                                  <span>Main Agent Invoices & Services</span>
+                                                  <span>
+                                                    Main Agent Invoices &
+                                                    Services
+                                                  </span>
                                                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
                                                     {mainSplitPct}% Share
                                                   </span>
@@ -3892,7 +4075,14 @@ const Page = () => {
                                               </AccordionTrigger>
                                               <AccordionContent className="p-4 space-y-3 bg-white">
                                                 <div className="space-y-3">
-                                                  {billing.services.map((service) => renderOrderServiceCard(service, mainSplitPct / 100, false))}
+                                                  {billing.services.map(
+                                                    (service) =>
+                                                      renderOrderServiceCard(
+                                                        service,
+                                                        mainSplitPct / 100,
+                                                        false,
+                                                      ),
+                                                  )}
                                                 </div>
                                               </AccordionContent>
                                             </AccordionItem>
@@ -3903,7 +4093,10 @@ const Page = () => {
                                             >
                                               <AccordionTrigger className="px-5 py-3.5 bg-[#DBEAFE] hover:bg-[#BFDBFE] border-b border-[#BFDBFE] text-blue-950 text-sm font-semibold uppercase tracking-wide">
                                                 <div className="flex items-center gap-2.5">
-                                                  <span>Co-Agent Invoices & Services ({coAgentName})</span>
+                                                  <span>
+                                                    Co-Agent Invoices & Services
+                                                    ({coAgentName})
+                                                  </span>
                                                   <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
                                                     {coSplitPct}% Share
                                                   </span>
@@ -3911,7 +4104,14 @@ const Page = () => {
                                               </AccordionTrigger>
                                               <AccordionContent className="p-4 space-y-3 bg-white">
                                                 <div className="space-y-3">
-                                                  {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                                  {billing.services.map(
+                                                    (service) =>
+                                                      renderOrderServiceCard(
+                                                        service,
+                                                        coSplitPct / 100,
+                                                        true,
+                                                      ),
+                                                  )}
                                                 </div>
                                               </AccordionContent>
                                             </AccordionItem>
@@ -3921,7 +4121,13 @@ const Page = () => {
 
                                       return (
                                         <div className="space-y-3">
-                                          {billing.services.map((service) => renderOrderServiceCard(service, splitMultiplier, false))}
+                                          {billing.services.map((service) =>
+                                            renderOrderServiceCard(
+                                              service,
+                                              splitMultiplier,
+                                              false,
+                                            ),
+                                          )}
                                         </div>
                                       );
                                     })()}
@@ -4204,9 +4410,11 @@ const Page = () => {
 
                 const hasCoAgentInvoices = filteredList.some(
                   (inv: any) =>
-                    (inv.agent_type && inv.agent_type.toLowerCase() === "co-agent") ||
+                    (inv.agent_type &&
+                      inv.agent_type.toLowerCase() === "co-agent") ||
                     inv.is_co_agent ||
-                    (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                    (inv.split_details?.splits &&
+                      inv.split_details.splits.length > 1),
                 );
 
                 return (
@@ -4287,7 +4495,9 @@ const Page = () => {
                                 </span>
                               )}
                               {invoice.agent_type &&
-                                (invoice.agent_type.toLowerCase() === "co-agent" || hasCoAgentInvoices) && (
+                                (invoice.agent_type.toLowerCase() ===
+                                  "co-agent" ||
+                                  hasCoAgentInvoices) && (
                                   <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-[#BBBBBB] whitespace-nowrap">
                                     {invoice.agent_type}{" "}
                                     {splitPercentage
@@ -4314,8 +4524,8 @@ const Page = () => {
                           <div className="flex flex-col gap-1 text-[13px] text-gray-500 py-0.5">
                             <span className="font-medium text-gray-700">
                               Agent: {invoice.agent?.first_name}{" "}
-                              {invoice.agent?.last_name} (
-                              {invoice.agent?.email})
+                              {invoice.agent?.last_name} ({invoice.agent?.email}
+                              )
                             </span>
                             <span>
                               Issued:{" "}
@@ -4342,318 +4552,310 @@ const Page = () => {
 
                           {/* Bottom Action Footer Row */}
                           <div className="pt-2.5 border-t border-gray-100 flex items-center gap-2 flex-wrap justify-end">
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setShowInvoicesModal(false);
-                                  setViewingInvoice(invoice);
-                                }}
-                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm"
-                              >
-                                View Invoice
-                              </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowInvoicesModal(false);
+                                setViewingInvoice(invoice);
+                              }}
+                              className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm"
+                            >
+                              View Invoice
+                            </Button>
 
-                              <Button
-                                variant="outline"
-                                disabled={
-                                  downloadingInvoiceUuid === invoice.uuid
-                                }
-                                onClick={() => handleDownloadInvoice(invoice)}
-                                className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5"
-                              >
-                                {downloadingInvoiceUuid === invoice.uuid ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Download className="h-3 w-3" />
-                                )}
-                                Download
-                              </Button>
+                            <Button
+                              variant="outline"
+                              disabled={downloadingInvoiceUuid === invoice.uuid}
+                              onClick={() => handleDownloadInvoice(invoice)}
+                              className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5"
+                            >
+                              {downloadingInvoiceUuid === invoice.uuid ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Download className="h-3 w-3" />
+                              )}
+                              Download
+                            </Button>
 
-                              {isAdmin &&
-                                !["paid", "void", "refunded"].includes(
-                                  (invoice.status || "").toLowerCase(),
-                                ) && (
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setShowInvoicesModal(false);
-                                      setViewingInvoice(invoice);
-                                      setEditingInvoiceData(
-                                        JSON.parse(JSON.stringify(invoice)),
-                                      );
-                                      setIsEditingInvoice(true);
-                                    }}
-                                    className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                    Edit Invoice
-                                  </Button>
-                                )}
+                            {isAdmin &&
+                              !["paid", "void", "refunded"].includes(
+                                (invoice.status || "").toLowerCase(),
+                              ) && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowInvoicesModal(false);
+                                    setViewingInvoice(invoice);
+                                    setEditingInvoiceData(
+                                      JSON.parse(JSON.stringify(invoice)),
+                                    );
+                                    setIsEditingInvoice(true);
+                                  }}
+                                  className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                  Edit Invoice
+                                </Button>
+                              )}
 
-                              {status !== "PAID" &&
-                                status !== "VOID" &&
-                                !isRefunded(status) && !isPartiallyRefunded(status) &&
-                                selectedBilling && (
-                                  <>
-                                    {role === "admin" && (
-                                      <Button
-                                        onClick={() => {
-                                          setShowInvoicesModal(false);
-                                          handleOpenManualPayment(invoice);
-                                        }}
-                                        className="h-[30px] text-xs px-3 font-medium text-emerald-600 bg-white border border-emerald-500 rounded-[6px] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors cursor-pointer shadow-sm"
-                                      >
-                                        Mark Paid
-                                      </Button>
-                                    )}
+                            {status !== "PAID" &&
+                              status !== "VOID" &&
+                              !isRefunded(status) &&
+                              !isPartiallyRefunded(status) &&
+                              selectedBilling && (
+                                <>
+                                  {role === "admin" && (
+                                    <Button
+                                      onClick={() => {
+                                        setShowInvoicesModal(false);
+                                        handleOpenManualPayment(invoice);
+                                      }}
+                                      className="h-[30px] text-xs px-3 font-medium text-emerald-600 bg-white border border-emerald-500 rounded-[6px] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors cursor-pointer shadow-sm"
+                                    >
+                                      Mark Paid
+                                    </Button>
+                                  )}
 
-                                    {isOwner ? (
-                                      (() => {
-                                        const mediaSet =
-                                          rowServiceMedia[
-                                            selectedBilling.order_uuid
-                                          ];
-                                        let invoiceServicesToCheck: any[] = [];
-                                        if (selectedServiceId) {
-                                          invoiceServicesToCheck =
-                                            selectedBilling.services.filter(
-                                              (svc) =>
-                                                svc.uuid ===
-                                                  selectedServiceId ||
-                                                svc.order_service_uuid ===
-                                                  selectedServiceId ||
-                                                svc.service_id?.toString() ===
-                                                  selectedServiceId.toString(),
-                                            );
-                                        } else if (
-                                          invoice.items &&
-                                          invoice.items.length > 0
-                                        ) {
-                                          invoiceServicesToCheck =
-                                            selectedBilling.services.filter(
-                                              (svc) =>
-                                                invoice.items.some(
-                                                  (item: any) => {
-                                                    const sUuid =
-                                                      item.order_service
-                                                        ?.uuid ||
-                                                      item.orderService?.uuid;
-                                                    const sId =
-                                                      item.order_service_id ||
-                                                      item.order_service?.id ||
-                                                      item.orderService?.id;
-                                                    const svcId =
-                                                      item.order_service
-                                                        ?.service_id ||
-                                                      item.order_service
-                                                        ?.service?.id ||
-                                                      item.orderService
-                                                        ?.service_id ||
-                                                      item.orderService?.service
-                                                        ?.id ||
-                                                      item.service_id;
-                                                    return (
-                                                      sUuid === svc.uuid ||
-                                                      sUuid ===
-                                                        svc.order_service_uuid ||
-                                                      sId?.toString() ===
-                                                        svc.uuid ||
-                                                      sId?.toString() ===
-                                                        svc.order_service_uuid ||
-                                                      (svcId != null &&
-                                                        svcId.toString() ===
-                                                          svc.service_id?.toString()) ||
-                                                      sId?.toString() ===
-                                                        svc.service_id?.toString()
-                                                    );
-                                                  },
-                                                ),
-                                            );
-                                        }
-                                        if (
-                                          invoiceServicesToCheck.length === 0
-                                        ) {
-                                          invoiceServicesToCheck =
-                                            selectedBilling.services;
-                                        }
-
-                                        const missingServices =
-                                          userType === "agent" &&
-                                          mediaSet !== undefined
-                                            ? invoiceServicesToCheck.filter(
-                                                (svc) =>
-                                                  !mediaSet.has(
-                                                    svc.service_id,
-                                                  ) &&
-                                                  !mediaSet.has(
-                                                    String(svc.service_id),
-                                                  ),
-                                              )
-                                            : [];
-                                        const hasAnyMissingMedia =
-                                          missingServices.length > 0;
-
-                                        if (hasAnyMissingMedia) {
-                                          return (
-                                            <TooltipProvider delayDuration={0}>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <span className="inline-block cursor-not-allowed">
-                                                    <Button
-                                                      disabled
-                                                      className="h-[30px] text-xs px-3 font-normal text-white opacity-50 cursor-not-allowed rounded-[6px]"
-                                                      style={{
-                                                        backgroundColor:
-                                                          roleSettings.pageTabColor,
-                                                      }}
-                                                    >
-                                                      Pay Now
-                                                    </Button>
-                                                  </span>
-                                                </TooltipTrigger>
-                                                <TooltipContent
-                                                  side="left"
-                                                  align="center"
-                                                  className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
-                                                >
-                                                  <span className="font-semibold block mb-1 text-amber-400">
-                                                    ⚠ Payment Unavailable
-                                                  </span>
-                                                  {missingServices.length ===
-                                                  1 ? (
-                                                    <span>
-                                                      Media for{" "}
-                                                      {
-                                                        missingServices[0]
-                                                          .service_name
-                                                      }{" "}
-                                                      has not been uploaded by
-                                                      the vendor yet. Payment
-                                                      will be available once the
-                                                      media is added.
-                                                    </span>
-                                                  ) : (
-                                                    <div>
-                                                      <span className="block mb-1">
-                                                        Media has not yet been
-                                                        uploaded for the
-                                                        following services:
-                                                      </span>
-                                                      <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
-                                                        {missingServices.map(
-                                                          (s) => (
-                                                            <li
-                                                              key={s.service_id}
-                                                            >
-                                                              {s.service_name}
-                                                            </li>
-                                                          ),
-                                                        )}
-                                                      </ul>
-                                                      <span className="block mt-1">
-                                                        Payment will be
-                                                        available once the
-                                                        required media has been
-                                                        added.
-                                                      </span>
-                                                    </div>
-                                                  )}
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
+                                  {isOwner ? (
+                                    (() => {
+                                      const mediaSet =
+                                        rowServiceMedia[
+                                          selectedBilling.order_uuid
+                                        ];
+                                      let invoiceServicesToCheck: any[] = [];
+                                      if (selectedServiceId) {
+                                        invoiceServicesToCheck =
+                                          selectedBilling.services.filter(
+                                            (svc) =>
+                                              svc.uuid === selectedServiceId ||
+                                              svc.order_service_uuid ===
+                                                selectedServiceId ||
+                                              svc.service_id?.toString() ===
+                                                selectedServiceId.toString(),
                                           );
-                                        }
-                                        return (
-                                          <Button
-                                            onClick={() => {
-                                              setShowInvoicesModal(false);
-                                              handlePayInvoice(
-                                                invoice,
-                                                selectedBilling,
-                                              );
-                                            }}
-                                            className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
-                                            style={{
-                                              backgroundColor:
-                                                roleSettings.pageTabColor,
-                                            }}
-                                          >
-                                            Pay Now
-                                          </Button>
-                                        );
-                                      })()
-                                    ) : (
-                                      <div className="flex gap-2">
-                                        {(userType === "admin" ||
-                                          (invoice.agent_type === "co-agent" &&
-                                            invoice.split_details)) && (
-                                          <Button
-                                            onClick={() => {
-                                              setShowInvoicesModal(false);
-                                              handlePayInvoice(
-                                                invoice,
-                                                selectedBilling,
-                                                "on_behalf",
-                                              );
-                                            }}
-                                            className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
-                                            style={{
-                                              backgroundColor:
-                                                roleSettings.pageTabColor,
-                                            }}
-                                          >
-                                            Pay on Behalf
-                                          </Button>
-                                        )}
-                                        {userType !== "admin" && (
-                                          <Button
-                                            onClick={() => {
-                                              setShowInvoicesModal(false);
-                                              handlePayInvoice(
-                                                invoice,
-                                                selectedBilling,
-                                                "self",
-                                              );
-                                            }}
-                                            className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
-                                            style={{
-                                              backgroundColor:
-                                                roleSettings.pageTabColor,
-                                            }}
-                                          >
-                                            Pay Self
-                                          </Button>
-                                        )}
-                                      </div>
-                                    )}
-                                  </>
-                                )}
+                                      } else if (
+                                        invoice.items &&
+                                        invoice.items.length > 0
+                                      ) {
+                                        invoiceServicesToCheck =
+                                          selectedBilling.services.filter(
+                                            (svc) =>
+                                              invoice.items.some(
+                                                (item: any) => {
+                                                  const sUuid =
+                                                    item.order_service?.uuid ||
+                                                    item.orderService?.uuid;
+                                                  const sId =
+                                                    item.order_service_id ||
+                                                    item.order_service?.id ||
+                                                    item.orderService?.id;
+                                                  const svcId =
+                                                    item.order_service
+                                                      ?.service_id ||
+                                                    item.order_service?.service
+                                                      ?.id ||
+                                                    item.orderService
+                                                      ?.service_id ||
+                                                    item.orderService?.service
+                                                      ?.id ||
+                                                    item.service_id;
+                                                  return (
+                                                    sUuid === svc.uuid ||
+                                                    sUuid ===
+                                                      svc.order_service_uuid ||
+                                                    sId?.toString() ===
+                                                      svc.uuid ||
+                                                    sId?.toString() ===
+                                                      svc.order_service_uuid ||
+                                                    (svcId != null &&
+                                                      svcId.toString() ===
+                                                        svc.service_id?.toString()) ||
+                                                    sId?.toString() ===
+                                                      svc.service_id?.toString()
+                                                  );
+                                                },
+                                              ),
+                                          );
+                                      }
+                                      if (invoiceServicesToCheck.length === 0) {
+                                        invoiceServicesToCheck =
+                                          selectedBilling.services;
+                                      }
 
-                              {isAdmin &&
-                                ![
-                                  "paid",
-                                  "void",
-                                  "refunded",
-                                  "partially_paid",
-                                  "partial_paid",
-                                ].includes(
-                                  (invoice.status || "").toLowerCase(),
-                                ) &&
-                                parseFloat(invoice.paid_amount || "0") <= 0 && (
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setDeleteInvoiceModal({
-                                        open: true,
-                                        invoice,
-                                      });
-                                    }}
-                                    className="h-[30px] text-xs px-3 font-medium border border-red-500 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                    Delete Invoice
-                                  </Button>
-                                )}
+                                      const missingServices =
+                                        userType === "agent" &&
+                                        mediaSet !== undefined
+                                          ? invoiceServicesToCheck.filter(
+                                              (svc) =>
+                                                !mediaSet.has(svc.service_id) &&
+                                                !mediaSet.has(
+                                                  String(svc.service_id),
+                                                ),
+                                            )
+                                          : [];
+                                      const hasAnyMissingMedia =
+                                        missingServices.length > 0;
+
+                                      if (hasAnyMissingMedia) {
+                                        return (
+                                          <TooltipProvider delayDuration={0}>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="inline-block cursor-not-allowed">
+                                                  <Button
+                                                    disabled
+                                                    className="h-[30px] text-xs px-3 font-normal text-white opacity-50 cursor-not-allowed rounded-[6px]"
+                                                    style={{
+                                                      backgroundColor:
+                                                        roleSettings.pageTabColor,
+                                                    }}
+                                                  >
+                                                    Pay Now
+                                                  </Button>
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent
+                                                side="left"
+                                                align="center"
+                                                className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
+                                              >
+                                                <span className="font-semibold block mb-1 text-amber-400">
+                                                  ⚠ Payment Unavailable
+                                                </span>
+                                                {missingServices.length ===
+                                                1 ? (
+                                                  <span>
+                                                    Media for{" "}
+                                                    {
+                                                      missingServices[0]
+                                                        .service_name
+                                                    }{" "}
+                                                    has not been uploaded by the
+                                                    vendor yet. Payment will be
+                                                    available once the media is
+                                                    added.
+                                                  </span>
+                                                ) : (
+                                                  <div>
+                                                    <span className="block mb-1">
+                                                      Media has not yet been
+                                                      uploaded for the following
+                                                      services:
+                                                    </span>
+                                                    <ul className="list-disc list-inside space-y-0.5 my-1 font-medium text-amber-200/90">
+                                                      {missingServices.map(
+                                                        (s) => (
+                                                          <li
+                                                            key={s.service_id}
+                                                          >
+                                                            {s.service_name}
+                                                          </li>
+                                                        ),
+                                                      )}
+                                                    </ul>
+                                                    <span className="block mt-1">
+                                                      Payment will be available
+                                                      once the required media
+                                                      has been added.
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        );
+                                      }
+                                      return (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(
+                                              invoice,
+                                              selectedBilling,
+                                            );
+                                          }}
+                                          className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98]"
+                                          style={{
+                                            backgroundColor:
+                                              roleSettings.pageTabColor,
+                                          }}
+                                        >
+                                          Pay Now
+                                        </Button>
+                                      );
+                                    })()
+                                  ) : (
+                                    <div className="flex gap-2">
+                                      {(userType === "admin" ||
+                                        (invoice.agent_type === "co-agent" &&
+                                          invoice.split_details)) && (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(
+                                              invoice,
+                                              selectedBilling,
+                                              "on_behalf",
+                                            );
+                                          }}
+                                          className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
+                                          style={{
+                                            backgroundColor:
+                                              roleSettings.pageTabColor,
+                                          }}
+                                        >
+                                          Pay on Behalf
+                                        </Button>
+                                      )}
+                                      {userType !== "admin" && (
+                                        <Button
+                                          onClick={() => {
+                                            setShowInvoicesModal(false);
+                                            handlePayInvoice(
+                                              invoice,
+                                              selectedBilling,
+                                              "self",
+                                            );
+                                          }}
+                                          className="h-[30px] text-xs px-3 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] animate-none"
+                                          style={{
+                                            backgroundColor:
+                                              roleSettings.pageTabColor,
+                                          }}
+                                        >
+                                          Pay Self
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                            {isAdmin &&
+                              ![
+                                "paid",
+                                "void",
+                                "refunded",
+                                "partially_paid",
+                                "partial_paid",
+                              ].includes(
+                                (invoice.status || "").toLowerCase(),
+                              ) &&
+                              parseFloat(invoice.paid_amount || "0") <= 0 && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setDeleteInvoiceModal({
+                                      open: true,
+                                      invoice,
+                                    });
+                                  }}
+                                  className="h-[30px] text-xs px-3 font-medium border border-red-500 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete Invoice
+                                </Button>
+                              )}
                           </div>
                         </div>
                       );
@@ -4692,15 +4894,30 @@ const Page = () => {
                     {viewingInvoice.invoice_number || viewingInvoice.id}
                   </h2>
                   {(() => {
-                    const status = (viewingInvoice.status || "unpaid").toUpperCase();
+                    const status = (
+                      viewingInvoice.status || "unpaid"
+                    ).toUpperCase();
                     let badgeBg = "#E06D5E";
                     let badgeText = "Unpaid";
-                    if (status === "PAID") { badgeBg = "#6BAE41"; badgeText = "Paid"; }
-                    else if (status === "ISSUED") { badgeBg = "#4A90E2"; badgeText = "Issued"; }
-                    else if (status === "VOID") { badgeBg = "#A0A0A0"; badgeText = "Void"; }
-                    else if (status.includes("PARTIAL")) { badgeBg = "#DC9600"; badgeText = "Partial"; }
-                    else if (status === "REFUNDED") { badgeBg = "#D0021B"; badgeText = "Refunded"; }
-                    else if (status.includes("REFUNDED")) { badgeBg = "#D9534F"; badgeText = "Partially Refunded"; }
+                    if (status === "PAID") {
+                      badgeBg = "#6BAE41";
+                      badgeText = "Paid";
+                    } else if (status === "ISSUED") {
+                      badgeBg = "#4A90E2";
+                      badgeText = "Issued";
+                    } else if (status === "VOID") {
+                      badgeBg = "#A0A0A0";
+                      badgeText = "Void";
+                    } else if (status.includes("PARTIAL")) {
+                      badgeBg = "#DC9600";
+                      badgeText = "Partial";
+                    } else if (status === "REFUNDED") {
+                      badgeBg = "#D0021B";
+                      badgeText = "Refunded";
+                    } else if (status.includes("REFUNDED")) {
+                      badgeBg = "#D9534F";
+                      badgeText = "Partially Refunded";
+                    }
 
                     return (
                       <span
@@ -4747,16 +4964,11 @@ const Page = () => {
                 {!isEditingInvoice && (
                   <Button
                     variant="outline"
-                    disabled={
-                      downloadingInvoiceUuid === viewingInvoice.uuid
-                    }
-                    onClick={() =>
-                      handleDownloadInvoice(viewingInvoice)
-                    }
+                    disabled={downloadingInvoiceUuid === viewingInvoice.uuid}
+                    onClick={() => handleDownloadInvoice(viewingInvoice)}
                     className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
                   >
-                    {downloadingInvoiceUuid ===
-                    viewingInvoice.uuid ? (
+                    {downloadingInvoiceUuid === viewingInvoice.uuid ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Download className="h-3.5 w-3.5" />
@@ -4835,7 +5047,8 @@ const Page = () => {
 
                 {!isEditingInvoice &&
                   viewingInvoice.status?.toUpperCase() !== "PAID" &&
-                  !isRefunded(viewingInvoice.status) && !isPartiallyRefunded(viewingInvoice.status) &&
+                  !isRefunded(viewingInvoice.status) &&
+                  !isPartiallyRefunded(viewingInvoice.status) &&
                   selectedBilling && (
                     <div className="flex items-center gap-2">
                       {role === "admin" && (
@@ -5073,15 +5286,30 @@ const Page = () => {
                       serviceInvoicePopup.invoice.id}
                   </h2>
                   {(() => {
-                    const status = (serviceInvoicePopup.invoice.status || "unpaid").toUpperCase();
+                    const status = (
+                      serviceInvoicePopup.invoice.status || "unpaid"
+                    ).toUpperCase();
                     let badgeBg = "#E06D5E";
                     let badgeText = "Unpaid";
-                    if (status === "PAID") { badgeBg = "#6BAE41"; badgeText = "Paid"; }
-                    else if (status === "ISSUED") { badgeBg = "#4A90E2"; badgeText = "Issued"; }
-                    else if (status === "VOID") { badgeBg = "#A0A0A0"; badgeText = "Void"; }
-                    else if (status.includes("PARTIAL")) { badgeBg = "#DC9600"; badgeText = "Partial"; }
-                    else if (status === "REFUNDED") { badgeBg = "#D0021B"; badgeText = "Refunded"; }
-                    else if (status.includes("REFUNDED")) { badgeBg = "#D9534F"; badgeText = "Partially Refunded"; }
+                    if (status === "PAID") {
+                      badgeBg = "#6BAE41";
+                      badgeText = "Paid";
+                    } else if (status === "ISSUED") {
+                      badgeBg = "#4A90E2";
+                      badgeText = "Issued";
+                    } else if (status === "VOID") {
+                      badgeBg = "#A0A0A0";
+                      badgeText = "Void";
+                    } else if (status.includes("PARTIAL")) {
+                      badgeBg = "#DC9600";
+                      badgeText = "Partial";
+                    } else if (status === "REFUNDED") {
+                      badgeBg = "#D0021B";
+                      badgeText = "Refunded";
+                    } else if (status.includes("REFUNDED")) {
+                      badgeBg = "#D9534F";
+                      badgeText = "Partially Refunded";
+                    }
 
                     return (
                       <span
@@ -5129,7 +5357,8 @@ const Page = () => {
                   <Button
                     variant="outline"
                     disabled={
-                      downloadingInvoiceUuid === serviceInvoicePopup.invoice.uuid
+                      downloadingInvoiceUuid ===
+                      serviceInvoicePopup.invoice.uuid
                     }
                     onClick={() =>
                       handleDownloadInvoice(serviceInvoicePopup.invoice)
