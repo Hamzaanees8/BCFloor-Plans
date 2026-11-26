@@ -132,6 +132,18 @@ export default function SendToClientModal({
   }, [bookedService]);
 
   const serviceName = currentService?.name || "Media Package";
+
+  const isFloorPlanService = useMemo(() => {
+    const sName = (currentService?.name || "").toLowerCase();
+    const cName = (currentService?.category?.name || "").toLowerCase();
+    return sName.includes("floor") || cName.includes("floor") || sName.includes("plan");
+  }, [currentService]);
+
+  const hasSqFt = useMemo(() => {
+    return Array.isArray(orderData?.areas) && orderData.areas.length > 0;
+  }, [orderData?.areas]);
+
+  const isFloorPlanMissingSqFt = isFloorPlanService && !hasSqFt;
   const agentName = orderData?.agent
     ? `${orderData.agent.first_name || ""} ${orderData.agent.last_name || ""}`.trim()
     : "Agent";
@@ -177,6 +189,13 @@ export default function SendToClientModal({
 
   // Handle Send to Client API call
   const handleSendToClient = async () => {
+    if (isFloorPlanMissingSqFt) {
+      toast.error(
+        "Square footage has not been added yet. Please add square footage before sending floor plans to the client.",
+      );
+      return;
+    }
+
     if (!orderData?.uuid) {
       toast.error("Order UUID is missing.");
       return;
@@ -442,6 +461,21 @@ export default function SendToClientModal({
                 </div>
               </div>
             )}
+
+            {/* Floor Plan Missing Square Footage Warning Banner */}
+            {isFloorPlanMissingSqFt && (
+              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-[10px] flex items-start gap-3 mt-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-bold text-amber-900 leading-tight">
+                    Square Footage Required
+                  </p>
+                  <p className="text-[12px] text-amber-800 mt-1">
+                    Square footage has not been added yet for this order. Please add the square footage breakdown before sending floor plans to the client.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Actions */}
@@ -523,7 +557,7 @@ export default function SendToClientModal({
                 <Button
                   type="button"
                   onClick={handleSendToClient}
-                  disabled={isSending || isApproving}
+                  disabled={isSending || isApproving || isFloorPlanMissingSqFt}
                   className="h-[38px] px-4 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 shadow-sm"
                 >
                   {isSending ? (
@@ -556,7 +590,7 @@ export default function SendToClientModal({
                 <Button
                   type="button"
                   onClick={handleSendToClient}
-                  disabled={isSending || effectiveApprovedCount === 0}
+                  disabled={isSending || effectiveApprovedCount === 0 || isFloorPlanMissingSqFt}
                   className="h-[38px] px-5 text-[13px] font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 shadow-sm"
                 >
                   {isSending ? (

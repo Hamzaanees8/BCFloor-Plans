@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/select";
 import BillingDialog from "@/components/BillingDialog";
 import RefundReceiptModal from "../invoice/components/RefundReceiptModal";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import {
@@ -2163,31 +2169,76 @@ const Page = () => {
                           primaryInvoice?.tax_details ||
                           billing.tax_details ||
                           null;
+                        const orderHasSplits =
+                          Boolean((billing as any).split_invoice || (billing as any).order?.split_invoice) ||
+                          orderInvoices.some(
+                            (inv: any) =>
+                              inv.agent_type === "co-agent" ||
+                              inv.agent_type === "co_agent" ||
+                              inv.is_co_agent ||
+                              (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                          );
+
+                        const nonVoidOrderInvoices = orderInvoices.filter(
+                          (inv) => !isVoidOrCancelled(inv.status) && !isRenewalInvoice(inv),
+                        );
+
+                        const combinedInvoicesTotal = nonVoidOrderInvoices.reduce(
+                          (sum, inv) => sum + parseFloat(inv.total || "0"),
+                          0,
+                        );
+                        const combinedInvoicesSubtotal = nonVoidOrderInvoices.reduce(
+                          (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
+                          0,
+                        );
+                        const combinedInvoicesTax = nonVoidOrderInvoices.reduce(
+                          (sum, inv) => sum + parseFloat(inv.tax_amount || "0"),
+                          0,
+                        );
+                        const combinedInvoicesPaid = nonVoidOrderInvoices.reduce(
+                          (sum, inv) => sum + parseFloat(inv.paid_amount || "0"),
+                          0,
+                        );
+
                         const subtotalVal =
-                          primaryInvoice &&
-                          parseFloat(primaryInvoice.subtotal || "0") > 0
-                            ? parseFloat(primaryInvoice.subtotal)
-                            : billing.total_amount;
+                          orderHasSplits && combinedInvoicesSubtotal > 0
+                            ? combinedInvoicesSubtotal
+                            : primaryInvoice &&
+                              parseFloat(primaryInvoice.subtotal || "0") > 0 &&
+                              !orderHasSplits
+                              ? parseFloat(primaryInvoice.subtotal)
+                              : billing.total_amount != null
+                                ? billing.total_amount
+                                : 0;
                         const taxAmount =
-                          primaryInvoice &&
-                          parseFloat(primaryInvoice.tax_amount || "0") > 0
-                            ? parseFloat(primaryInvoice.tax_amount)
-                            : billing.tax_amount != null
-                              ? billing.tax_amount
-                              : subtotalVal * (taxRate / 100);
+                          orderHasSplits && combinedInvoicesTax > 0
+                            ? combinedInvoicesTax
+                            : primaryInvoice &&
+                              parseFloat(primaryInvoice.tax_amount || "0") > 0 &&
+                              !orderHasSplits
+                              ? parseFloat(primaryInvoice.tax_amount)
+                              : billing.tax_amount != null
+                                ? billing.tax_amount
+                                : subtotalVal * (taxRate / 100);
                         const grandTotalVal =
-                          primaryInvoice &&
-                          parseFloat(primaryInvoice.total || "0") > 0
-                            ? parseFloat(primaryInvoice.total)
-                            : billing.grand_total != null
-                              ? billing.grand_total
-                              : subtotalVal + taxAmount;
+                          orderHasSplits && combinedInvoicesTotal > 0
+                            ? combinedInvoicesTotal
+                            : primaryInvoice &&
+                              parseFloat(primaryInvoice.total || "0") > 0 &&
+                              !orderHasSplits
+                              ? parseFloat(primaryInvoice.total)
+                              : billing.grand_total != null
+                                ? billing.grand_total
+                                : subtotalVal + taxAmount;
                         const totalRefunded = billing.total_refunded || 0;
                         const effectiveGrandTotal = Math.max(
                           0,
                           grandTotalVal - totalRefunded,
                         );
-                        const safeRowTotalPaid = Math.max(0, billing.total_paid || 0);
+                        const safeRowTotalPaid =
+                          orderHasSplits && combinedInvoicesPaid > 0
+                            ? combinedInvoicesPaid
+                            : Math.max(0, billing.total_paid || 0);
                         const rawRowRemaining = effectiveGrandTotal - safeRowTotalPaid;
                         const displayRemaining =
                           isOrderPaid ||
@@ -2734,9 +2785,7 @@ const Page = () => {
                                                       </span>
                                                       <span className="font-semibold text-gray-500 line-through">
                                                         {(
-                                                          (subtotalVal +
-                                                            packageDiscountVal) *
-                                                          splitMultiplier
+                                                          (subtotalVal + packageDiscountVal)
                                                         ).toLocaleString(
                                                           "en-US",
                                                           {
@@ -2756,8 +2805,7 @@ const Page = () => {
                                                       <span className="font-semibold text-emerald-600">
                                                         -
                                                         {(
-                                                          packageDiscountVal *
-                                                          splitMultiplier
+                                                          packageDiscountVal
                                                         ).toLocaleString(
                                                           "en-US",
                                                           {
@@ -2796,7 +2844,7 @@ const Page = () => {
                                                     </span>
                                                     <span className="font-semibold text-[#DC9600]">
                                                       {(
-                                                        amt * splitMultiplier
+                                                        amt
                                                       ).toLocaleString("en-US", {
                                                         style: "currency",
                                                         currency: "USD",
@@ -2812,7 +2860,7 @@ const Page = () => {
                                                 </span>
                                                 <span className="font-semibold text-[#DC9600]">
                                                   {(
-                                                    taxAmount * splitMultiplier
+                                                    taxAmount
                                                   ).toLocaleString("en-US", {
                                                     style: "currency",
                                                     currency: "USD",
@@ -2826,8 +2874,7 @@ const Page = () => {
                                               </span>
                                               <span className="font-bold text-gray-800">
                                                 {(
-                                                  grandTotalVal *
-                                                  splitMultiplier
+                                                  grandTotalVal
                                                 ).toLocaleString("en-US", {
                                                   style: "currency",
                                                   currency: "USD",
@@ -2840,10 +2887,7 @@ const Page = () => {
                                               </span>
                                               <span className="font-semibold text-[#6BAE41]">
                                                 {(
-                                                  (isOrderRefunded
-                                                    ? 0
-                                                    : Math.max(0, billing.total_paid || 0)) *
-                                                  splitMultiplier
+                                                  safeRowTotalPaid
                                                 ).toLocaleString("en-US", {
                                                   style: "currency",
                                                   currency: "USD",
@@ -2857,8 +2901,7 @@ const Page = () => {
                                                 </span>
                                                 <span className="font-semibold text-red-500">
                                                   {(
-                                                    totalRefunded *
-                                                    splitMultiplier
+                                                    totalRefunded
                                                   ).toLocaleString("en-US", {
                                                     style: "currency",
                                                     currency: "USD",
@@ -2872,8 +2915,7 @@ const Page = () => {
                                               </span>
                                               <span className="font-bold text-[#E06D5E]">
                                                 {(
-                                                  displayRemaining *
-                                                  splitMultiplier
+                                                  displayRemaining
                                                 ).toLocaleString("en-US", {
                                                   style: "currency",
                                                   currency: "USD",
@@ -3116,7 +3158,81 @@ const Page = () => {
                                     >
                                       Services ({billing.services.length})
                                     </h3>
-                                    {billing.services.map((service) => {
+                                    {(() => {
+                                      const orderHasSplits =
+                                        Boolean((billing as any).split_invoice || (billing as any).order?.split_invoice) ||
+                                        orderInvoices.some(
+                                          (inv: any) =>
+                                            inv.agent_type === "co-agent" ||
+                                            inv.agent_type === "co_agent" ||
+                                            inv.is_co_agent ||
+                                            (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                                        );
+
+                                      let mainSplitPct = 50;
+                                      let coSplitPct = 50;
+                                      let coAgentName = "Co-Agent";
+
+                                      const splitInv = orderInvoices.find(
+                                        (inv: any) => inv.split_details?.splits && inv.split_details.splits.length > 0,
+                                      );
+                                      if (splitInv?.split_details?.splits) {
+                                        const primarySplit = splitInv.split_details.splits.find(
+                                          (s: any) => s.type === "primary" || s.role === "primary",
+                                        );
+                                        const coSplit = splitInv.split_details.splits.find(
+                                          (s: any) =>
+                                            s.type === "co-agent" ||
+                                            s.type === "co_agent" ||
+                                            s.role === "co-agent",
+                                        );
+                                        if (primarySplit?.percentage) mainSplitPct = Number(primarySplit.percentage);
+                                        if (coSplit?.percentage) coSplitPct = Number(coSplit.percentage);
+                                        if (coSplit?.name) coAgentName = coSplit.name;
+                                      } else {
+                                        const rawCo =
+                                          (billing as any).co_agents ||
+                                          (billing as any).coagents ||
+                                          (billing as any).order?.co_agents;
+                                        let coList: any[] = [];
+                                        if (Array.isArray(rawCo)) coList = rawCo;
+                                        else if (typeof rawCo === "string") {
+                                          try {
+                                            const parsed = JSON.parse(rawCo);
+                                            if (Array.isArray(parsed)) coList = parsed;
+                                          } catch {}
+                                        }
+                                        if (coList.length > 0) {
+                                          const firstCo = coList[0];
+                                          const pct = Number(
+                                            firstCo.split || firstCo.split_percentage || firstCo.percentage || 50,
+                                          );
+                                          coSplitPct = pct;
+                                          mainSplitPct = 100 - pct;
+                                          if (firstCo.name || firstCo.first_name) {
+                                            coAgentName =
+                                              firstCo.name ||
+                                              `${firstCo.first_name || ""} ${firstCo.last_name || ""}`.trim();
+                                          }
+                                        }
+                                      }
+
+                                      const mainAgentInvoices = orderInvoices.filter(
+                                        (inv: any) =>
+                                          inv.agent_type === "primary" ||
+                                          (!inv.split_details &&
+                                            inv.agent_type !== "co-agent" &&
+                                            inv.agent_type !== "co_agent"),
+                                      );
+                                      const coAgentInvoices = orderInvoices.filter(
+                                        (inv: any) =>
+                                          inv.agent_type === "co-agent" ||
+                                          inv.agent_type === "co_agent" ||
+                                          inv.is_co_agent ||
+                                          (inv.split_details && inv.agent_type !== "primary"),
+                                      );
+
+                                      const renderOrderServiceCard = (service: any, currentSplitMultiplier: number, isCoAgentSection: boolean) => {
                                       const serviceUuid =
                                         service.uuid ||
                                         service.order_service_uuid;
@@ -3194,6 +3310,9 @@ const Page = () => {
                                         isServicePaid ||
                                         isServicePartiallyRefunded ||
                                         isServiceRefunded;
+                                      const isServiceInProgress =
+                                        servicePayBlockedByMedia &&
+                                        !shouldHideServicePay;
                                       return (
                                         <div
                                           key={service.service_id}
@@ -3238,228 +3357,194 @@ const Page = () => {
                                                   </span>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                  {isRowInvoicesLoading &&
-                                                  !hasLoadedInvoices ? (
-                                                    <Button
-                                                      disabled
-                                                      className="h-[30px] px-3 bg-gray-50 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
-                                                    >
-                                                      <Loader2 className="h-3 w-3 animate-spin mr-1" />{" "}
-                                                      Loading
-                                                    </Button>
-                                                  ) : serviceTargetInvoice ? (
-                                                    <Button
-                                                      onClick={() =>
-                                                        handleInvoiceAction(
-                                                          billing,
-                                                          "view",
-                                                          serviceUuid,
-                                                          service.amount,
-                                                          service.service_id,
-                                                        )
-                                                      }
-                                                      disabled={
-                                                        actionLoading !== null
-                                                      }
-                                                      className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer"
-                                                      onMouseEnter={(e) => {
-                                                        e.currentTarget.style.backgroundColor =
-                                                          roleSettings.pageTabColor;
-                                                        e.currentTarget.style.color =
-                                                          "white";
-                                                        e.currentTarget.style.borderColor =
-                                                          roleSettings.pageTabColor;
-                                                      }}
-                                                      onMouseLeave={(e) => {
-                                                        e.currentTarget.style.backgroundColor =
-                                                          "white";
-                                                        e.currentTarget.style.color =
-                                                          "#666666";
-                                                        e.currentTarget.style.borderColor =
-                                                          "#BBBBBB";
-                                                      }}
-                                                    >
-                                                      {actionLoading?.id ===
-                                                        serviceUuid &&
-                                                      actionLoading?.action ===
-                                                        "view" ? (
-                                                        <>
-                                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                          Loading...
-                                                        </>
-                                                      ) : (
-                                                        "Invoice"
-                                                      )}
-                                                    </Button>
-                                                  ) : (
-                                                    <Button
-                                                      disabled
-                                                      className="h-[30px] px-3 bg-gray-100 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
-                                                    >
-                                                      No Invoice
-                                                    </Button>
-                                                  )}
+                                                   {isRowInvoicesLoading &&
+                                                   !hasLoadedInvoices ? (
+                                                     <Button
+                                                       disabled
+                                                       className="h-[30px] px-3 bg-gray-50 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
+                                                     >
+                                                       <Loader2 className="h-3 w-3 animate-spin mr-1" />{" "}
+                                                       Loading
+                                                     </Button>
+                                                   ) : isServiceInProgress ? (
+                                                     <>
+                                                       <Button
+                                                         disabled
+                                                         className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                                       >
+                                                         Invoice
+                                                       </Button>
+                                                       <Button
+                                                         disabled
+                                                         className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                                       >
+                                                         In Progress
+                                                       </Button>
+                                                     </>
+                                                   ) : serviceTargetInvoice ? (
+                                                     <Button
+                                                       onClick={() =>
+                                                         handleInvoiceAction(
+                                                           billing,
+                                                           "view",
+                                                           serviceUuid,
+                                                           service.amount,
+                                                           service.service_id,
+                                                         )
+                                                       }
+                                                       disabled={
+                                                         actionLoading !== null
+                                                       }
+                                                       className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
+                                                       onMouseEnter={(e) => {
+                                                         e.currentTarget.style.backgroundColor =
+                                                           roleSettings.pageTabColor;
+                                                         e.currentTarget.style.color =
+                                                           "white";
+                                                         e.currentTarget.style.borderColor =
+                                                           roleSettings.pageTabColor;
+                                                       }}
+                                                       onMouseLeave={(e) => {
+                                                         e.currentTarget.style.backgroundColor =
+                                                           "white";
+                                                         e.currentTarget.style.color =
+                                                           "#666666";
+                                                         e.currentTarget.style.borderColor =
+                                                           "#BBBBBB";
+                                                       }}
+                                                     >
+                                                       {actionLoading?.id ===
+                                                         serviceUuid &&
+                                                       actionLoading?.action ===
+                                                         "view" ? (
+                                                         <>
+                                                           <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                           Loading...
+                                                         </>
+                                                       ) : (
+                                                         "Invoice"
+                                                       )}
+                                                     </Button>
+                                                   ) : (
+                                                     <Button
+                                                       disabled
+                                                       className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                                     >
+                                                       No Invoice
+                                                     </Button>
+                                                   )}
 
-                                                  {!shouldHideServicePay && (
-                                                    <>
-                                                      {servicePayBlockedByMedia ? (
-                                                        <TooltipProvider
-                                                          delayDuration={0}
-                                                        >
-                                                          <Tooltip>
-                                                            <TooltipTrigger
-                                                              asChild
-                                                            >
-                                                              <span className="inline-block cursor-not-allowed">
-                                                                <Button
-                                                                  disabled
-                                                                  className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal opacity-50 cursor-not-allowed min-w-[90px]"
-                                                                  style={{
-                                                                    backgroundColor:
-                                                                      roleSettings.pageTabColor,
-                                                                  }}
-                                                                >
-                                                                  Pay Now
-                                                                </Button>
-                                                              </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                              side="left"
-                                                              align="center"
-                                                              className="max-w-xs bg-gray-900 text-white p-3 rounded-md shadow-2xl border border-gray-700 z-[99999] text-left font-sans leading-relaxed"
-                                                            >
-                                                              <span className="font-semibold block mb-1 text-amber-400">
-                                                                ⚠ Payment
-                                                                Unavailable
-                                                              </span>
-                                                              <span>
-                                                                Media for{" "}
-                                                                {
-                                                                  service.service_name
-                                                                }{" "}
-                                                                has not been
-                                                                uploaded by the
-                                                                vendor yet.
-                                                                Payment will be
-                                                                available once
-                                                                the media is
-                                                                added.
-                                                              </span>
-                                                            </TooltipContent>
-                                                          </Tooltip>
-                                                        </TooltipProvider>
-                                                      ) : (
-                                                        <Button
-                                                          onClick={() =>
-                                                            handleInvoiceAction(
-                                                              billing,
-                                                              "pay",
-                                                              serviceUuid,
-                                                              service.amount,
-                                                              service.service_id,
-                                                            )
-                                                          }
-                                                          disabled={
-                                                            actionLoading !==
-                                                            null
-                                                          }
-                                                          className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                                          style={{
-                                                            backgroundColor:
-                                                              roleSettings.pageTabColor,
-                                                          }}
-                                                        >
-                                                          {actionLoading?.id ===
-                                                            serviceUuid &&
-                                                          actionLoading?.action ===
-                                                            "pay" ? (
-                                                            <>
-                                                              <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                              Processing...
-                                                            </>
-                                                          ) : (
-                                                            "Pay Now"
-                                                          )}
-                                                        </Button>
-                                                      )}
+                                                   {!shouldHideServicePay && !isServiceInProgress && (
+                                                     <>
+                                                       <Button
+                                                         onClick={() =>
+                                                           handleInvoiceAction(
+                                                             billing,
+                                                             "pay",
+                                                             serviceUuid,
+                                                             service.amount,
+                                                             service.service_id,
+                                                           )
+                                                         }
+                                                         disabled={
+                                                           actionLoading !==
+                                                           null
+                                                         }
+                                                         className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                                         style={{
+                                                           backgroundColor:
+                                                             roleSettings.pageTabColor,
+                                                         }}
+                                                       >
+                                                         {actionLoading?.id ===
+                                                           serviceUuid &&
+                                                         actionLoading?.action ===
+                                                           "pay" ? (
+                                                           <>
+                                                             <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                             Processing...
+                                                           </>
+                                                         ) : (
+                                                           userType === "agent" ? "Pay to Download" : "Pay Now"
+                                                         )}
+                                                       </Button>
 
-                                                      {role === "admin" && (
-                                                        <Button
-                                                          onClick={async () => {
-                                                            try {
-                                                              setActionLoading({
-                                                                id: serviceUuid,
-                                                                action: "pay",
-                                                              });
-                                                              const res =
-                                                                await GetInvoicesByOrder(
-                                                                  billing.order_uuid,
-                                                                );
-                                                              const invoicesList =
-                                                                Array.isArray(
-                                                                  res.data,
-                                                                )
-                                                                  ? res.data
-                                                                  : [res.data];
-                                                              const targetInvoice =
-                                                                getBestTargetInvoice(
-                                                                  invoicesList,
-                                                                  serviceUuid,
-                                                                  undefined,
-                                                                  currentUser,
-                                                                  userType,
-                                                                );
+                                                       {role === "admin" && (
+                                                         <Button
+                                                           onClick={async () => {
+                                                             try {
+                                                               setActionLoading({
+                                                                 id: serviceUuid,
+                                                                 action: "pay",
+                                                               });
+                                                               const res =
+                                                                 await GetInvoicesByOrder(
+                                                                   billing.order_uuid,
+                                                                 );
+                                                               const invoicesList =
+                                                                 Array.isArray(
+                                                                   res.data,
+                                                                 )
+                                                                   ? res.data
+                                                                   : [res.data];
+                                                               const targetInvoice =
+                                                                 getBestTargetInvoice(
+                                                                   invoicesList,
+                                                                   serviceUuid,
+                                                                   undefined,
+                                                                   currentUser,
+                                                                   userType,
+                                                                 );
 
-                                                              if (
-                                                                targetInvoice &&
-                                                                !isVoidOrCancelled(
-                                                                  targetInvoice.status,
-                                                                )
-                                                              ) {
-                                                                handleOpenManualPayment(
-                                                                  targetInvoice,
-                                                                );
-                                                              } else {
-                                                                toast.error(
-                                                                  "No valid invoice found for this service.",
-                                                                );
-                                                              }
-                                                            } catch (err) {
-                                                              console.error(
-                                                                err,
-                                                              );
-                                                              toast.error(
-                                                                "Failed to load invoice.",
-                                                              );
-                                                            } finally {
-                                                              setActionLoading(
-                                                                null,
-                                                              );
-                                                            }
-                                                          }}
-                                                          disabled={
-                                                            actionLoading !==
-                                                            null
-                                                          }
-                                                          className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
-                                                        >
-                                                          {actionLoading?.id ===
-                                                            serviceUuid &&
-                                                          actionLoading?.action ===
-                                                            "pay" ? (
-                                                            <>
-                                                              <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
-                                                              Loading...
-                                                            </>
-                                                          ) : (
-                                                            "Mark Paid"
-                                                          )}
-                                                        </Button>
-                                                      )}
-                                                    </>
-                                                  )}
-
-                                                  {isServicePaid &&
+                                                               if (
+                                                                 targetInvoice &&
+                                                                 !isVoidOrCancelled(
+                                                                   targetInvoice.status,
+                                                                 )
+                                                               ) {
+                                                                 handleOpenManualPayment(
+                                                                   targetInvoice,
+                                                                 );
+                                                               } else {
+                                                                 toast.error(
+                                                                   "No valid invoice found for this service.",
+                                                                 );
+                                                               }
+                                                             } catch (err) {
+                                                               console.error(
+                                                                 err,
+                                                               );
+                                                               toast.error(
+                                                                 "Failed to load invoice.",
+                                                               );
+                                                             } finally {
+                                                               setActionLoading(
+                                                                 null,
+                                                               );
+                                                             }
+                                                           }}
+                                                           disabled={
+                                                             actionLoading !==
+                                                             null
+                                                           }
+                                                           className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                                         >
+                                                           {actionLoading?.id ===
+                                                             serviceUuid &&
+                                                           actionLoading?.action ===
+                                                             "pay" ? (
+                                                             <>
+                                                               <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                                               Loading...
+                                                             </>
+                                                           ) : (
+                                                             "Mark Paid"
+                                                           )}
+                                                         </Button>
+                                                       )}
+                                                     </>
+                                                   )}
+{isServicePaid &&
                                                     !isServiceRefunded &&
                                                     !isServicePartiallyRefunded && (
                                                       <>
@@ -3547,8 +3632,8 @@ const Page = () => {
                                                       {
                                                         invoices: orderInvoices,
                                                         service,
-                                                        splitMultiplier,
-                                                        isCoAgentUser,
+                                                        splitMultiplier: currentSplitMultiplier,
+                                                        isCoAgentUser: isCoAgentSection,
                                                         userType,
                                                         currentUser,
                                                         fallbackTaxRate:
@@ -3610,12 +3695,9 @@ const Page = () => {
                                                             })}
                                                           </span>
                                                         ) : null}
-                                                        {isCoAgentShared && (
+                                                        {(orderHasSplits || isCoAgentShared) && (
                                                           <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                                                            {
-                                                              splitInfo?.splitPercentage
-                                                            }
-                                                            % share
+                                                            {Math.round(currentSplitMultiplier * 100)}% share
                                                           </span>
                                                         )}
                                                       </p>
@@ -3714,8 +3796,8 @@ const Page = () => {
                                                   <div className="mt-2 space-y-1">
                                                     {service.related_invoices.map(
                                                       (
-                                                        invoice,
-                                                        invoiceIndex,
+                                                        invoice: any,
+                                                        invoiceIndex: number,
                                                       ) => (
                                                         <div
                                                           key={invoiceIndex}
@@ -3761,8 +3843,88 @@ const Page = () => {
                                             </div>
                                           </div>
                                         </div>
+
                                       );
-                                    })}
+                                      };
+
+                                      if (orderHasSplits) {
+                                        if (isCoAgentUser) {
+                                          return (
+                                            <div className="space-y-4">
+                                              <div className="border border-[#93C5FD] rounded-[6px] bg-white overflow-hidden shadow-xs">
+                                                <div className="px-5 py-3.5 bg-[#DBEAFE] border-b border-[#BFDBFE] flex items-center justify-between">
+                                                  <div className="flex items-center gap-2.5">
+                                                    <span className="text-sm font-semibold uppercase tracking-wide text-blue-950">
+                                                      Co-Agent Services & Invoice
+                                                    </span>
+                                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                                                      {coSplitPct}% Share
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                                <div className="p-4 space-y-3 bg-white">
+                                                  <div className="space-y-3">
+                                                    {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <Accordion
+                                            type="multiple"
+                                            defaultValue={["main-agent-section", "co-agent-section"]}
+                                            className="w-full space-y-4"
+                                          >
+                                            <AccordionItem
+                                              value="main-agent-section"
+                                              className="border border-[#CBD5E1] rounded-[6px] bg-white overflow-hidden shadow-xs"
+                                            >
+                                              <AccordionTrigger className="px-5 py-3.5 bg-[#E2E8F0] hover:bg-[#CBD5E1] border-b border-[#CBD5E1] text-slate-900 text-sm font-semibold uppercase tracking-wide">
+                                                <div className="flex items-center gap-2.5">
+                                                  <span>Main Agent Invoices & Services</span>
+                                                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
+                                                    {mainSplitPct}% Share
+                                                  </span>
+                                                </div>
+                                              </AccordionTrigger>
+                                              <AccordionContent className="p-4 space-y-3 bg-white">
+                                                <div className="space-y-3">
+                                                  {billing.services.map((service) => renderOrderServiceCard(service, mainSplitPct / 100, false))}
+                                                </div>
+                                              </AccordionContent>
+                                            </AccordionItem>
+
+                                            <AccordionItem
+                                              value="co-agent-section"
+                                              className="border border-[#93C5FD] rounded-[6px] bg-white overflow-hidden shadow-xs"
+                                            >
+                                              <AccordionTrigger className="px-5 py-3.5 bg-[#DBEAFE] hover:bg-[#BFDBFE] border-b border-[#BFDBFE] text-blue-950 text-sm font-semibold uppercase tracking-wide">
+                                                <div className="flex items-center gap-2.5">
+                                                  <span>Co-Agent Invoices & Services ({coAgentName})</span>
+                                                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                                                    {coSplitPct}% Share
+                                                  </span>
+                                                </div>
+                                              </AccordionTrigger>
+                                              <AccordionContent className="p-4 space-y-3 bg-white">
+                                                <div className="space-y-3">
+                                                  {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                                </div>
+                                              </AccordionContent>
+                                            </AccordionItem>
+                                          </Accordion>
+                                        );
+                                      }
+
+                                      return (
+                                        <div className="space-y-3">
+                                          {billing.services.map((service) => renderOrderServiceCard(service, splitMultiplier, false))}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               </div>

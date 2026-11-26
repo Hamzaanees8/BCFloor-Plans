@@ -16,7 +16,6 @@ import { Order, OrderService } from "../../orders/page";
 import { Check, Loader2, Eye, EyeOff, FileText, Send } from "lucide-react";
 import {
   DownloadFile,
-  ServiceCompletion,
   HideMediaFiles,
 } from "../file-manager";
 import { S3UploadService } from "@/lib/upload/s3-service";
@@ -569,39 +568,6 @@ const Service: React.FC<
       setIsHiding(false);
     }
   };
-
-  useEffect(() => {
-    const checkServiceCompletion = async () => {
-      const token = localStorage.getItem("token");
-      const numberOfFiles =
-        currentServiceFiles?.filter((f) => !f.is_deleted).length ?? 0;
-
-      if (numberOfFiles >= (bookingToUse?.option?.quantity ?? 1)) {
-        if (
-          token &&
-          bookingToUse?.uuid &&
-          orderData?.uuid &&
-          !bookingToUse?.is_completed
-        ) {
-          await ServiceCompletion(
-            token,
-            bookingToUse.uuid,
-            true,
-            orderData.uuid,
-          );
-        }
-      }
-    };
-    checkServiceCompletion();
-  }, [
-    currentServiceFiles,
-    currentService,
-    currentBookedService,
-    orderData,
-    bookingToUse?.is_completed,
-    bookingToUse?.option?.quantity,
-    bookingToUse?.uuid,
-  ]);
 
   const { brandedRankMap, unbrandedRankMap } = useMemo(() => {
     const bMap = new Map<string, number>();
@@ -1622,7 +1588,18 @@ const Service: React.FC<
                   (userType === "vendor" && !reviewFilesEnabled)) &&
                 onSendToClient && (
                   <Button
-                    onClick={onSendToClient}
+                    onClick={() => {
+                      const hasSqFt =
+                        Array.isArray(orderData?.areas) &&
+                        orderData.areas.length > 0;
+                      if (!hasSqFt) {
+                        toast.error(
+                          "Square footage has not been added yet. Please add square footage before sending floor plans to the client.",
+                        );
+                        return;
+                      }
+                      onSendToClient();
+                    }}
                     className={`bg-blue-600 hover:bg-blue-700 text-white flex justify-center items-center font-alexandria transition-all duration-300 shadow-sm ${
                       isScrolled
                         ? "h-[24px] min-w-[100px] w-fit px-2 text-[10px]"
@@ -1666,7 +1643,7 @@ const Service: React.FC<
                     </p>
                   </div>
                   <Button
-                    disabled={isOpeningInvoice}
+                    disabled={isOpeningInvoice || (!bookingToUse?.is_completed && bookingToUse?.payment_status !== "PAID" && orderData?.payment_status !== "PAID" && bookingToUse?.payment_status !== "REFUNDED" && orderData?.payment_status !== "REFUNDED")}
                     onClick={async () => {
                       setIsOpeningInvoice(true);
                       try {
@@ -1675,7 +1652,7 @@ const Service: React.FC<
                         setIsOpeningInvoice(false);
                       }
                     }}
-                    className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
+                    className={`h-[24px] min-w-[60px] text-[10px] md:h-[32px] md:min-w-[100px] md:text-[13px] flex justify-center items-center cursor-pointer px-2 md:px-4 text-white rounded-md font-semibold
                                             ${
                                               bookingToUse?.payment_status ===
                                                 "REFUNDED" ||
@@ -1688,8 +1665,17 @@ const Service: React.FC<
                                                     orderData?.payment_status ===
                                                       "PAID"
                                                   ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                                  : "bg-[#DC9600] hover:bg-[#eda304]"
+                                                  : !bookingToUse?.is_completed
+                                                    ? "bg-[#9E9E9E] hover:bg-[#9E9E9E] opacity-80 cursor-not-allowed"
+                                                    : "bg-[#DC9600] hover:bg-[#eda304]"
                                             }`}
+                    title={
+                      !bookingToUse?.is_completed &&
+                      bookingToUse?.payment_status !== "PAID" &&
+                      orderData?.payment_status !== "PAID"
+                        ? "Service is currently in progress. It will be available to download once completed."
+                        : undefined
+                    }
                   >
                     {isOpeningInvoice ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1699,7 +1685,9 @@ const Service: React.FC<
                       : bookingToUse?.payment_status == "PAID" ||
                           orderData?.payment_status === "PAID"
                         ? "Paid"
-                        : "UnPaid"}
+                        : !bookingToUse?.is_completed
+                          ? "In Progress"
+                          : "Pay to Download"}
                   </Button>
                 </div>
               ) : userType === "admin" ? (

@@ -34,7 +34,6 @@ import PhotoPreviewModal from "./PhotoPreviewModal";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DownloadFile,
-  ServiceCompletion,
   HideMediaFiles,
   GetFilesData,
 } from "../file-manager";
@@ -1342,40 +1341,6 @@ function Video({
     setImagePopupOpen(true);
   };
 
-  useEffect(() => {
-    const checkServiceCompletion = async () => {
-      const token = localStorage.getItem("token");
-      // Count only agent approved files that are NOT complimentary
-      const numberOfApprovedFiles =
-        currentServiceFiles?.filter(
-          (f) => f.is_agent_approved && !f.is_complimentary,
-        ).length ?? 0;
-
-      if (numberOfApprovedFiles >= (bookingToUse?.option?.quantity ?? 1)) {
-        if (
-          token &&
-          currentBookedService?.uuid &&
-          orderData?.uuid &&
-          !currentBookedService?.is_completed
-        ) {
-          await ServiceCompletion(
-            token,
-            currentBookedService.uuid,
-            true,
-            orderData.uuid,
-          );
-        }
-      }
-    };
-    checkServiceCompletion();
-  }, [
-    currentServiceFiles,
-    currentService,
-    currentBookedService,
-    orderData,
-    bookingToUse?.option?.quantity,
-  ]);
-
   const handleAddPayment = (paymentData: any) => {
     console.log("Payment Added:", paymentData);
     setSuccess(true);
@@ -1703,7 +1668,6 @@ function Video({
                 </p>
               </div>
               <Button
-                disabled={isOpeningInvoice}
                 onClick={async () => {
                   setIsOpeningInvoice(true);
                   try {
@@ -1715,7 +1679,8 @@ function Video({
                     setIsOpeningInvoice(false);
                   }
                 }}
-                className={`h-[24px] w-[60px] text-[10px] md:h-[32px] md:w-[100px] md:text-[14px] flex justify-center items-center cursor-pointer px-1 md:px-4 text-white
+                disabled={isOpeningInvoice || (!bookingToUse?.is_completed && bookingToUse?.payment_status !== "PAID" && orderData?.payment_status !== "PAID" && bookingToUse?.payment_status !== "REFUNDED" && orderData?.payment_status !== "REFUNDED")}
+                className={`h-[24px] min-w-[60px] text-[10px] md:h-[32px] md:min-w-[100px] md:text-[13px] flex justify-center items-center cursor-pointer px-2 md:px-4 text-white rounded-md font-semibold
                                     ${
                                       bookingToUse?.payment_status ===
                                         "REFUNDED" ||
@@ -1726,8 +1691,17 @@ function Video({
                                               "PAID" ||
                                             orderData?.payment_status === "PAID"
                                           ? "bg-[#6BAE41] hover:bg-[#5fa43a]"
-                                          : "bg-[#DC9600] hover:bg-[#eda304]"
+                                          : !bookingToUse?.is_completed
+                                            ? "bg-[#9E9E9E] hover:bg-[#9E9E9E] opacity-80 cursor-not-allowed"
+                                            : "bg-[#DC9600] hover:bg-[#eda304]"
                                     }`}
+                title={
+                  !bookingToUse?.is_completed &&
+                  bookingToUse?.payment_status !== "PAID" &&
+                  orderData?.payment_status !== "PAID"
+                    ? "Service is currently in progress. It will be available to download once completed."
+                    : undefined
+                }
               >
                 {isOpeningInvoice ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1737,7 +1711,9 @@ function Video({
                   : bookingToUse?.payment_status == "PAID" ||
                       orderData?.payment_status === "PAID"
                     ? "Paid"
-                    : "UnPaid"}
+                    : !bookingToUse?.is_completed
+                      ? "In Progress"
+                      : "Pay to Download"}
               </Button>
             </div>
           ) : userType === "admin" ? (

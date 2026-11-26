@@ -33,6 +33,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { isUserCoAgent } from "@/lib/permissions";
@@ -336,28 +342,68 @@ export default function OrderBillingModal({
     const orderTaxDetails =
       primaryInvoice?.tax_details || billing.tax_details || null;
 
+    const orderHasSplits =
+      Boolean((billing as any)?.split_invoice || (billing as any)?.order?.split_invoice || orderData?.split_invoice) ||
+      rawInvoices.some(
+        (inv: any) =>
+          inv.agent_type === "co-agent" ||
+          inv.agent_type === "co_agent" ||
+          inv.is_co_agent ||
+          (inv.split_details?.splits && inv.split_details.splits.length > 1),
+      );
+
+    const nonVoidInvoices = rawInvoices.filter(
+      (inv) => !isVoidOrCancelled(inv.status) && !isRenewalInvoice(inv),
+    );
+
+    const combinedInvoicesTotal = nonVoidInvoices.reduce(
+      (sum, inv) => sum + parseFloat(inv.total || "0"),
+      0,
+    );
+    const combinedInvoicesSubtotal = nonVoidInvoices.reduce(
+      (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
+      0,
+    );
+    const combinedInvoicesTax = nonVoidInvoices.reduce(
+      (sum, inv) => sum + parseFloat(inv.tax_amount || "0"),
+      0,
+    );
+    const combinedInvoicesPaid = nonVoidInvoices.reduce(
+      (sum, inv) => sum + parseFloat(inv.paid_amount || "0"),
+      0,
+    );
+
     const subtotalVal =
-      primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
-        ? parseFloat(primaryInvoice.subtotal)
-        : billing.total_amount || 0;
+      orderHasSplits && combinedInvoicesSubtotal > 0
+        ? combinedInvoicesSubtotal
+        : primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0 && !orderHasSplits
+          ? parseFloat(primaryInvoice.subtotal)
+          : billing.total_amount || 0;
 
     const taxAmount =
-      primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
-        ? parseFloat(primaryInvoice.tax_amount)
-        : billing.tax_amount != null
-          ? billing.tax_amount
-          : subtotalVal * (taxRate / 100);
+      orderHasSplits && combinedInvoicesTax > 0
+        ? combinedInvoicesTax
+        : primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0 && !orderHasSplits
+          ? parseFloat(primaryInvoice.tax_amount)
+          : billing.tax_amount != null
+            ? billing.tax_amount
+            : subtotalVal * (taxRate / 100);
 
     const grandTotalVal =
-      primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
-        ? parseFloat(primaryInvoice.total)
-        : billing.grand_total != null
-          ? billing.grand_total
-          : subtotalVal + taxAmount;
+      orderHasSplits && combinedInvoicesTotal > 0
+        ? combinedInvoicesTotal
+        : primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0 && !orderHasSplits
+          ? parseFloat(primaryInvoice.total)
+          : billing.grand_total != null
+            ? billing.grand_total
+            : subtotalVal + taxAmount;
 
     const totalRefunded = billing.total_refunded || 0;
     const effectiveGrandTotal = Math.max(0, grandTotalVal - totalRefunded);
-    const safeRowTotalPaid = Math.max(0, billing.total_paid || 0);
+    const safeRowTotalPaid =
+      orderHasSplits && combinedInvoicesPaid > 0
+        ? combinedInvoicesPaid
+        : Math.max(0, billing.total_paid || 0);
     const rawRowRemaining = effectiveGrandTotal - safeRowTotalPaid;
     const displayRemaining =
       isOrderPaid ||
@@ -404,18 +450,33 @@ export default function OrderBillingModal({
       billing.package?.name || (billing.package as any)?.package_name || null;
 
     // Check media restrictions
+    const filesList: any[] = Array.isArray(filesData)
+      ? filesData
+      : Array.isArray(filesData?.files)
+        ? filesData.files
+        : [];
+    const linksList: any[] = Array.isArray(filesData?.links)
+      ? filesData.links
+      : [];
+    const hasLinkMedia = (l: any) =>
+      l.has_link === true ||
+      (l.has_link !== false &&
+        ((typeof l.link === "string" && l.link.trim() !== "") ||
+          ((l.link === null || l.link === undefined) && Boolean(l.uuid || l.id))));
+
     const servicesWithoutMedia =
       userType === "agent" && filesData
         ? billing.services.filter((svc) => {
             const svcId = svc.service_id;
-            const hasMedia = filesData.some(
-              (f: any) =>
-                f.service?.id === svcId ||
-                f.service_id === svcId ||
-                (svc.uuid && f.service?.uuid === svc.uuid) ||
-                (svc.order_service_uuid &&
-                  f.service?.uuid === svc.order_service_uuid),
-            );
+            const matchItem = (f: any) =>
+              f.service?.id === svcId ||
+              f.service_id === svcId ||
+              (svc.uuid && f.service?.uuid === svc.uuid) ||
+              (svc.order_service_uuid &&
+                f.service?.uuid === svc.order_service_uuid);
+            const hasMedia =
+              filesList.some(matchItem) ||
+              linksList.some((l: any) => hasLinkMedia(l) && matchItem(l));
             return !hasMedia;
           })
         : [];
@@ -1296,7 +1357,81 @@ export default function OrderBillingModal({
                     Services ({billing.services.length})
                   </h3>
 
-                  {billing.services.map((service) => {
+                  {(() => {
+                    const orderHasSplits =
+                      Boolean((billing as any)?.split_invoice || (billing as any)?.order?.split_invoice || orderData?.split_invoice) ||
+                      invoices.some(
+                        (inv: any) =>
+                          inv.agent_type === "co-agent" ||
+                          inv.agent_type === "co_agent" ||
+                          inv.is_co_agent ||
+                          (inv.split_details?.splits && inv.split_details.splits.length > 1),
+                      );
+
+                    let mainSplitPct = 50;
+                    let coSplitPct = 50;
+                    let coAgentName = "Co-Agent";
+
+                    const splitInv = invoices.find(
+                      (inv: any) => inv.split_details?.splits && inv.split_details.splits.length > 0,
+                    );
+                    if (splitInv?.split_details?.splits) {
+                      const primarySplit = splitInv.split_details.splits.find(
+                        (s: any) => s.type === "primary" || s.role === "primary",
+                      );
+                      const coSplit = splitInv.split_details.splits.find(
+                        (s: any) =>
+                          s.type === "co-agent" ||
+                          s.type === "co_agent" ||
+                          s.role === "co-agent",
+                      );
+                      if (primarySplit?.percentage) mainSplitPct = Number(primarySplit.percentage);
+                      if (coSplit?.percentage) coSplitPct = Number(coSplit.percentage);
+                      if (coSplit?.name) coAgentName = coSplit.name;
+                    } else {
+                      const rawCo =
+                        (billing as any)?.co_agents ||
+                        (billing as any)?.coagents ||
+                        orderData?.co_agents;
+                      let coList: any[] = [];
+                      if (Array.isArray(rawCo)) coList = rawCo;
+                      else if (typeof rawCo === "string") {
+                        try {
+                          const parsed = JSON.parse(rawCo);
+                          if (Array.isArray(parsed)) coList = parsed;
+                        } catch {}
+                      }
+                      if (coList.length > 0) {
+                        const firstCo = coList[0];
+                        const pct = Number(
+                          firstCo.split || firstCo.split_percentage || firstCo.percentage || 50,
+                        );
+                        coSplitPct = pct;
+                        mainSplitPct = 100 - pct;
+                        if (firstCo.name || firstCo.first_name) {
+                          coAgentName =
+                            firstCo.name ||
+                            `${firstCo.first_name || ""} ${firstCo.last_name || ""}`.trim();
+                        }
+                      }
+                    }
+
+                    const mainAgentInvoices = invoices.filter(
+                      (inv: any) =>
+                        inv.agent_type === "primary" ||
+                        (!inv.split_details &&
+                          inv.agent_type !== "co-agent" &&
+                          inv.agent_type !== "co_agent"),
+                    );
+                    const coAgentInvoices = invoices.filter(
+                      (inv: any) =>
+                        inv.agent_type === "co-agent" ||
+                        inv.agent_type === "co_agent" ||
+                        inv.is_co_agent ||
+                        (inv.split_details && inv.agent_type !== "primary"),
+                    );
+
+                    const renderOrderServiceCard = (service: any, currentSplitMultiplier: number, isCoAgentSection: boolean) => {
                     const serviceUuid =
                       service.uuid || service.order_service_uuid;
                     const serviceTargetInvoice = getBestTargetInvoice(
@@ -1325,12 +1460,25 @@ export default function OrderBillingModal({
                               0.01)) &&
                       !isServiceRefunded &&
                       !isServicePartiallyRefunded;
+                    const isServiceInProgress =
+                      userType === "agent" &&
+                      !isServicePaid &&
+                      !isServiceRefunded &&
+                      !isServicePartiallyRefunded &&
+                      orderCalculations.servicesWithoutMedia.some(
+                        (s: any) =>
+                          (service.uuid && s.uuid === service.uuid) ||
+                          (service.order_service_uuid &&
+                            s.order_service_uuid === service.order_service_uuid) ||
+                          s.service_id === service.service_id,
+                      );
+                    const isServiceCompleted = !isServiceInProgress;
 
                     const pricing = getServiceActualInvoicePricing({
                       invoices,
                       service,
-                      splitMultiplier: 1,
-                      isCoAgentUser,
+                      splitMultiplier: currentSplitMultiplier,
+                      isCoAgentUser: isCoAgentSection,
                       userType,
                       currentUser,
                       fallbackTaxRate: orderCalculations.taxRate,
@@ -1376,7 +1524,22 @@ export default function OrderBillingModal({
 
                               {/* Service Action Buttons */}
                               <div className="flex gap-2">
-                                {serviceTargetInvoice ? (
+                                {!isServiceCompleted && role === "agent" ? (
+                                  <>
+                                    <Button
+                                      disabled
+                                      className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                    >
+                                      Invoice
+                                    </Button>
+                                    <Button
+                                      disabled
+                                      className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
+                                    >
+                                      In Progress
+                                    </Button>
+                                  </>
+                                ) : serviceTargetInvoice ? (
                                   <Button
                                     onClick={() =>
                                       handleOpenInvoiceDoc(
@@ -1385,7 +1548,7 @@ export default function OrderBillingModal({
                                         service.service_id,
                                       )
                                     }
-                                    className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer"
+                                    className="h-[30px] px-3 bg-white border border-[#BBBBBB] text-[#666666] rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-gray-50"
                                     onMouseEnter={(e) => {
                                       e.currentTarget.style.backgroundColor =
                                         roleSettings.pageTabColor;
@@ -1406,7 +1569,7 @@ export default function OrderBillingModal({
                                 ) : (
                                   <Button
                                     disabled
-                                    className="h-[30px] px-3 bg-gray-100 border border-gray-200 text-gray-400 rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[90px] cursor-not-allowed opacity-80"
+                                    className="h-[30px] px-3 bg-[#666666] border border-[#666666] text-white rounded-[6px] text-xs font-medium flex items-center justify-center min-w-[90px] cursor-not-allowed shadow-none"
                                   >
                                     No Invoice
                                   </Button>
@@ -1414,7 +1577,8 @@ export default function OrderBillingModal({
 
                                 {!isServicePaid &&
                                   !isServiceRefunded &&
-                                  !isServicePartiallyRefunded && (
+                                  !isServicePartiallyRefunded &&
+                                  (isServiceCompleted || role !== "agent") && (
                                     <>
                                       <Button
                                         onClick={() => {
@@ -1431,7 +1595,7 @@ export default function OrderBillingModal({
                                             roleSettings.pageTabColor,
                                         }}
                                       >
-                                        Pay Now
+                                        {role === "agent" ? "Pay to Download" : "Pay Now"}
                                       </Button>
 
                                       {role === "admin" &&
@@ -1442,6 +1606,7 @@ export default function OrderBillingModal({
                                                 serviceTargetInvoice,
                                               )
                                             }
+                                            disabled={actionLoading !== null}
                                             className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
                                           >
                                             Mark Paid
@@ -1449,8 +1614,7 @@ export default function OrderBillingModal({
                                         )}
                                     </>
                                   )}
-
-                                {isServicePaid && (
+                              {isServicePaid && (
                                   <>
                                     <Button
                                       disabled
@@ -1560,7 +1724,12 @@ export default function OrderBillingModal({
                                     )}
                                   </span>
                                 ) : null}
-                              </p>
+                              
+                                {orderHasSplits && (
+                                  <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                                    {Math.round(currentSplitMultiplier * 100)}% share
+                                  </span>
+                                )}</p>
 
                               {pricing.taxDetails &&
                               Object.keys(pricing.taxDetails).length > 0 ? (
@@ -1675,7 +1844,7 @@ export default function OrderBillingModal({
                               service.related_invoices.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {service.related_invoices.map(
-                                    (invoice, invoiceIndex) => (
+                                    (invoice: any, invoiceIndex: number) => (
                                       <div
                                         key={invoiceIndex}
                                         className="flex items-center gap-2"
@@ -1709,8 +1878,88 @@ export default function OrderBillingModal({
                           </div>
                         </div>
                       </div>
+
                     );
-                  })}
+                    };
+
+                    if (orderHasSplits) {
+                      if (isCoAgentUser) {
+                        return (
+                          <div className="space-y-4">
+                            <div className="border border-[#93C5FD] rounded-[6px] bg-white overflow-hidden shadow-xs">
+                              <div className="px-5 py-3.5 bg-[#DBEAFE] border-b border-[#BFDBFE] flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-sm font-semibold uppercase tracking-wide text-blue-950">
+                                    Co-Agent Services & Invoice
+                                  </span>
+                                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                                    {coSplitPct}% Share
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-4 space-y-3 bg-white">
+                                <div className="space-y-3">
+                                  {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Accordion
+                          type="multiple"
+                          defaultValue={["main-agent-section", "co-agent-section"]}
+                          className="w-full space-y-4"
+                        >
+                          <AccordionItem
+                            value="main-agent-section"
+                            className="border border-[#CBD5E1] rounded-[6px] bg-white overflow-hidden shadow-xs"
+                          >
+                            <AccordionTrigger className="px-5 py-3.5 bg-[#E2E8F0] hover:bg-[#CBD5E1] border-b border-[#CBD5E1] text-slate-900 text-sm font-semibold uppercase tracking-wide">
+                              <div className="flex items-center gap-2.5">
+                                <span>Main Agent Invoices & Services</span>
+                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-600 text-white shadow-xs">
+                                  {mainSplitPct}% Share
+                                </span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 space-y-3 bg-white">
+                              <div className="space-y-3">
+                                {billing.services.map((service) => renderOrderServiceCard(service, mainSplitPct / 100, false))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+
+                          <AccordionItem
+                            value="co-agent-section"
+                            className="border border-[#93C5FD] rounded-[6px] bg-white overflow-hidden shadow-xs"
+                          >
+                            <AccordionTrigger className="px-5 py-3.5 bg-[#DBEAFE] hover:bg-[#BFDBFE] border-b border-[#BFDBFE] text-blue-950 text-sm font-semibold uppercase tracking-wide">
+                              <div className="flex items-center gap-2.5">
+                                <span>Co-Agent Invoices & Services ({coAgentName})</span>
+                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                                  {coSplitPct}% Share
+                                </span>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 space-y-3 bg-white">
+                              <div className="space-y-3">
+                                {billing.services.map((service) => renderOrderServiceCard(service, coSplitPct / 100, true))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {billing.services.map((service) => renderOrderServiceCard(service, 1, false))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}

@@ -19,6 +19,7 @@ interface ServicePriceBadgeProps {
   onOpenInvoice?: () => void | Promise<any>;
   paymentSuccess?: boolean;
   quantityLabel?: string;
+  isCompleted?: boolean;
 }
 
 const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
@@ -33,6 +34,7 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
   onOpenInvoice,
   paymentSuccess,
   quantityLabel,
+  isCompleted = false,
 }) => {
   const isSplit = splitInvoices.length > 1;
 
@@ -118,7 +120,9 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
         : combinedStatus === "paid" ||
             (combinedStatus === "partially_paid" && userOwnPaid)
           ? "text-[#6BAE41]"
-          : "text-[#E06D5E]";
+          : !isCompleted && userType !== "admin"
+            ? "text-[#7D7D7D]"
+            : "text-[#E06D5E]";
 
     return (
       <div>
@@ -181,9 +185,28 @@ const ServicePriceBadge: React.FC<ServicePriceBadgeProps> = ({
       );
     }
 
+    // Incomplete / In Progress state for agents
+    if (!isCompleted && userType !== "admin") {
+      return (
+        <Button
+          disabled
+          className={`${btnBase} bg-[#9E9E9E] hover:bg-[#9E9E9E] opacity-80 cursor-not-allowed`}
+          title="Service is currently in progress. It will be available to download once completed."
+        >
+          In Progress
+        </Button>
+      );
+    }
+
     return (
       <Button disabled={isOpeningInvoice} onClick={handleOpen} className={`${btnBase} bg-[#DC9600] hover:bg-[#eda304]`}>
-        {isOpeningInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : userType === "admin" ? "UNPAID" : "UnPaid"}
+        {isOpeningInvoice ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : userType === "admin" ? (
+          !isCompleted ? "In Progress" : "UNPAID"
+        ) : (
+          "Pay to Download"
+        )}
       </Button>
     );
   };

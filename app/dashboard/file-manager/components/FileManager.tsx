@@ -731,6 +731,7 @@ const FileManager = () => {
   }, [groupedServices, searchParams, activeTab]);
 
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
+  const [selectedBillingServiceUuid, setSelectedBillingServiceUuid] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
 
   const [, setIsAgentPaymentBannerDismissed] = useState(false);
@@ -1787,6 +1788,8 @@ const FileManager = () => {
       orderServiceUuid || featureSheetUuid || featureSheetId || serviceName,
     );
 
+
+
     // Find target order service in orderData or services state
     const matchedBooking = (orderData?.services || services || []).find(
       (s: any) =>
@@ -1801,6 +1804,18 @@ const FileManager = () => {
 
     const targetServiceUuid = matchedBooking?.uuid || orderServiceUuid;
     const targetServiceId = matchedBooking?.id;
+
+    if (userType === "agent") {
+      setSelectedBillingServiceUuid(targetServiceUuid || null);
+      setShowInvoicesModal(true);
+      return;
+    }
+
+    if (userType === "agent") {
+      setSelectedBillingServiceUuid(targetServiceUuid || null);
+      setShowInvoicesModal(true);
+      return;
+    }
     const targetFsUuid =
       (matchedBooking as any)?.feature_sheet_uuid ||
       (matchedBooking as any)?.feature_sheet?.uuid ||
@@ -3180,6 +3195,12 @@ const FileManager = () => {
           open={showInvoicesModal}
           onOpenChange={(open) => {
             setShowInvoicesModal(open);
+            if (!open) setSelectedBillingServiceUuid(null);
+          }}
+          targetServiceUuid={selectedBillingServiceUuid || undefined}
+          onNavigateToDownload={() => {
+            setShowInvoicesModal(false);
+            setActiveTab("download");
           }}
           orderId={orderId || orderData?.id}
           orderUuid={orderData?.uuid}
@@ -4210,15 +4231,23 @@ const FileManager = () => {
                             >
                               View
                             </button>
+                          ) : !booking.is_completed && userType === "agent" ? (
+                            <button
+                              disabled
+                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#9E9E9E] text-white opacity-80 cursor-not-allowed"
+                              title="Service is currently in progress."
+                            >
+                              IN PROGRESS
+                            </button>
                           ) : (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenInvoice(booking.service?.name);
+                                handleOpenInvoice(booking.service?.name, booking.uuid);
                               }}
                               className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#DC9600] text-white hover:bg-[#b87d00] transition-colors"
                             >
-                              UNPAID
+                              {userType === "agent" ? "PAY TO DOWNLOAD" : "UNPAID"}
                             </button>
                           )
                         ) : null}
