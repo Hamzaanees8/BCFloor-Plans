@@ -3263,6 +3263,7 @@ export default function OneDayCalendar({
     if (existingSlot) return;
     if (hasJumpedToInitialDate.current) return;
     if (!calendarRef.current) return;
+    if (isCalculating || vendorsData.length === 0 || selectedVendors.length === 0) return;
 
     if (!isDateAvailable(currentDate)) {
       let nextDate = dayjs(currentDate).add(1, "day");
@@ -3279,7 +3280,7 @@ export default function OneDayCalendar({
       }
     }
     hasJumpedToInitialDate.current = true;
-  }, [existingSlot, isDateAvailable, currentDate, setSelectedDate]);
+  }, [existingSlot, isDateAvailable, currentDate, setSelectedDate, isCalculating, vendorsData.length, selectedVendors.length]);
 
   const vendorsKey = JSON.stringify(selectedVendors);
   const recommendVal = recommendTimeMap?.[serviceKey];
@@ -5211,7 +5212,14 @@ export default function OneDayCalendar({
                                     start_time: "00:00:00",
                                     end_time: "23:59:59",
                                     is_off: 0,
-                                    is_twilight: 0,
+                                    is_twilight:
+                                      vendor.work_hours?.work_days?.find(
+                                        (d: any) =>
+                                          d.day ===
+                                          dayjs(selectedDateForModal)
+                                            .format("ddd")
+                                            .toLowerCase(),
+                                      )?.is_twilight ?? 0,
                                   },
                                 ],
                               };
@@ -5229,6 +5237,10 @@ export default function OneDayCalendar({
                                 service.uuid,
                                 selectedSlots,
                                 15,
+                                isTwilightService,
+                                currentServiceDataForModal?.is_travel_required !==
+                                  false,
+                                destinationAddress,
                               );
                             } else {
                               if (!vendor.work_hours) {
@@ -5270,6 +5282,10 @@ export default function OneDayCalendar({
                                 service.uuid,
                                 selectedSlots,
                                 15,
+                                isTwilightService,
+                                currentServiceDataForModal?.is_travel_required !==
+                                  false,
+                                destinationAddress,
                               );
                             }
 

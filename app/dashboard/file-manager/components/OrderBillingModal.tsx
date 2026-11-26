@@ -1,32 +1,41 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   X,
   Download,
   ExternalLink,
   Loader2,
   RotateCcw,
-  AlertCircle,
   FileText,
-  DollarSign,
   Edit2,
   Save,
   Trash2,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { useAppContext } from '@/app/context/AppContext';
-import { useWhiteLabel } from '@/app/context/Whitelabel';
-import { isUserCoAgent } from '@/lib/permissions';
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAppContext } from "@/app/context/AppContext";
+import { useWhiteLabel } from "@/app/context/Whitelabel";
+import { isUserCoAgent } from "@/lib/permissions";
 import {
   BillingItem,
   formatOrderDate,
@@ -41,23 +50,23 @@ import {
   isPartiallyRefunded,
   filterVisibleInvoices,
   isSingleServiceOrder,
-} from '@/app/dashboard/billing/billing';
+} from "@/app/dashboard/billing/billing";
 import {
   GetInvoicesByOrder,
   PayInvoiceWithStripe,
   MarkPaid,
   DownloadInvoice,
   UpdateInvoice,
-} from '@/app/dashboard/invoice/invoice_api';
+} from "@/app/dashboard/invoice/invoice_api";
 import {
   isRenewalInvoice,
   isMainInvoice,
   isInvoiceLinkedToService,
-} from '@/app/dashboard/invoice/invoice_utils';
-import RefundModal from '@/app/dashboard/invoice/components/RefundModal';
-import RefundReceiptModal from '@/app/dashboard/invoice/components/RefundReceiptModal';
-import DeleteInvoiceModal from '@/app/dashboard/invoice/components/DeleteInvoiceModal';
-import InvoiceDocument from '@/app/dashboard/invoice/components/InvoiceDocument';
+} from "@/app/dashboard/invoice/invoice_utils";
+import RefundModal from "@/app/dashboard/invoice/components/RefundModal";
+import RefundReceiptModal from "@/app/dashboard/invoice/components/RefundReceiptModal";
+import DeleteInvoiceModal from "@/app/dashboard/invoice/components/DeleteInvoiceModal";
+import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument";
 
 interface OrderBillingModalProps {
   open: boolean;
@@ -85,30 +94,35 @@ export default function OrderBillingModal({
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const info = localStorage.getItem('userInfo');
+    if (typeof window !== "undefined") {
+      const info = localStorage.getItem("userInfo");
       if (info) {
         try {
           setCurrentUser(JSON.parse(info));
         } catch (e) {
-          console.error('Failed to parse userInfo', e);
+          console.error("Failed to parse userInfo", e);
         }
       }
     }
   }, []);
 
   const { appliedSettings } = useWhiteLabel();
-  const role = (userType as string) || 'admin';
-  const isAdmin = role === 'admin';
+  const role = (userType as string) || "admin";
+  const isAdmin = role === "admin";
   const roleSettings =
-    appliedSettings[role as keyof typeof appliedSettings] || appliedSettings['admin'];
+    appliedSettings[role as keyof typeof appliedSettings] ||
+    appliedSettings["admin"];
 
-  const isCoAgentUser = userType === 'agent' && isUserCoAgent(currentUser, userType);
+  const isCoAgentUser =
+    userType === "agent" && isUserCoAgent(currentUser, userType);
 
   const [loading, setLoading] = useState(true);
   const [billing, setBilling] = useState<BillingItem | null>(null);
   const [invoices, setInvoices] = useState<any[]>(initialInvoices);
-  const [actionLoading, setActionLoading] = useState<{ id: any; action: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState<{
+    id: any;
+    action: string;
+  } | null>(null);
   const [downloadingUuid, setDownloadingUuid] = useState<string | null>(null);
 
   // Invoice Document Viewer & Editor Popup State
@@ -129,34 +143,44 @@ export default function OrderBillingModal({
   // Manual payment modal state
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
   const [manualPaymentInvoice, setManualPaymentInvoice] = useState<any>(null);
-  const [manualPaymentAmount, setManualPaymentAmount] = useState('');
-  const [manualPaymentMethod, setManualPaymentMethod] = useState('E-Transfer');
-  const [manualPaymentNotes, setManualPaymentNotes] = useState('');
+  const [manualPaymentAmount, setManualPaymentAmount] = useState("");
+  const [manualPaymentMethod, setManualPaymentMethod] = useState("E-Transfer");
+  const [manualPaymentNotes, setManualPaymentNotes] = useState("");
   const [submittingManualPayment, setSubmittingManualPayment] = useState(false);
 
   // Refund modals state
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [selectedRefundInvoice, setSelectedRefundInvoice] = useState<any>(null);
-  const [refundDefaultAmount, setRefundDefaultAmount] = useState<number | undefined>(undefined);
+  const [refundDefaultAmount, setRefundDefaultAmount] = useState<
+    number | undefined
+  >(undefined);
 
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
-  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<any>(null);
-  const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<any>(null);
+  const [selectedReceiptPayment, setSelectedReceiptPayment] =
+    useState<any>(null);
+  const [selectedReceiptInvoice, setSelectedReceiptInvoice] =
+    useState<any>(null);
 
-  const effectiveOrderUuid = orderUuid || orderData?.uuid || billing?.order_uuid;
+  const effectiveOrderUuid =
+    orderUuid || orderData?.uuid || billing?.order_uuid;
+
+  const initialInvoicesRef = React.useRef(initialInvoices);
+  initialInvoicesRef.current = initialInvoices;
 
   // Load / refresh billing and invoices
   const loadBillingData = useCallback(async () => {
     if (!orderId && !effectiveOrderUuid) return;
     setLoading(true);
     try {
-      let fetchedInvoices = initialInvoices;
+      let fetchedInvoices = initialInvoicesRef.current;
       if (effectiveOrderUuid) {
         try {
           const invRes = await GetInvoicesByOrder(effectiveOrderUuid);
-          fetchedInvoices = Array.isArray(invRes.data) ? invRes.data : [invRes.data].filter(Boolean);
+          fetchedInvoices = Array.isArray(invRes.data)
+            ? invRes.data
+            : [invRes.data].filter(Boolean);
         } catch (e) {
-          console.error('Failed to fetch invoices for order billing:', e);
+          console.error("Failed to fetch invoices for order billing:", e);
         }
       }
 
@@ -172,7 +196,7 @@ export default function OrderBillingModal({
             ) || null;
         }
       } catch (e) {
-        console.error('Failed to fetch billing list:', e);
+        console.error("Failed to fetch billing list:", e);
       }
 
       if (!matchedBilling && orderData) {
@@ -180,16 +204,16 @@ export default function OrderBillingModal({
           order_id: orderData.id,
           order_uuid: orderData.uuid,
           agent_name: orderData.agent
-            ? `${orderData.agent.first_name || ''} ${orderData.agent.last_name || ''}`.trim()
+            ? `${orderData.agent.first_name || ""} ${orderData.agent.last_name || ""}`.trim()
             : null,
           agent_uuid: orderData.agent?.uuid || orderData.agent_uuid,
-          property_address: orderData.property?.address || '',
-          property_location: orderData.property?.location || '',
+          property_address: orderData.property?.address || "",
+          property_location: orderData.property?.location || "",
           services: (orderData.services || []).map((s: any) => ({
             service_id: s.service_id || s.id,
-            service_name: s.service?.name || s.name || 'Service',
+            service_name: s.service?.name || s.name || "Service",
             amount: parseFloat(s.price || s.amount || 0),
-            status: s.status || 'pending',
+            status: s.status || "pending",
             related_invoices: [],
             order_service_uuid: s.uuid || s.order_service_uuid,
             uuid: s.uuid,
@@ -199,21 +223,22 @@ export default function OrderBillingModal({
           total_refunded: parseFloat(orderData.total_refunded || 0),
           remaining_amount: Math.max(
             0,
-            parseFloat(orderData.total_amount || 0) - parseFloat(orderData.total_paid || 0),
+            parseFloat(orderData.total_amount || 0) -
+              parseFloat(orderData.total_paid || 0),
           ),
-          status: orderData.status || 'pending',
+          status: orderData.status || "pending",
           created_at: orderData.created_at,
           slots: orderData.slots || [],
           invoices: (fetchedInvoices || []).map((inv: any) => ({
-            invoice_url: inv.invoice_url || inv.hosted_invoice_url || '',
+            invoice_url: inv.invoice_url || inv.hosted_invoice_url || "",
             payment_id: inv.payment_id || null,
             amount: parseFloat(inv.paid_amount || inv.total || 0),
-            payment_method: inv.payment_method || 'card',
-            status: inv.status || 'unpaid',
+            payment_method: inv.payment_method || "card",
+            status: inv.status || "unpaid",
             paid_at: inv.paid_at || inv.updated_at || inv.created_at,
-            session_id: inv.session_id || '',
+            session_id: inv.session_id || "",
             service_ids: inv.service_ids || 0,
-            payment_done_by: inv.payment_done_by || '',
+            payment_done_by: inv.payment_done_by || "",
           })),
           package: orderData.package,
           tax_rate: orderData.tax_rate,
@@ -230,11 +255,11 @@ export default function OrderBillingModal({
       );
       setInvoices(filtered);
     } catch (err) {
-      console.error('Error loading order billing modal:', err);
+      console.error("Error loading order billing modal:", err);
     } finally {
       setLoading(false);
     }
-  }, [orderId, effectiveOrderUuid, initialInvoices, orderData]);
+  }, [orderId, effectiveOrderUuid, orderData]);
 
   useEffect(() => {
     if (open) {
@@ -262,63 +287,73 @@ export default function OrderBillingModal({
         (inv) =>
           !isRenewalInvoice(inv) &&
           !isVoidOrCancelled(inv.status) &&
-          (!inv.notes?.toLowerCase().includes('service invoice') &&
-            (inv.agent_type === 'primary' || (inv.agent && !inv.split_details))),
+          !inv.notes?.toLowerCase().includes("service invoice") &&
+          (inv.agent_type === "primary" || (inv.agent && !inv.split_details)),
       ) ||
       targetOrderInvoice ||
-      rawInvoices.find((inv) => !inv.notes?.toLowerCase().includes('service invoice')) ||
+      rawInvoices.find(
+        (inv) => !inv.notes?.toLowerCase().includes("service invoice"),
+      ) ||
       rawInvoices[0];
 
     const isOrderPaid =
-      billing.status === 'paid' ||
+      billing.status === "paid" ||
       (rawInvoices.length > 0 &&
         rawInvoices.every(
-          (inv) => isPaidOrSucceeded(inv.status) || isPartiallyRefunded(inv.status),
+          (inv) =>
+            isPaidOrSucceeded(inv.status) || isPartiallyRefunded(inv.status),
         ));
 
-    const isOrderRefunded = isRefunded(billing.status) || isRefunded(targetOrderInvoice?.status);
+    const isOrderRefunded =
+      isRefunded(billing.status) || isRefunded(targetOrderInvoice?.status);
 
     const actualOrderCancelled =
       isVoidOrCancelled(billing.status) ||
       isVoidOrCancelled((billing as any).order_status) ||
-      (rawInvoices.length > 0 && isVoidOrCancelled(rawInvoices[0]?.order?.order_status));
+      (rawInvoices.length > 0 &&
+        isVoidOrCancelled(rawInvoices[0]?.order?.order_status));
 
     const hasCancellationFee = rawInvoices.some(
       (inv) =>
         !isVoidOrCancelled(inv.status) &&
-        (inv.notes?.toLowerCase().includes('cancellation fee') ||
-          inv.items?.some((i: any) => i.description?.toLowerCase().includes('cancellation fee'))),
+        (inv.notes?.toLowerCase().includes("cancellation fee") ||
+          inv.items?.some((i: any) =>
+            i.description?.toLowerCase().includes("cancellation fee"),
+          )),
     );
 
     const isOrderCancelledOrVoid =
       actualOrderCancelled ||
       (targetOrderInvoice
         ? isVoidOrCancelled(targetOrderInvoice.status)
-        : rawInvoices.length > 0 && rawInvoices.every((inv) => isVoidOrCancelled(inv.status)));
+        : rawInvoices.length > 0 &&
+          rawInvoices.every((inv) => isVoidOrCancelled(inv.status)));
 
     const taxRate = parseFloat(
-      primaryInvoice?.tax_rate || (billing.tax_rate != null ? String(billing.tax_rate) : '0'),
+      primaryInvoice?.tax_rate ||
+        (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
     );
-    const orderTaxDetails = primaryInvoice?.tax_details || billing.tax_details || null;
+    const orderTaxDetails =
+      primaryInvoice?.tax_details || billing.tax_details || null;
 
     const subtotalVal =
-      primaryInvoice && parseFloat(primaryInvoice.subtotal || '0') > 0
+      primaryInvoice && parseFloat(primaryInvoice.subtotal || "0") > 0
         ? parseFloat(primaryInvoice.subtotal)
         : billing.total_amount || 0;
 
     const taxAmount =
-      primaryInvoice && parseFloat(primaryInvoice.tax_amount || '0') > 0
+      primaryInvoice && parseFloat(primaryInvoice.tax_amount || "0") > 0
         ? parseFloat(primaryInvoice.tax_amount)
         : billing.tax_amount != null
-        ? billing.tax_amount
-        : subtotalVal * (taxRate / 100);
+          ? billing.tax_amount
+          : subtotalVal * (taxRate / 100);
 
     const grandTotalVal =
-      primaryInvoice && parseFloat(primaryInvoice.total || '0') > 0
+      primaryInvoice && parseFloat(primaryInvoice.total || "0") > 0
         ? parseFloat(primaryInvoice.total)
         : billing.grand_total != null
-        ? billing.grand_total
-        : subtotalVal + taxAmount;
+          ? billing.grand_total
+          : subtotalVal + taxAmount;
 
     const totalRefunded = billing.total_refunded || 0;
     const effectiveGrandTotal = Math.max(0, grandTotalVal - totalRefunded);
@@ -334,34 +369,43 @@ export default function OrderBillingModal({
 
     // Package discount calculations
     const packageDiscountItem = primaryInvoice?.items?.find((i: any) =>
-      i.description?.toLowerCase().includes('package discount'),
+      i.description?.toLowerCase().includes("package discount"),
     );
     const allOrderDiscountItemsSum = rawInvoices
       .flatMap((inv: any) => inv.items || [])
-      .filter((i: any) => i.description?.toLowerCase().includes('package discount'))
-      .reduce((sum: number, i: any) => sum + Math.abs(parseFloat(i.amount || '0')), 0);
+      .filter((i: any) =>
+        i.description?.toLowerCase().includes("package discount"),
+      )
+      .reduce(
+        (sum: number, i: any) => sum + Math.abs(parseFloat(i.amount || "0")),
+        0,
+      );
 
     let packageDiscountVal = packageDiscountItem
-      ? Math.abs(parseFloat(packageDiscountItem.amount || '0'))
+      ? Math.abs(parseFloat(packageDiscountItem.amount || "0"))
       : allOrderDiscountItemsSum;
 
     if (packageDiscountVal === 0 && billing.package) {
       const discPercent = parseFloat(
-        billing.package.discount ?? billing.package.package_discount ?? '0',
+        billing.package.discount ?? billing.package.package_discount ?? "0",
       );
       const discType = (
-        billing.package.discount_type ?? billing.package.package_discount_type ?? 'percentage'
+        billing.package.discount_type ??
+        billing.package.package_discount_type ??
+        "percentage"
       ).toLowerCase();
-      if (discPercent > 0 && discType === 'percentage') {
+      if (discPercent > 0 && discType === "percentage") {
         const originalSubtotal = subtotalVal / (1 - discPercent / 100);
-        packageDiscountVal = Math.round((originalSubtotal - subtotalVal) * 100) / 100;
+        packageDiscountVal =
+          Math.round((originalSubtotal - subtotalVal) * 100) / 100;
       }
     }
-    const packageName = billing.package?.name || (billing.package as any)?.package_name || null;
+    const packageName =
+      billing.package?.name || (billing.package as any)?.package_name || null;
 
     // Check media restrictions
     const servicesWithoutMedia =
-      userType === 'agent' && filesData
+      userType === "agent" && filesData
         ? billing.services.filter((svc) => {
             const svcId = svc.service_id;
             const hasMedia = filesData.some(
@@ -369,15 +413,18 @@ export default function OrderBillingModal({
                 f.service?.id === svcId ||
                 f.service_id === svcId ||
                 (svc.uuid && f.service?.uuid === svc.uuid) ||
-                (svc.order_service_uuid && f.service?.uuid === svc.order_service_uuid),
+                (svc.order_service_uuid &&
+                  f.service?.uuid === svc.order_service_uuid),
             );
             return !hasMedia;
           })
         : [];
-    const payAllBlockedByMedia = userType === 'agent' && servicesWithoutMedia.length > 0;
+    const payAllBlockedByMedia =
+      userType === "agent" && servicesWithoutMedia.length > 0;
 
     const isPartiallyRefundedOrder =
-      isPartiallyRefunded(billing.status) || isPartiallyRefunded(primaryInvoice?.status);
+      isPartiallyRefunded(billing.status) ||
+      isPartiallyRefunded(primaryInvoice?.status);
 
     const shouldShowPayAll =
       displayRemaining > 0 &&
@@ -424,45 +471,53 @@ export default function OrderBillingModal({
     setDownloadingUuid(inv.uuid);
     try {
       await DownloadInvoice(inv.uuid, inv.invoice_number || inv.id);
-      toast.success('Invoice downloaded successfully');
+      toast.success("Invoice downloaded successfully");
     } catch (err) {
-      console.error('Failed to download invoice PDF:', err);
-      toast.error('Failed to download invoice PDF');
+      console.error("Failed to download invoice PDF:", err);
+      toast.error("Failed to download invoice PDF");
     } finally {
       setDownloadingUuid(null);
     }
   };
 
   // Handle Stripe Payment
-  const handlePayInvoice = async (invoice: any, mode?: 'on_behalf' | 'self') => {
+  const handlePayInvoice = async (
+    invoice: any,
+    mode?: "on_behalf" | "self",
+  ) => {
     if (!billing) return;
-    setActionLoading({ id: invoice.uuid || billing.order_id, action: 'pay' });
+    setActionLoading({ id: invoice.uuid || billing.order_id, action: "pay" });
     try {
       const isSplit = !!invoice.split_details;
-      const payerUuid = userType === 'agent' ? currentUser?.uuid : undefined;
-      const isOwner = currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
+      const payerUuid = userType === "agent" ? currentUser?.uuid : undefined;
+      const isOwner =
+        currentUser?.uuid === (invoice.agent?.uuid || invoice.agent_uuid);
 
-      let paymentMode: 'on_behalf' | 'self' | undefined = mode;
+      let paymentMode: "on_behalf" | "self" | undefined = mode;
       if (isSplit && !paymentMode) {
         if (isOwner) {
-          paymentMode = 'self';
+          paymentMode = "self";
         } else {
           paymentMode =
-            invoice.agent_type === 'primary' && userType !== 'admin' ? 'self' : 'on_behalf';
+            invoice.agent_type === "primary" && userType !== "admin"
+              ? "self"
+              : "on_behalf";
         }
       }
 
       await PayInvoiceWithStripe(
         invoice,
         { agent: { uuid: billing.agent_uuid }, id: billing.order_id },
-        typeof window !== 'undefined' ? window.location.href : 'dashboard/billing',
+        typeof window !== "undefined"
+          ? window.location.href
+          : "dashboard/billing",
         undefined,
         isSplit ? paymentMode : undefined,
         isSplit ? payerUuid : undefined,
       );
     } catch (err) {
-      console.error('Failed to initiate Stripe payment:', err);
-      toast.error('Failed to initiate payment.');
+      console.error("Failed to initiate Stripe payment:", err);
+      toast.error("Failed to initiate payment.");
     } finally {
       setActionLoading(null);
     }
@@ -471,12 +526,14 @@ export default function OrderBillingModal({
   // Handle Open Manual Payment
   const handleOpenManualPayment = (invoice: any) => {
     setManualPaymentInvoice(invoice);
-    const totalVal = parseFloat(invoice.total || invoice.total_amount || '0');
-    const paidVal = parseFloat(invoice.paid_amount || invoice.total_paid || '0');
+    const totalVal = parseFloat(invoice.total || invoice.total_amount || "0");
+    const paidVal = parseFloat(
+      invoice.paid_amount || invoice.total_paid || "0",
+    );
     const remaining = Math.max(0, totalVal - paidVal);
     setManualPaymentAmount(remaining.toFixed(2));
-    setManualPaymentMethod('E-Transfer');
-    setManualPaymentNotes('');
+    setManualPaymentMethod("E-Transfer");
+    setManualPaymentNotes("");
     setManualPaymentOpen(true);
   };
 
@@ -487,7 +544,7 @@ export default function OrderBillingModal({
 
     const amountNum = parseFloat(manualPaymentAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      toast.error('Please enter a valid amount.');
+      toast.error("Please enter a valid amount.");
       return;
     }
 
@@ -503,17 +560,19 @@ export default function OrderBillingModal({
       );
 
       if (response.success) {
-        toast.success(response.message || 'Manual payment recorded successfully!');
+        toast.success(
+          response.message || "Manual payment recorded successfully!",
+        );
         setManualPaymentOpen(false);
         setManualPaymentInvoice(null);
         await loadBillingData();
         if (onRefreshInvoices) await onRefreshInvoices();
       } else {
-        toast.error(response.message || 'Failed to record manual payment.');
+        toast.error(response.message || "Failed to record manual payment.");
       }
     } catch (err: any) {
-      console.error('Error submitting manual payment:', err);
-      toast.error(err.message || 'Failed to record manual payment.');
+      console.error("Error submitting manual payment:", err);
+      toast.error(err.message || "Failed to record manual payment.");
     } finally {
       setSubmittingManualPayment(false);
     }
@@ -531,7 +590,11 @@ export default function OrderBillingModal({
   };
 
   // Open invoice document viewer
-  const handleOpenInvoiceDoc = (targetInv: any, serviceUuid?: string, serviceNumericId?: any) => {
+  const handleOpenInvoiceDoc = (
+    targetInv: any,
+    serviceUuid?: string,
+    serviceNumericId?: any,
+  ) => {
     if (!targetInv) return;
     const matchedService = serviceUuid
       ? billing?.services?.find(
@@ -546,13 +609,13 @@ export default function OrderBillingModal({
     const preview = isSingle
       ? prepareOrderInvoicePreview(invoices, targetInv, billing) || targetInv
       : serviceUuid
-      ? prepareServiceInvoicePreview(
-          targetInv,
-          serviceUuid,
-          serviceNumericId,
-          matchedService?.service_name,
-        ) || targetInv
-      : prepareOrderInvoicePreview(invoices, targetInv, billing) || targetInv;
+        ? prepareServiceInvoicePreview(
+            targetInv,
+            serviceUuid,
+            serviceNumericId,
+            matchedService?.service_name,
+          ) || targetInv
+        : prepareOrderInvoicePreview(invoices, targetInv, billing) || targetInv;
 
     setServiceInvoicePopup({
       invoice: preview,
@@ -568,17 +631,17 @@ export default function OrderBillingModal({
       const newItems = [...(current?.items || [])];
       newItems[index] = { ...newItems[index], [field]: value };
 
-      if (field === 'quantity' || field === 'unit_price') {
-        const qty = parseFloat(newItems[index].quantity || '0');
-        const price = parseFloat(newItems[index].unit_price || '0');
+      if (field === "quantity" || field === "unit_price") {
+        const qty = parseFloat(newItems[index].quantity || "0");
+        const price = parseFloat(newItems[index].unit_price || "0");
         newItems[index].amount = (qty * price).toFixed(2);
       }
 
       const subtotal = newItems.reduce(
-        (acc: number, item: any) => acc + parseFloat(item.amount || '0'),
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
         0,
       );
-      const taxRate = parseFloat(current?.tax_rate || '0');
+      const taxRate = parseFloat(current?.tax_rate || "0");
       const taxAmount = subtotal * (taxRate / 100);
       const total = subtotal + taxAmount;
 
@@ -598,7 +661,7 @@ export default function OrderBillingModal({
       const newItems = [
         ...(current?.items || []),
         {
-          description: '',
+          description: "",
           quantity: 1,
           unit_price: 0,
           amount: 0,
@@ -613,12 +676,14 @@ export default function OrderBillingModal({
   const removeInvoiceItem = (index: number) => {
     setEditingInvoiceData((prev: any) => {
       const current = prev || serviceInvoicePopup?.invoice;
-      const newItems = (current?.items || []).filter((_: any, i: number) => i !== index);
+      const newItems = (current?.items || []).filter(
+        (_: any, i: number) => i !== index,
+      );
       const subtotal = newItems.reduce(
-        (acc: number, item: any) => acc + parseFloat(item.amount || '0'),
+        (acc: number, item: any) => acc + parseFloat(item.amount || "0"),
         0,
       );
-      const taxRate = parseFloat(current?.tax_rate || '0');
+      const taxRate = parseFloat(current?.tax_rate || "0");
       const taxAmount = subtotal * (taxRate / 100);
       const total = subtotal + taxAmount;
 
@@ -635,8 +700,8 @@ export default function OrderBillingModal({
   const updateInvoiceTaxRate = (val: string) => {
     setEditingInvoiceData((prev: any) => {
       const current = prev || serviceInvoicePopup?.invoice;
-      const subtotal = parseFloat(current?.subtotal || '0');
-      const taxRate = parseFloat(val || '0');
+      const subtotal = parseFloat(current?.subtotal || "0");
+      const taxRate = parseFloat(val || "0");
       const taxAmount = subtotal * (taxRate / 100);
       const total = subtotal + taxAmount;
 
@@ -662,24 +727,28 @@ export default function OrderBillingModal({
         items: editingInvoiceData.items.map((item: any) => ({
           uuid: item.uuid,
           description: item.description,
-          quantity: parseInt(item.quantity || '1', 10),
-          unit_price: parseFloat(item.unit_price || '0'),
+          quantity: parseInt(item.quantity || "1", 10),
+          unit_price: parseFloat(item.unit_price || "0"),
           order_service_uuid:
-            item.order_service?.uuid || item.orderService?.uuid || item.order_service_uuid,
+            item.order_service?.uuid ||
+            item.orderService?.uuid ||
+            item.order_service_uuid,
         })),
       });
 
-      toast.success('Invoice updated successfully!');
+      toast.success("Invoice updated successfully!");
       setServiceInvoicePopup((prev) =>
-        prev ? { ...prev, invoice: { ...prev.invoice, ...editingInvoiceData } } : null,
+        prev
+          ? { ...prev, invoice: { ...prev.invoice, ...editingInvoiceData } }
+          : null,
       );
       setIsEditingInvoice(false);
       setEditingInvoiceData(null);
       await loadBillingData();
       if (onRefreshInvoices) await onRefreshInvoices();
     } catch (err: any) {
-      console.error('Failed to save invoice edits:', err);
-      toast.error(err.message || 'Failed to update invoice.');
+      console.error("Failed to save invoice edits:", err);
+      toast.error(err.message || "Failed to update invoice.");
     } finally {
       setIsSavingInvoice(false);
     }
@@ -720,7 +789,9 @@ export default function OrderBillingModal({
                   className="h-8 w-8 animate-spin"
                   style={{ color: roleSettings.pageTabColor }}
                 />
-                <span className="text-xs text-gray-500">Loading billing details...</span>
+                <span className="text-xs text-gray-500">
+                  Loading billing details...
+                </span>
               </div>
             ) : !billing || !orderCalculations ? (
               <div className="text-center py-16 italic text-gray-500">
@@ -755,43 +826,53 @@ export default function OrderBillingModal({
                           <>
                             <Button
                               onClick={() =>
-                                handleOpenInvoiceDoc(orderCalculations.targetOrderInvoice)
+                                handleOpenInvoiceDoc(
+                                  orderCalculations.targetOrderInvoice,
+                                )
                               }
                               className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = roleSettings.pageTabColor;
-                                e.currentTarget.style.color = 'white';
-                                e.currentTarget.style.borderColor = roleSettings.pageTabColor;
+                                e.currentTarget.style.backgroundColor =
+                                  roleSettings.pageTabColor;
+                                e.currentTarget.style.color = "white";
+                                e.currentTarget.style.borderColor =
+                                  roleSettings.pageTabColor;
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'white';
-                                e.currentTarget.style.color = '#666666';
-                                e.currentTarget.style.borderColor = '#BBBBBB';
+                                e.currentTarget.style.backgroundColor = "white";
+                                e.currentTarget.style.color = "#666666";
+                                e.currentTarget.style.borderColor = "#BBBBBB";
                               }}
                             >
                               Invoice
                             </Button>
                             <Button
                               onClick={() =>
-                                handleDownloadInvoice(orderCalculations.targetOrderInvoice)
+                                handleDownloadInvoice(
+                                  orderCalculations.targetOrderInvoice,
+                                )
                               }
                               disabled={
-                                downloadingUuid === orderCalculations.targetOrderInvoice.uuid
+                                downloadingUuid ===
+                                orderCalculations.targetOrderInvoice.uuid
                               }
                               className="h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center cursor-pointer gap-1.5"
                               title="Download Invoice PDF"
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = roleSettings.pageTabColor;
-                                e.currentTarget.style.color = 'white';
-                                e.currentTarget.style.borderColor = roleSettings.pageTabColor;
+                                e.currentTarget.style.backgroundColor =
+                                  roleSettings.pageTabColor;
+                                e.currentTarget.style.color = "white";
+                                e.currentTarget.style.borderColor =
+                                  roleSettings.pageTabColor;
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'white';
-                                e.currentTarget.style.color = '#666666';
-                                e.currentTarget.style.borderColor = '#BBBBBB';
+                                e.currentTarget.style.backgroundColor = "white";
+                                e.currentTarget.style.color = "#666666";
+                                e.currentTarget.style.borderColor = "#BBBBBB";
                               }}
                             >
-                              {downloadingUuid === orderCalculations.targetOrderInvoice.uuid ? (
+                              {downloadingUuid ===
+                              orderCalculations.targetOrderInvoice.uuid ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : (
                                 <Download className="h-3.5 w-3.5" />
@@ -817,11 +898,14 @@ export default function OrderBillingModal({
                                     <Button
                                       disabled
                                       className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal opacity-50 cursor-not-allowed min-w-[100px]"
-                                      style={{ backgroundColor: roleSettings.pageTabColor }}
+                                      style={{
+                                        backgroundColor:
+                                          roleSettings.pageTabColor,
+                                      }}
                                     >
                                       {orderCalculations.hasCancellationFee
-                                        ? 'Pay Cancellation Fee'
-                                        : 'Pay All'}
+                                        ? "Pay Cancellation Fee"
+                                        : "Pay All"}
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
@@ -834,8 +918,9 @@ export default function OrderBillingModal({
                                     ⚠ Payment Unavailable
                                   </span>
                                   <span>
-                                    Media has not yet been uploaded for all services. Payment will be
-                                    available once media is uploaded.
+                                    Media has not yet been uploaded for all
+                                    services. Payment will be available once
+                                    media is uploaded.
                                   </span>
                                 </TooltipContent>
                               </Tooltip>
@@ -844,31 +929,38 @@ export default function OrderBillingModal({
                             <Button
                               onClick={() => {
                                 if (orderCalculations.targetOrderInvoice) {
-                                  handlePayInvoice(orderCalculations.targetOrderInvoice);
+                                  handlePayInvoice(
+                                    orderCalculations.targetOrderInvoice,
+                                  );
                                 }
                               }}
                               disabled={actionLoading !== null}
                               className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                              style={{ backgroundColor: roleSettings.pageTabColor }}
+                              style={{
+                                backgroundColor: roleSettings.pageTabColor,
+                              }}
                             >
-                              {actionLoading?.action === 'pay' ? (
+                              {actionLoading?.action === "pay" ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing...
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                                  Processing...
                                 </>
                               ) : orderCalculations.hasCancellationFee ? (
-                                'Pay Cancellation Fee'
+                                "Pay Cancellation Fee"
                               ) : (
-                                'Pay All'
+                                "Pay All"
                               )}
                             </Button>
                           ))}
 
-                        {role === 'admin' &&
+                        {role === "admin" &&
                           orderCalculations.shouldShowPayAll &&
                           orderCalculations.targetOrderInvoice && (
                             <Button
                               onClick={() =>
-                                handleOpenManualPayment(orderCalculations.targetOrderInvoice)
+                                handleOpenManualPayment(
+                                  orderCalculations.targetOrderInvoice,
+                                )
                               }
                               className="h-[35px] px-4 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[100px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
                             >
@@ -876,24 +968,29 @@ export default function OrderBillingModal({
                             </Button>
                           )}
 
-                        {orderCalculations.isOrderPaid && !orderCalculations.isOrderRefunded && (
-                          <Button
-                            disabled
-                            className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[100px] bg-[#6BAE41] cursor-not-allowed opacity-90"
-                          >
-                            Paid
-                          </Button>
-                        )}
+                        {orderCalculations.isOrderPaid &&
+                          !orderCalculations.isOrderRefunded && (
+                            <Button
+                              disabled
+                              className="h-[35px] px-4 text-white rounded-[6px] text-xs font-normal flex items-center justify-center min-w-[100px] bg-[#6BAE41] cursor-not-allowed opacity-90"
+                            >
+                              Paid
+                            </Button>
+                          )}
 
-                        {role === 'admin' &&
+                        {role === "admin" &&
                           orderCalculations.isOrderPaid &&
                           !orderCalculations.isOrderRefunded && (
                             <Button
                               variant="outline"
                               onClick={() => {
                                 if (orderCalculations.targetOrderInvoice) {
-                                  setSelectedRefundInvoice(orderCalculations.targetOrderInvoice);
-                                  setRefundDefaultAmount(orderCalculations.grandTotalVal);
+                                  setSelectedRefundInvoice(
+                                    orderCalculations.targetOrderInvoice,
+                                  );
+                                  setRefundDefaultAmount(
+                                    orderCalculations.grandTotalVal,
+                                  );
                                   setRefundModalOpen(true);
                                 }
                               }}
@@ -911,11 +1008,13 @@ export default function OrderBillingModal({
                     <div className="min-w-0">
                       <p className="text-gray-600 mb-1">Property Address</p>
                       <p className="font-medium whitespace-normal break-words leading-snug">
-                        {billing.property_address || '—'}
-                        {billing.property_location ? `, ${billing.property_location}` : ''}
+                        {billing.property_address || "—"}
+                        {billing.property_location
+                          ? `, ${billing.property_location}`
+                          : ""}
                       </p>
                     </div>
-                    {role !== 'agent' && (
+                    {role !== "agent" && (
                       <div className="min-w-0">
                         <p className="text-gray-600 mb-1">Vendors</p>
                         <p className="font-medium whitespace-normal break-words leading-snug">
@@ -923,9 +1022,11 @@ export default function OrderBillingModal({
                             new Set(
                               billing.slots
                                 .map((slot) => slot.vendor_name)
-                                .filter((name): name is string => Boolean(name && name.trim())),
+                                .filter((name): name is string =>
+                                  Boolean(name && name.trim()),
+                                ),
                             ),
-                          ).join(', ') || '—'}
+                          ).join(", ") || "—"}
                         </p>
                       </div>
                     )}
@@ -943,50 +1044,62 @@ export default function OrderBillingModal({
                       {orderCalculations.packageDiscountVal > 0 && (
                         <>
                           <div>
-                            <span className="text-gray-500 block text-xs">Original Subtotal</span>
+                            <span className="text-gray-500 block text-xs">
+                              Original Subtotal
+                            </span>
                             <span className="font-semibold text-gray-500 line-through">
                               {(
                                 orderCalculations.subtotalVal +
                                 orderCalculations.packageDiscountVal
-                              ).toLocaleString('en-US', {
-                                style: 'currency',
-                                currency: 'USD',
+                              ).toLocaleString("en-US", {
+                                style: "currency",
+                                currency: "USD",
                               })}
                             </span>
                           </div>
                           <div>
                             <span className="text-gray-500 block text-xs">
-                              Discount{' '}
+                              Discount{" "}
                               {orderCalculations.packageName
                                 ? `(${orderCalculations.packageName})`
-                                : ''}
+                                : ""}
                             </span>
                             <span className="font-semibold text-emerald-600">
                               -
-                              {orderCalculations.packageDiscountVal.toLocaleString('en-US', {
-                                style: 'currency',
-                                currency: 'USD',
-                              })}
+                              {orderCalculations.packageDiscountVal.toLocaleString(
+                                "en-US",
+                                {
+                                  style: "currency",
+                                  currency: "USD",
+                                },
+                              )}
                             </span>
                           </div>
                         </>
                       )}
 
                       <div>
-                        <span className="text-gray-500 block text-xs">Subtotal</span>
+                        <span className="text-gray-500 block text-xs">
+                          Subtotal
+                        </span>
                         <span className="font-semibold text-gray-700">
-                          {orderCalculations.subtotalVal.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                          })}
+                          {orderCalculations.subtotalVal.toLocaleString(
+                            "en-US",
+                            {
+                              style: "currency",
+                              currency: "USD",
+                            },
+                          )}
                         </span>
                       </div>
 
                       {orderCalculations.orderTaxDetails &&
-                      Object.keys(orderCalculations.orderTaxDetails).length > 0 ? (
+                      Object.keys(orderCalculations.orderTaxDetails).length >
+                        0 ? (
                         Object.entries(orderCalculations.orderTaxDetails).map(
                           ([taxKey, taxVal]: [string, any]) => {
-                            const rate = taxVal?.rate ?? orderCalculations.taxRate;
+                            const rate =
+                              taxVal?.rate ?? orderCalculations.taxRate;
                             const amt = parseFloat(taxVal?.amount || 0);
                             return (
                               <div key={taxKey}>
@@ -994,9 +1107,9 @@ export default function OrderBillingModal({
                                   {taxKey} ({rate}%)
                                 </span>
                                 <span className="font-semibold text-[#DC9600]">
-                                  {amt.toLocaleString('en-US', {
-                                    style: 'currency',
-                                    currency: 'USD',
+                                  {amt.toLocaleString("en-US", {
+                                    style: "currency",
+                                    currency: "USD",
                                   })}
                                 </span>
                               </div>
@@ -1009,56 +1122,76 @@ export default function OrderBillingModal({
                             GST/HST ({orderCalculations.taxRate}%)
                           </span>
                           <span className="font-semibold text-[#DC9600]">
-                            {orderCalculations.taxAmount.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })}
+                            {orderCalculations.taxAmount.toLocaleString(
+                              "en-US",
+                              {
+                                style: "currency",
+                                currency: "USD",
+                              },
+                            )}
                           </span>
                         </div>
                       ) : null}
 
                       <div>
-                        <span className="text-gray-500 block text-xs">Grand Total</span>
+                        <span className="text-gray-500 block text-xs">
+                          Grand Total
+                        </span>
                         <span className="font-bold text-gray-800">
-                          {orderCalculations.grandTotalVal.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                          })}
+                          {orderCalculations.grandTotalVal.toLocaleString(
+                            "en-US",
+                            {
+                              style: "currency",
+                              currency: "USD",
+                            },
+                          )}
                         </span>
                       </div>
 
                       <div>
-                        <span className="text-gray-500 block text-xs">Total Paid</span>
+                        <span className="text-gray-500 block text-xs">
+                          Total Paid
+                        </span>
                         <span className="font-semibold text-[#6BAE41]">
                           {(orderCalculations.isOrderRefunded
                             ? 0
                             : orderCalculations.safeRowTotalPaid
-                          ).toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
+                          ).toLocaleString("en-US", {
+                            style: "currency",
+                            currency: "USD",
                           })}
                         </span>
                       </div>
 
                       {orderCalculations.totalRefunded > 0 && (
                         <div>
-                          <span className="text-gray-500 block text-xs">Total Refunded</span>
+                          <span className="text-gray-500 block text-xs">
+                            Total Refunded
+                          </span>
                           <span className="font-semibold text-red-500">
-                            {orderCalculations.totalRefunded.toLocaleString('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                            })}
+                            {orderCalculations.totalRefunded.toLocaleString(
+                              "en-US",
+                              {
+                                style: "currency",
+                                currency: "USD",
+                              },
+                            )}
                           </span>
                         </div>
                       )}
 
                       <div>
-                        <span className="text-gray-500 block text-xs">Balance Due</span>
+                        <span className="text-gray-500 block text-xs">
+                          Balance Due
+                        </span>
                         <span className="font-bold text-[#E06D5E]">
-                          {orderCalculations.displayRemaining.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                          })}
+                          {orderCalculations.displayRemaining.toLocaleString(
+                            "en-US",
+                            {
+                              style: "currency",
+                              currency: "USD",
+                            },
+                          )}
                         </span>
                       </div>
                     </div>
@@ -1084,12 +1217,17 @@ export default function OrderBillingModal({
                           <tbody className="divide-y divide-gray-50 text-gray-600">
                             {billing.invoices.map((txn: any, idx: number) => {
                               const isRefund =
-                                txn.status === 'refunded' || parseFloat(txn.amount) < 0;
-                              const displayAmount = Math.abs(parseFloat(txn.amount || '0'));
+                                txn.status === "refunded" ||
+                                parseFloat(txn.amount) < 0;
+                              const displayAmount = Math.abs(
+                                parseFloat(txn.amount || "0"),
+                              );
                               return (
                                 <tr key={idx}>
                                   <td className="py-2.5">
-                                    {txn.paid_at ? formatOrderDate(txn.paid_at) : '—'}
+                                    {txn.paid_at
+                                      ? formatOrderDate(txn.paid_at)
+                                      : "—"}
                                   </td>
                                   <td className="py-2.5 font-semibold">
                                     {isRefund ? (
@@ -1103,21 +1241,26 @@ export default function OrderBillingModal({
                                     )}
                                   </td>
                                   <td className="py-2.5 capitalize">
-                                    {txn.payment_method || 'manual'}
+                                    {txn.payment_method || "manual"}
                                   </td>
                                   <td
                                     className={`py-2.5 text-right font-semibold ${
-                                      isRefund ? 'text-red-600' : 'text-green-600'
+                                      isRefund
+                                        ? "text-red-600"
+                                        : "text-green-600"
                                     }`}
                                   >
-                                    {isRefund ? '-' : ''}${displayAmount.toFixed(2)}
+                                    {isRefund ? "-" : ""}$
+                                    {displayAmount.toFixed(2)}
                                   </td>
                                   <td className="py-2.5 text-center">
                                     {isRefund ? (
                                       <Button
                                         variant="link"
                                         className="text-blue-600 hover:text-blue-800 p-0 h-auto text-xs font-medium"
-                                        onClick={() => handleViewRefundReceipt(txn)}
+                                        onClick={() =>
+                                          handleViewRefundReceipt(txn)
+                                        }
                                       >
                                         View Receipt
                                       </Button>
@@ -1131,7 +1274,7 @@ export default function OrderBillingModal({
                                         Stripe
                                       </a>
                                     ) : (
-                                      '—'
+                                      "—"
                                     )}
                                   </td>
                                 </tr>
@@ -1154,7 +1297,8 @@ export default function OrderBillingModal({
                   </h3>
 
                   {billing.services.map((service) => {
-                    const serviceUuid = service.uuid || service.order_service_uuid;
+                    const serviceUuid =
+                      service.uuid || service.order_service_uuid;
                     const serviceTargetInvoice = getBestTargetInvoice(
                       invoices,
                       serviceUuid,
@@ -1164,7 +1308,8 @@ export default function OrderBillingModal({
                     );
 
                     const isServiceRefunded =
-                      isRefunded(service.status) || isRefunded(serviceTargetInvoice?.status);
+                      isRefunded(service.status) ||
+                      isRefunded(serviceTargetInvoice?.status);
                     const isServicePartiallyRefunded =
                       !isServiceRefunded &&
                       (isPartiallyRefunded(service.status) ||
@@ -1172,10 +1317,12 @@ export default function OrderBillingModal({
                     const isServicePaid =
                       (isPaidOrSucceeded(service.status) ||
                         isPaidOrSucceeded(serviceTargetInvoice?.status) ||
-                        billing.status === 'paid' ||
-                        (parseFloat(serviceTargetInvoice?.paid_amount || 0) > 0 &&
+                        billing.status === "paid" ||
+                        (parseFloat(serviceTargetInvoice?.paid_amount || 0) >
+                          0 &&
                           parseFloat(serviceTargetInvoice?.paid_amount || 0) >=
-                            parseFloat(serviceTargetInvoice?.total || 0) - 0.01)) &&
+                            parseFloat(serviceTargetInvoice?.total || 0) -
+                              0.01)) &&
                       !isServiceRefunded &&
                       !isServicePartiallyRefunded;
 
@@ -1205,25 +1352,25 @@ export default function OrderBillingModal({
                                 <span
                                   className={`px-2 py-0.5 text-[10px] rounded-full text-white font-medium uppercase ml-2 ${
                                     isServicePartiallyRefunded
-                                      ? 'bg-[#D97706]'
+                                      ? "bg-[#D97706]"
                                       : isServicePaid
-                                      ? 'bg-[#6BAE41]'
-                                      : isServiceRefunded
-                                      ? 'bg-[#DC9600]'
-                                      : service.status === 'pending'
-                                      ? 'bg-[#DC9600]'
-                                      : service.status === 'cancelled'
-                                      ? 'bg-[#E06D5E]'
-                                      : 'bg-[#7D7D7D]'
+                                        ? "bg-[#6BAE41]"
+                                        : isServiceRefunded
+                                          ? "bg-[#DC9600]"
+                                          : service.status === "pending"
+                                            ? "bg-[#DC9600]"
+                                            : service.status === "cancelled"
+                                              ? "bg-[#E06D5E]"
+                                              : "bg-[#7D7D7D]"
                                   }`}
                                 >
                                   {isServicePartiallyRefunded
-                                    ? 'partially refunded'
+                                    ? "partially refunded"
                                     : isServicePaid
-                                    ? 'paid'
-                                    : isServiceRefunded
-                                    ? 'refunded'
-                                    : service.status || 'unpaid'}
+                                      ? "paid"
+                                      : isServiceRefunded
+                                        ? "refunded"
+                                        : service.status || "unpaid"}
                                 </span>
                               </div>
 
@@ -1242,14 +1389,16 @@ export default function OrderBillingModal({
                                     onMouseEnter={(e) => {
                                       e.currentTarget.style.backgroundColor =
                                         roleSettings.pageTabColor;
-                                      e.currentTarget.style.color = 'white';
+                                      e.currentTarget.style.color = "white";
                                       e.currentTarget.style.borderColor =
                                         roleSettings.pageTabColor;
                                     }}
                                     onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = 'white';
-                                      e.currentTarget.style.color = '#666666';
-                                      e.currentTarget.style.borderColor = '#BBBBBB';
+                                      e.currentTarget.style.backgroundColor =
+                                        "white";
+                                      e.currentTarget.style.color = "#666666";
+                                      e.currentTarget.style.borderColor =
+                                        "#BBBBBB";
                                     }}
                                   >
                                     Invoice
@@ -1263,33 +1412,43 @@ export default function OrderBillingModal({
                                   </Button>
                                 )}
 
-                                {!isServicePaid && !isServiceRefunded && !isServicePartiallyRefunded && (
-                                  <>
-                                    <Button
-                                      onClick={() => {
-                                        if (serviceTargetInvoice) {
-                                          handlePayInvoice(serviceTargetInvoice);
-                                        }
-                                      }}
-                                      disabled={actionLoading !== null}
-                                      className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
-                                      style={{ backgroundColor: roleSettings.pageTabColor }}
-                                    >
-                                      Pay Now
-                                    </Button>
-
-                                    {role === 'admin' && serviceTargetInvoice && (
+                                {!isServicePaid &&
+                                  !isServiceRefunded &&
+                                  !isServicePartiallyRefunded && (
+                                    <>
                                       <Button
-                                        onClick={() =>
-                                          handleOpenManualPayment(serviceTargetInvoice)
-                                        }
-                                        className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                        onClick={() => {
+                                          if (serviceTargetInvoice) {
+                                            handlePayInvoice(
+                                              serviceTargetInvoice,
+                                            );
+                                          }
+                                        }}
+                                        disabled={actionLoading !== null}
+                                        className="h-[30px] px-3 text-white rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:brightness-110 active:scale-[0.98]"
+                                        style={{
+                                          backgroundColor:
+                                            roleSettings.pageTabColor,
+                                        }}
                                       >
-                                        Mark Paid
+                                        Pay Now
                                       </Button>
-                                    )}
-                                  </>
-                                )}
+
+                                      {role === "admin" &&
+                                        serviceTargetInvoice && (
+                                          <Button
+                                            onClick={() =>
+                                              handleOpenManualPayment(
+                                                serviceTargetInvoice,
+                                              )
+                                            }
+                                            className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                                          >
+                                            Mark Paid
+                                          </Button>
+                                        )}
+                                    </>
+                                  )}
 
                                 {isServicePaid && (
                                   <>
@@ -1299,19 +1458,25 @@ export default function OrderBillingModal({
                                     >
                                       Paid
                                     </Button>
-                                    {role === 'admin' && serviceTargetInvoice && (
-                                      <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                          setSelectedRefundInvoice(serviceTargetInvoice);
-                                          setRefundDefaultAmount(pricing.totalPrice);
-                                          setRefundModalOpen(true);
-                                        }}
-                                        className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
-                                      >
-                                        <RotateCcw className="h-4 w-4 mr-2" /> Refund
-                                      </Button>
-                                    )}
+                                    {role === "admin" &&
+                                      serviceTargetInvoice && (
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => {
+                                            setSelectedRefundInvoice(
+                                              serviceTargetInvoice,
+                                            );
+                                            setRefundDefaultAmount(
+                                              pricing.totalPrice,
+                                            );
+                                            setRefundModalOpen(true);
+                                          }}
+                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                        >
+                                          <RotateCcw className="h-4 w-4 mr-2" />{" "}
+                                          Refund
+                                        </Button>
+                                      )}
                                   </>
                                 )}
 
@@ -1323,19 +1488,25 @@ export default function OrderBillingModal({
                                     >
                                       Partially Refunded
                                     </Button>
-                                    {role === 'admin' && serviceTargetInvoice && (
-                                      <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                          setSelectedRefundInvoice(serviceTargetInvoice);
-                                          setRefundDefaultAmount(pricing.totalPrice);
-                                          setRefundModalOpen(true);
-                                        }}
-                                        className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
-                                      >
-                                        <RotateCcw className="h-4 w-4 mr-2" /> Refund
-                                      </Button>
-                                    )}
+                                    {role === "admin" &&
+                                      serviceTargetInvoice && (
+                                        <Button
+                                          variant="outline"
+                                          onClick={() => {
+                                            setSelectedRefundInvoice(
+                                              serviceTargetInvoice,
+                                            );
+                                            setRefundDefaultAmount(
+                                              pricing.totalPrice,
+                                            );
+                                            setRefundModalOpen(true);
+                                          }}
+                                          className="h-[30px] px-3 border border-orange-200 text-orange-600 rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[90px] cursor-pointer hover:bg-orange-50"
+                                        >
+                                          <RotateCcw className="h-4 w-4 mr-2" />{" "}
+                                          Refund
+                                        </Button>
+                                      )}
                                   </>
                                 )}
                               </div>
@@ -1344,39 +1515,49 @@ export default function OrderBillingModal({
                             {/* Service Pricing Details - EXACT 1:1 COLORS FROM BILLING SCREEN */}
                             <div className="text-sm text-gray-600 space-y-0.5">
                               <p>
-                                Base Price:{' '}
+                                Base Price:{" "}
                                 <span className="font-medium text-gray-800">
                                   {pricing.originalPrice &&
                                   pricing.discountAmount &&
                                   pricing.discountAmount > 0 ? (
                                     <>
                                       <span className="line-through text-gray-400 font-normal mr-1.5">
-                                        {pricing.originalPrice.toLocaleString('en-US', {
-                                          style: 'currency',
-                                          currency: 'USD',
-                                        })}
+                                        {pricing.originalPrice.toLocaleString(
+                                          "en-US",
+                                          {
+                                            style: "currency",
+                                            currency: "USD",
+                                          },
+                                        )}
                                       </span>
                                       <span>
-                                        {pricing.basePrice.toLocaleString('en-US', {
-                                          style: 'currency',
-                                          currency: 'USD',
-                                        })}
+                                        {pricing.basePrice.toLocaleString(
+                                          "en-US",
+                                          {
+                                            style: "currency",
+                                            currency: "USD",
+                                          },
+                                        )}
                                       </span>
                                     </>
                                   ) : (
-                                    pricing.basePrice.toLocaleString('en-US', {
-                                      style: 'currency',
-                                      currency: 'USD',
+                                    pricing.basePrice.toLocaleString("en-US", {
+                                      style: "currency",
+                                      currency: "USD",
                                     })
                                   )}
                                 </span>
-                                {pricing.discountAmount && pricing.discountAmount > 0 ? (
+                                {pricing.discountAmount &&
+                                pricing.discountAmount > 0 ? (
                                   <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     Discount: -
-                                    {pricing.discountAmount.toLocaleString('en-US', {
-                                      style: 'currency',
-                                      currency: 'USD',
-                                    })}
+                                    {pricing.discountAmount.toLocaleString(
+                                      "en-US",
+                                      {
+                                        style: "currency",
+                                        currency: "USD",
+                                      },
+                                    )}
                                   </span>
                                 ) : null}
                               </p>
@@ -1385,15 +1566,19 @@ export default function OrderBillingModal({
                               Object.keys(pricing.taxDetails).length > 0 ? (
                                 Object.entries(pricing.taxDetails).map(
                                   ([taxKey, taxVal]: [string, any]) => {
-                                    const rate = taxVal?.rate ?? pricing.appliedTaxRate;
+                                    const rate =
+                                      taxVal?.rate ?? pricing.appliedTaxRate;
                                     const amt = parseFloat(taxVal?.amount || 0);
                                     return (
-                                      <p key={taxKey} className="text-xs text-gray-500">
-                                        {taxKey} ({rate}%):{' '}
+                                      <p
+                                        key={taxKey}
+                                        className="text-xs text-gray-500"
+                                      >
+                                        {taxKey} ({rate}%):{" "}
                                         <span className="font-medium">
-                                          {amt.toLocaleString('en-US', {
-                                            style: 'currency',
-                                            currency: 'USD',
+                                          {amt.toLocaleString("en-US", {
+                                            style: "currency",
+                                            currency: "USD",
                                           })}
                                         </span>
                                       </p>
@@ -1404,51 +1589,59 @@ export default function OrderBillingModal({
                                 <p className="text-xs text-gray-500">
                                   {pricing.appliedTaxRate > 0
                                     ? `Tax (${pricing.appliedTaxRate}%):`
-                                    : 'Tax:'}{' '}
+                                    : "Tax:"}{" "}
                                   <span className="font-medium">
-                                    {pricing.taxAmount.toLocaleString('en-US', {
-                                      style: 'currency',
-                                      currency: 'USD',
+                                    {pricing.taxAmount.toLocaleString("en-US", {
+                                      style: "currency",
+                                      currency: "USD",
                                     })}
                                   </span>
                                 </p>
                               ) : null}
 
                               <p className="text-[13px] font-semibold text-gray-700">
-                                Total Price:{' '}
+                                Total Price:{" "}
                                 <span className="text-[#6BAE41]">
-                                  {pricing.totalPrice.toLocaleString('en-US', {
-                                    style: 'currency',
-                                    currency: 'USD',
+                                  {pricing.totalPrice.toLocaleString("en-US", {
+                                    style: "currency",
+                                    currency: "USD",
                                   })}
                                 </span>
                               </p>
 
                               {(() => {
-                                const servicePaidAmount = pricing.paidAmount ?? 0;
-                                const serviceRefundedAmount = pricing.refundedAmount ?? 0;
+                                const servicePaidAmount =
+                                  pricing.paidAmount ?? 0;
+                                const serviceRefundedAmount =
+                                  pricing.refundedAmount ?? 0;
                                 return (
                                   <>
                                     {servicePaidAmount > 0 && (
                                       <p className="text-xs text-gray-600">
-                                        Amount Paid:{' '}
+                                        Amount Paid:{" "}
                                         <span className="font-semibold text-[#6BAE41]">
-                                          {servicePaidAmount.toLocaleString('en-US', {
-                                            style: 'currency',
-                                            currency: 'USD',
-                                          })}
+                                          {servicePaidAmount.toLocaleString(
+                                            "en-US",
+                                            {
+                                              style: "currency",
+                                              currency: "USD",
+                                            },
+                                          )}
                                         </span>
                                       </p>
                                     )}
 
                                     {serviceRefundedAmount > 0 && (
                                       <p className="text-xs text-gray-600">
-                                        Amount Refunded:{' '}
+                                        Amount Refunded:{" "}
                                         <span className="font-semibold text-red-500">
-                                          {serviceRefundedAmount.toLocaleString('en-US', {
-                                            style: 'currency',
-                                            currency: 'USD',
-                                          })}
+                                          {serviceRefundedAmount.toLocaleString(
+                                            "en-US",
+                                            {
+                                              style: "currency",
+                                              currency: "USD",
+                                            },
+                                          )}
                                         </span>
                                       </p>
                                     )}
@@ -1466,40 +1659,53 @@ export default function OrderBillingModal({
                               return (
                                 <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4">
                                   <div>
-                                    <span className="font-semibold">Scheduled:</span>{' '}
-                                    {formatOrderDate(serviceSlot.slot_date)} at{' '}
-                                    {serviceSlot.start_time} - {serviceSlot.end_time}
+                                    <span className="font-semibold">
+                                      Scheduled:
+                                    </span>{" "}
+                                    {formatOrderDate(serviceSlot.slot_date)} at{" "}
+                                    {serviceSlot.start_time} -{" "}
+                                    {serviceSlot.end_time}
                                   </div>
                                 </div>
                               );
                             })()}
 
                             {/* Service-specific invoice link */}
-                            {service.related_invoices && service.related_invoices.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {service.related_invoices.map((invoice, invoiceIndex) => (
-                                  <div key={invoiceIndex} className="flex items-center gap-2">
-                                    <ExternalLink
-                                      className="w-3 h-3 flex-shrink-0"
-                                      style={{ color: roleSettings.activeColor }}
-                                    />
-                                    <a
-                                      href={invoice.invoice_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs font-medium hover:underline truncate"
-                                      style={{ color: roleSettings.activeColor }}
-                                      title={invoice.invoice_url}
-                                    >
-                                      Service Invoice {invoiceIndex + 1}
-                                    </a>
-                                    <span className="text-xs text-gray-500">
-                                      ({formatOrderDate(invoice.paid_at)})
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {service.related_invoices &&
+                              service.related_invoices.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {service.related_invoices.map(
+                                    (invoice, invoiceIndex) => (
+                                      <div
+                                        key={invoiceIndex}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <ExternalLink
+                                          className="w-3 h-3 flex-shrink-0"
+                                          style={{
+                                            color: roleSettings.activeColor,
+                                          }}
+                                        />
+                                        <a
+                                          href={invoice.invoice_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs font-medium hover:underline truncate"
+                                          style={{
+                                            color: roleSettings.activeColor,
+                                          }}
+                                          title={invoice.invoice_url}
+                                        >
+                                          Service Invoice {invoiceIndex + 1}
+                                        </a>
+                                        <span className="text-xs text-gray-500">
+                                          ({formatOrderDate(invoice.paid_at)})
+                                        </span>
+                                      </div>
+                                    ),
+                                  )}
+                                </div>
+                              )}
                           </div>
                         </div>
                       </div>
@@ -1530,210 +1736,230 @@ export default function OrderBillingModal({
           {serviceInvoicePopup && (
             <>
               <div className="flex flex-col gap-3 p-4 border-b border-[#BBBBBB]">
-              {/* Row 1: Title and badges on the left, Close button on the right */}
-              <div className="flex justify-between items-center w-full gap-3">
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <DialogTitle
-                    className="text-base sm:text-xl font-bold whitespace-nowrap"
-                    style={{ color: roleSettings.pageTabColor }}
-                  >
-                    Invoice #
-                    {serviceInvoicePopup.invoice.invoice_number || serviceInvoicePopup.invoice.id}
-                  </DialogTitle>
-                  {(() => {
-                    const status = (serviceInvoicePopup.invoice.status || 'unpaid').toUpperCase();
-                    let badgeBg = '#E06D5E';
-                    let badgeText = 'Unpaid';
-                    if (status === 'PAID') {
-                      badgeBg = '#6BAE41';
-                      badgeText = 'Paid';
-                    } else if (status === 'ISSUED') {
-                      badgeBg = '#4A90E2';
-                      badgeText = 'Issued';
-                    } else if (status === 'VOID') {
-                      badgeBg = '#A0A0A0';
-                      badgeText = 'Void';
-                    } else if (status.includes('PARTIAL')) {
-                      badgeBg = '#DC9600';
-                      badgeText = 'Partial';
-                    } else if (status === 'REFUNDED') {
-                      badgeBg = '#D0021B';
-                      badgeText = 'Refunded';
-                    } else if (status.includes('REFUNDED')) {
-                      badgeBg = '#D9534F';
-                      badgeText = 'Partially Refunded';
-                    }
+                {/* Row 1: Title and badges on the left, Close button on the right */}
+                <div className="flex justify-between items-center w-full gap-3">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <DialogTitle
+                      className="text-base sm:text-xl font-bold whitespace-nowrap"
+                      style={{ color: roleSettings.pageTabColor }}
+                    >
+                      Invoice #
+                      {serviceInvoicePopup.invoice.invoice_number ||
+                        serviceInvoicePopup.invoice.id}
+                    </DialogTitle>
+                    {(() => {
+                      const status = (
+                        serviceInvoicePopup.invoice.status || "unpaid"
+                      ).toUpperCase();
+                      let badgeBg = "#E06D5E";
+                      let badgeText = "Unpaid";
+                      if (status === "PAID") {
+                        badgeBg = "#6BAE41";
+                        badgeText = "Paid";
+                      } else if (status === "ISSUED") {
+                        badgeBg = "#4A90E2";
+                        badgeText = "Issued";
+                      } else if (status === "VOID") {
+                        badgeBg = "#A0A0A0";
+                        badgeText = "Void";
+                      } else if (status.includes("PARTIAL")) {
+                        badgeBg = "#DC9600";
+                        badgeText = "Partial";
+                      } else if (status === "REFUNDED") {
+                        badgeBg = "#D0021B";
+                        badgeText = "Refunded";
+                      } else if (status.includes("REFUNDED")) {
+                        badgeBg = "#D9534F";
+                        badgeText = "Partially Refunded";
+                      }
 
-                    return (
-                      <span
-                        className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase leading-none whitespace-nowrap"
-                        style={{ backgroundColor: badgeBg }}
-                      >
-                        {badgeText}
-                      </span>
-                    );
-                  })()}
-                  {isRenewalInvoice(serviceInvoicePopup.invoice) ? (
-                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200 whitespace-nowrap">
-                      Hosting Renewal
-                    </span>
-                  ) : isMainInvoice(serviceInvoicePopup.invoice) ? (
-                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase border border-emerald-300 whitespace-nowrap">
-                      Main Invoice
-                    </span>
-                  ) : isInvoiceLinkedToService(serviceInvoicePopup.invoice) ? (
-                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200 whitespace-nowrap">
-                      Service Invoice
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300 whitespace-nowrap">
-                      Orphan Invoice
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    setServiceInvoicePopup(null);
-                    setIsEditingInvoice(false);
-                    setEditingInvoiceData(null);
-                  }}
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Row 2: Action buttons */}
-              <div className="flex items-center justify-end gap-2 w-full flex-wrap">
-                {!isEditingInvoice && (
-                  <Button
-                    variant="outline"
-                    disabled={downloadingUuid === serviceInvoicePopup.invoice.uuid}
-                    onClick={() => handleDownloadInvoice(serviceInvoicePopup.invoice)}
-                    className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
-                  >
-                    {downloadingUuid === serviceInvoicePopup.invoice.uuid ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                    Download PDF
-                  </Button>
-                )}
-
-                {isAdmin &&
-                  !['paid', 'void', 'refunded'].includes(
-                    (serviceInvoicePopup.invoice.status || '').toLowerCase(),
-                  ) && (
-                    <div className="flex items-center gap-2">
-                      {isEditingInvoice ? (
-                        <>
-                          <Button
-                            disabled={isSavingInvoice}
-                            onClick={() => {
-                              setIsEditingInvoice(false);
-                              setEditingInvoiceData(null);
-                            }}
-                            variant="outline"
-                            className="h-[30px] text-xs px-3 font-medium rounded-[6px] shadow-sm transition-all bg-white hover:bg-gray-700 hover:text-white hover:border-gray-700 border-gray-300 text-gray-700"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            disabled={isSavingInvoice}
-                            onClick={handleSaveInvoice}
-                            className="h-[30px] text-xs px-3 font-medium text-white rounded-[6px] shadow-sm transition-all flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700"
-                          >
-                            {isSavingInvoice ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Save className="h-3.5 w-3.5" />
-                            )}
-                            Save Changes
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setEditingInvoiceData(
-                              JSON.parse(JSON.stringify(serviceInvoicePopup.invoice)),
-                            );
-                            setIsEditingInvoice(true);
-                          }}
-                          className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                      return (
+                        <span
+                          className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase leading-none whitespace-nowrap"
+                          style={{ backgroundColor: badgeBg }}
                         >
-                          <Edit2 className="h-3.5 w-3.5" />
-                          Edit Invoice
-                        </Button>
-                      )}
+                          {badgeText}
+                        </span>
+                      );
+                    })()}
+                    {isRenewalInvoice(serviceInvoicePopup.invoice) ? (
+                      <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-purple-100 text-purple-700 uppercase border border-purple-200 whitespace-nowrap">
+                        Hosting Renewal
+                      </span>
+                    ) : isMainInvoice(serviceInvoicePopup.invoice) ? (
+                      <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase border border-emerald-300 whitespace-nowrap">
+                        Main Invoice
+                      </span>
+                    ) : isInvoiceLinkedToService(
+                        serviceInvoicePopup.invoice,
+                      ) ? (
+                      <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-blue-100 text-blue-700 uppercase border border-blue-200 whitespace-nowrap">
+                        Service Invoice
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase border border-amber-300 whitespace-nowrap">
+                        Orphan Invoice
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setServiceInvoicePopup(null);
+                      setIsEditingInvoice(false);
+                      setEditingInvoiceData(null);
+                    }}
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
 
-                      {!isEditingInvoice &&
-                        parseFloat(serviceInvoicePopup.invoice.paid_amount || '0') <= 0 &&
-                        !['paid', 'void', 'refunded'].includes(
-                          (serviceInvoicePopup.invoice.status || '').toLowerCase(),
-                        ) && (
+                {/* Row 2: Action buttons */}
+                <div className="flex items-center justify-end gap-2 w-full flex-wrap">
+                  {!isEditingInvoice && (
+                    <Button
+                      variant="outline"
+                      disabled={
+                        downloadingUuid === serviceInvoicePopup.invoice.uuid
+                      }
+                      onClick={() =>
+                        handleDownloadInvoice(serviceInvoicePopup.invoice)
+                      }
+                      className="h-[30px] text-xs px-3 font-medium border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                    >
+                      {downloadingUuid === serviceInvoicePopup.invoice.uuid ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Download PDF
+                    </Button>
+                  )}
+
+                  {isAdmin &&
+                    !["paid", "void", "refunded"].includes(
+                      (serviceInvoicePopup.invoice.status || "").toLowerCase(),
+                    ) && (
+                      <div className="flex items-center gap-2">
+                        {isEditingInvoice ? (
+                          <>
+                            <Button
+                              disabled={isSavingInvoice}
+                              onClick={() => {
+                                setIsEditingInvoice(false);
+                                setEditingInvoiceData(null);
+                              }}
+                              variant="outline"
+                              className="h-[30px] text-xs px-3 font-medium rounded-[6px] shadow-sm transition-all bg-white hover:bg-gray-700 hover:text-white hover:border-gray-700 border-gray-300 text-gray-700"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              disabled={isSavingInvoice}
+                              onClick={handleSaveInvoice}
+                              className="h-[30px] text-xs px-3 font-medium text-white rounded-[6px] shadow-sm transition-all flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700"
+                            >
+                              {isSavingInvoice ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Save className="h-3.5 w-3.5" />
+                              )}
+                              Save Changes
+                            </Button>
+                          </>
+                        ) : (
                           <Button
                             variant="outline"
                             onClick={() => {
-                              setDeleteInvoiceModal({
-                                open: true,
-                                invoice: serviceInvoicePopup.invoice,
-                              });
+                              setEditingInvoiceData(
+                                JSON.parse(
+                                  JSON.stringify(serviceInvoicePopup.invoice),
+                                ),
+                              );
+                              setIsEditingInvoice(true);
                             }}
-                            className="h-[30px] text-xs px-3 font-medium border border-red-500 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                            className="h-[30px] text-xs px-3 font-medium border border-blue-500 text-blue-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete Invoice
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit Invoice
                           </Button>
                         )}
-                    </div>
-                  )}
 
-                {/* Agent / Admin Payment Buttons */}
-                {userType !== 'vendor' &&
-                  !isEditingInvoice &&
-                  !['PAID', 'VOID', 'REFUNDED'].includes(
-                    (serviceInvoicePopup.invoice.status || '').toUpperCase(),
-                  ) && (
-                    <Button
-                      onClick={() => handlePayInvoice(serviceInvoicePopup.invoice)}
-                      className="h-[30px] text-xs px-3 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm agent-bg border-none"
-                    >
-                      Pay Now
-                    </Button>
-                  )}
+                        {!isEditingInvoice &&
+                          parseFloat(
+                            serviceInvoicePopup.invoice.paid_amount || "0",
+                          ) <= 0 &&
+                          !["paid", "void", "refunded"].includes(
+                            (
+                              serviceInvoicePopup.invoice.status || ""
+                            ).toLowerCase(),
+                          ) && (
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setDeleteInvoiceModal({
+                                  open: true,
+                                  invoice: serviceInvoicePopup.invoice,
+                                });
+                              }}
+                              className="h-[30px] text-xs px-3 font-medium border border-red-500 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm bg-white"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete Invoice
+                            </Button>
+                          )}
+                      </div>
+                    )}
 
-                {isAdmin &&
-                  !isEditingInvoice &&
-                  !['PAID', 'VOID', 'REFUNDED'].includes(
-                    (serviceInvoicePopup.invoice.status || '').toUpperCase(),
-                  ) && (
-                    <Button
-                      onClick={() => handleOpenManualPayment(serviceInvoicePopup.invoice)}
-                      className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
-                    >
-                      Mark Paid
-                    </Button>
-                  )}
+                  {/* Agent / Admin Payment Buttons */}
+                  {userType !== "vendor" &&
+                    !isEditingInvoice &&
+                    !["PAID", "VOID", "REFUNDED"].includes(
+                      (serviceInvoicePopup.invoice.status || "").toUpperCase(),
+                    ) && (
+                      <Button
+                        onClick={() =>
+                          handlePayInvoice(serviceInvoicePopup.invoice)
+                        }
+                        className="h-[30px] text-xs px-4 font-normal text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm border-none cursor-pointer"
+                        style={{ backgroundColor: roleSettings.pageTabColor }}
+                      >
+                        Pay Now
+                      </Button>
+                    )}
+
+                  {isAdmin &&
+                    !isEditingInvoice &&
+                    !["PAID", "VOID", "REFUNDED"].includes(
+                      (serviceInvoicePopup.invoice.status || "").toUpperCase(),
+                    ) && (
+                      <Button
+                        onClick={() =>
+                          handleOpenManualPayment(serviceInvoicePopup.invoice)
+                        }
+                        className="h-[30px] px-3 text-emerald-600 bg-white border border-emerald-500 rounded-[6px] text-xs font-normal transition-all flex items-center justify-center cursor-pointer hover:bg-emerald-600 hover:text-white active:scale-[0.98]"
+                      >
+                        Mark Paid
+                      </Button>
+                    )}
+                </div>
               </div>
-            </div>
 
-            {/* Modal Body: Invoice Document */}
-            <div className="overflow-y-auto p-4 flex-1 bg-gray-50/30">
-              <InvoiceDocument
-                invoice={serviceInvoicePopup.invoice}
-                editData={editingInvoiceData || serviceInvoicePopup.invoice}
-                isEditing={isEditingInvoice}
-                updateItem={updateInvoiceItem}
-                addItem={addInvoiceItem}
-                removeItem={removeInvoiceItem}
-                updateTaxRate={updateInvoiceTaxRate}
-                setEditData={setEditingInvoiceData}
-                roleSettings={roleSettings}
-              />
-            </div>
+              {/* Modal Body: Invoice Document */}
+              <div className="overflow-y-auto p-4 flex-1 bg-gray-50/30">
+                <InvoiceDocument
+                  invoice={serviceInvoicePopup.invoice}
+                  editData={editingInvoiceData || serviceInvoicePopup.invoice}
+                  isEditing={isEditingInvoice}
+                  updateItem={updateInvoiceItem}
+                  addItem={addInvoiceItem}
+                  removeItem={removeInvoiceItem}
+                  updateTaxRate={updateInvoiceTaxRate}
+                  setEditData={setEditingInvoiceData}
+                  roleSettings={roleSettings}
+                />
+              </div>
             </>
           )}
         </DialogContent>
@@ -1752,7 +1978,9 @@ export default function OrderBillingModal({
           </DialogHeader>
           <form onSubmit={handleSubmitManualPayment} className="space-y-4 mt-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700 block">Amount to Record ($)</label>
+              <label className="text-sm font-medium text-gray-700 block">
+                Amount to Record ($)
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -1764,8 +1992,13 @@ export default function OrderBillingModal({
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700 block">Payment Method</label>
-              <Select value={manualPaymentMethod} onValueChange={setManualPaymentMethod}>
+              <label className="text-sm font-medium text-gray-700 block">
+                Payment Method
+              </label>
+              <Select
+                value={manualPaymentMethod}
+                onValueChange={setManualPaymentMethod}
+              >
                 <SelectTrigger className="w-full border-[#BBBBBB] h-[40px] bg-white">
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -1773,14 +2006,18 @@ export default function OrderBillingModal({
                   <SelectItem value="E-Transfer">E-Transfer</SelectItem>
                   <SelectItem value="Cheque">Cheque</SelectItem>
                   <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Credit Card">Credit Card (Manual)</SelectItem>
+                  <SelectItem value="Credit Card">
+                    Credit Card (Manual)
+                  </SelectItem>
                   <SelectItem value="Other">Other / Manual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700 block">Reference Notes</label>
+              <label className="text-sm font-medium text-gray-700 block">
+                Reference Notes
+              </label>
               <textarea
                 placeholder="Enter transaction reference, e-transfer details, cheque numbers..."
                 value={manualPaymentNotes}
@@ -1810,7 +2047,7 @@ export default function OrderBillingModal({
                     <Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...
                   </>
                 ) : (
-                  'Record Payment'
+                  "Record Payment"
                 )}
               </Button>
             </div>
@@ -1828,9 +2065,21 @@ export default function OrderBillingModal({
           }}
           invoice={selectedRefundInvoice}
           defaultAmount={refundDefaultAmount}
-          onSuccess={async () => {
+          onSuccess={async (updatedInvoice?: any) => {
             setRefundModalOpen(false);
             setSelectedRefundInvoice(null);
+            if (updatedInvoice) {
+              setInvoices((prev) =>
+                prev.map((inv) =>
+                  inv.uuid === updatedInvoice.uuid ? updatedInvoice : inv,
+                ),
+              );
+              setServiceInvoicePopup((prev) =>
+                prev && prev.invoice?.uuid === updatedInvoice.uuid
+                  ? { ...prev, invoice: updatedInvoice }
+                  : prev,
+              );
+            }
             await loadBillingData();
             if (onRefreshInvoices) await onRefreshInvoices();
           }}

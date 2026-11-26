@@ -424,7 +424,7 @@ export default function OneDayCalendar({
             start_time: '00:00:00',
             end_time: '23:59:59',
             is_off: 0,
-            is_twilight: 0,
+            is_twilight: vendor.work_hours?.work_days?.find((d: any) => d.day === dayjs(date).format('ddd').toLowerCase())?.is_twilight ?? 0,
           }],
         };
         const { startSlots } = getVendorValidStartSlots(
@@ -441,7 +441,7 @@ export default function OneDayCalendar({
           service.service.uuid,
           selectedSlots,
           15,
-          false,
+          isTwilightService,
           currentServiceDataForSlots?.is_travel_required !== false,
           destinationAddress
         );
@@ -484,7 +484,7 @@ export default function OneDayCalendar({
           service.service.uuid,
           selectedSlots,
           15,
-          false,
+          isTwilightService,
           currentServiceDataForSlots?.is_travel_required !== false,
           destinationAddress
         );
@@ -820,7 +820,7 @@ export default function OneDayCalendar({
               start_time: '00:00:00',
               end_time: '23:59:59',
               is_off: 0,
-              is_twilight: 0
+              is_twilight: vendor.work_hours?.work_days?.find((d: any) => d.day === dayjs(selectedDate).format('ddd').toLowerCase())?.is_twilight ?? 0
             }]
           };
           validResult = getVendorValidStartSlots(
@@ -836,7 +836,8 @@ export default function OneDayCalendar({
             shouldEnforceForVendor,
             service.service.uuid,
             selectedSlots,
-            15
+            15,
+            isTwilightService
           );
         } else {
           if (!vendor.work_hours) return;
@@ -867,7 +868,8 @@ export default function OneDayCalendar({
             shouldEnforceForVendor,
             service.service.uuid,
             selectedSlots,
-            15
+            15,
+            isTwilightService
           );
         }
 
@@ -1181,7 +1183,7 @@ export default function OneDayCalendar({
                                   start_time: '00:00:00',
                                   end_time: '23:59:59',
                                   is_off: 0,
-                                  is_twilight: 0
+                                  is_twilight: vendor.work_hours?.work_days?.find((d: any) => d.day === dayjs(selDate).format('ddd').toLowerCase())?.is_twilight ?? 0
                                 }]
                               };
                               validResult = getVendorValidStartSlots(
@@ -1198,7 +1200,7 @@ export default function OneDayCalendar({
                                 service.service.uuid,
                                 selectedSlots,
                                 15,
-                                false,
+                                isTwilightService,
                                 currentServiceDataForModal?.is_travel_required !== false,
                                 destinationAddress
                               );
@@ -1235,7 +1237,7 @@ export default function OneDayCalendar({
                                 service.service.uuid,
                                 selectedSlots,
                                 15,
-                                false,
+                                isTwilightService,
                                 currentServiceDataForModal?.is_travel_required !== false,
                                 destinationAddress
                               );

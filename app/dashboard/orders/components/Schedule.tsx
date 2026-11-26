@@ -24,6 +24,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAppContext } from '@/app/context/AppContext'
 import { useOrganization } from '@/app/context/OrganizationContext';
 import { GetTourSettings } from '@/app/dashboard/global-settings/global-settings';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 
 interface Coordinate {
     lat: number
@@ -120,6 +121,12 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
     }, []);
     const [selectedVendorForModal, setSelectedVendorForModal] = useState<VendorData | null>(null);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+    const [pendingVendorChange, setPendingVendorChange] = useState<{
+        serviceKey: string;
+        serviceUuid?: string;
+        serviceId?: string | number;
+        value: string;
+    } | null>(null);
     const [isCalculating, setIsCalculating] = useState(true);
     const [propertyLocation, setPropertyLocation] = useState<PropertyLocation | null>(null);
     const { userType } = useAppContext();
@@ -133,6 +140,7 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
         servicesData,
         tempPropertyData,
         selectedSlots,
+        setSelectedSlots,
         scheduleOverrideMap,
         setScheduleOverrideMap,
         showAllVendorsMap,
@@ -627,6 +635,19 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
                                 return s;
                             }));
                         };
+                        const handleVendorDropdownChange = (value: string) => {
+                            if (value === selectedVendor) return;
+                            if (serviceSlots.length > 0) {
+                                setPendingVendorChange({
+                                    serviceKey,
+                                    serviceUuid: service.uuid,
+                                    serviceId: service.id,
+                                    value,
+                                });
+                                return;
+                            }
+                            handleVendorChange(value);
+                        };
                         const showAllVendors = showAllVendorsMap[serviceKey] ?? 0;
                         const scheduleOverride = scheduleOverrideMap[serviceKey] ?? 0;
                         const recommendTime = recommendTimeMap[serviceKey] ?? 0;
@@ -909,7 +930,7 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
                                                     )}
                                                     <Select
                                                         value={noVendors ? "none" : (typeof selectedVendor === 'string' ? selectedVendor : 'all')}
-                                                        onValueChange={handleVendorChange}
+                                                        onValueChange={handleVendorDropdownChange}
                                                         disabled={noVendors}
                                                     >
                                                         <SelectTrigger
@@ -1373,6 +1394,42 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
             <FloorplanAreasModal
                 open={isFloorplanModalOpen}
                 onOpenChange={setIsFloorplanModalOpen}
+            />
+            <ConfirmationDialog
+                open={Boolean(pendingVendorChange)}
+                setOpen={(open) => {
+                    if (!open) setPendingVendorChange(null);
+                }}
+                onConfirm={() => {
+                    if (!pendingVendorChange) return;
+                    const { serviceKey: pKey, serviceUuid, serviceId, value } = pendingVendorChange;
+                    setSelectedSlots((prev: Slot[]) =>
+                        prev.filter(
+                            (s: Slot) =>
+                                !(
+                                    s.service_id === serviceUuid ||
+                                    (serviceUuid && String(s.service_id) === String(serviceUuid)) ||
+                                    (serviceId && String(s.service_id) === String(serviceId))
+                                )
+                        )
+                    );
+                    setSelectedVendorMap((prev) => ({ ...prev, [pKey]: value }));
+                    setSelectedServices((prev: any[]) =>
+                        prev.map((s: any) => {
+                            const sKey = s.uuid || s.service_uuid || s.id;
+                            if (sKey === pKey || (serviceUuid && s.uuid === serviceUuid)) {
+                                return { ...s, vendor_id: value !== 'all' && value !== 'none' ? value : undefined };
+                            }
+                            return s;
+                        })
+                    );
+                    setPendingVendorChange(null);
+                }}
+                hideShowAgain={true}
+                title="Change Vendor?"
+                description="Changing the vendor will unselect the currently selected time slot(s) for this service. Do you want to continue?"
+                confirmText="Confirm"
+                cancelText="Cancel"
             />
         </div>
     )

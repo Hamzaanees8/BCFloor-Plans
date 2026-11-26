@@ -74,7 +74,10 @@ const RefundModal = ({ isOpen, onClose, invoice, onSuccess, defaultAmount }: Ref
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto font-alexandria rounded-[8px] bg-white border border-[#BBBBBB] shadow-2xl">
+            <DialogContent
+                overlayClassName="z-[300]"
+                className="z-[300] sm:max-w-[425px] w-[95vw] max-h-[90vh] overflow-y-auto font-alexandria rounded-[8px] bg-white border border-[#BBBBBB] shadow-2xl"
+            >
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <RotateCcw className="h-5 w-5 text-orange-500" />

@@ -731,10 +731,7 @@ const FileManager = () => {
   }, [groupedServices, searchParams, activeTab]);
 
   const [showInvoicesModal, setShowInvoicesModal] = useState(false);
-  const [modalInvoices, setModalInvoices] = useState<any[] | null>(null);
-  const [modalTitle, setModalTitle] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   const [, setIsAgentPaymentBannerDismissed] = useState(false);
 
@@ -1053,14 +1050,11 @@ const FileManager = () => {
       userType ||
       (typeof window !== "undefined" ? localStorage.getItem("userType") : null);
     if (!orderData?.uuid || currentUserType === "vendor") return;
-    setInvoicesLoading(true);
     try {
       const res = await GetInvoicesByOrder(orderData.uuid);
       setInvoices(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.log("Failed to load invoices", e);
-    } finally {
-      setInvoicesLoading(false);
     }
   }, [orderData?.uuid, userType]);
 
@@ -1929,12 +1923,6 @@ const FileManager = () => {
 
     // For Admin: If there are multiple split invoices for this service across agents
     if (userType !== "agent" && candidateInvoices.length > 1) {
-      setModalInvoices(candidateInvoices);
-      setModalTitle(
-        serviceName
-          ? `Split Invoices — ${serviceName}`
-          : "Split Service Invoices",
-      );
       setShowInvoicesModal(true);
       return;
     }
@@ -1971,7 +1959,10 @@ const FileManager = () => {
         <TourTabs
           orderData={orderData}
           setOrderData={setOrderData}
-          onRefresh={fetchOrder}
+          onRefresh={async () => {
+            await fetchOrder();
+            await refreshInvoices();
+          }}
           isScrolled={isScrolled}
           isListing={isListing}
           vendorHasFloorPlan={vendorHasFloorPlan}
@@ -3189,16 +3180,15 @@ const FileManager = () => {
           open={showInvoicesModal}
           onOpenChange={(open) => {
             setShowInvoicesModal(open);
-            if (!open) {
-              setModalInvoices(null);
-              setModalTitle(null);
-            }
           }}
           orderId={orderId || orderData?.id}
           orderUuid={orderData?.uuid}
           orderData={orderData}
           invoices={invoices}
-          onRefreshInvoices={refreshInvoices}
+          onRefreshInvoices={async () => {
+            await refreshInvoices();
+            await fetchOrder();
+          }}
           filesData={filesData}
         />
 
@@ -3419,7 +3409,7 @@ const FileManager = () => {
                                     <span className="inline-block cursor-not-allowed">
                                       <Button
                                         disabled
-                                        className="h-[30px] text-xs px-4 font-medium text-white opacity-50 cursor-not-allowed rounded-[6px] agent-bg border-none shadow-sm"
+                                        className={`h-[30px] text-xs px-4 font-medium text-white opacity-50 cursor-not-allowed rounded-[6px] ${userType}-bg border-none shadow-sm`}
                                       >
                                         Pay Now
                                       </Button>
@@ -3436,7 +3426,7 @@ const FileManager = () => {
                                   handlePayInvoice(viewingInvoice);
                                   setViewingInvoice(null);
                                 }}
-                                className="h-[30px] text-xs px-4 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm agent-bg border-none"
+                                className={`h-[30px] text-xs px-4 font-medium text-white hover:brightness-110 rounded-[6px] transition-all active:scale-[0.98] shadow-sm ${userType}-bg border-none`}
                               >
                                 Pay Now
                               </Button>
@@ -3643,8 +3633,6 @@ const FileManager = () => {
             <Button
               onClick={async () => {
                 await refreshInvoices();
-                setModalInvoices(null);
-                setModalTitle(null);
                 setShowInvoicesModal(true);
               }}
               className={`rounded-[6px] border-[1px] ${userType}-border font-[400] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button transition-all duration-300 h-[28px] w-[60px] text-[10px] px-1 md:h-[35px] md:w-[110px] md:text-[14px] md:px-4`}
