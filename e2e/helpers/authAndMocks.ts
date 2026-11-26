@@ -1,4 +1,34 @@
-import type { Page, APIRequestContext } from '@playwright/test';
+import type { Page, APIRequestContext, TestInfo } from '@playwright/test';
+
+/**
+ * Adds plain-English business metadata for the Executive/Client HTML report.
+ */
+export function annotateBusinessCase(
+  testInfo: TestInfo,
+  meta: { caseId: string; area: string; role: string; summary: string }
+): void {
+  testInfo.annotations.push(
+    { type: 'caseId', description: meta.caseId },
+    { type: 'area', description: meta.area },
+    { type: 'role', description: meta.role },
+    { type: 'summary', description: meta.summary }
+  );
+}
+
+/**
+ * Captures a visual proof screenshot on PASS (embedded directly into client-summary.html).
+ */
+export async function attachProofScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  label: string
+): Promise<void> {
+  const buffer = await page.screenshot({ fullPage: false });
+  await testInfo.attach(label, {
+    body: buffer,
+    contentType: 'image/png',
+  });
+}
 
 export const E2E_CONFIG = {
   baseUrl: process.env.E2E_BASE_URL || 'http://localhost:3000',

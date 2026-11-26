@@ -26,6 +26,15 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    [
+      './e2e/reporters/executiveReporter.ts',
+      {
+        outputFile: 'e2e-reports/client-summary.html',
+        title: 'BCF Booking & Scheduling — QA Verification Report',
+        subtitle:
+          'Plain-English verification summary with visual proof for business & client teams',
+      },
+    ],
   ],
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:3000',
