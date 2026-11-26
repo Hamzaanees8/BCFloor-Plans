@@ -77,6 +77,8 @@ import InvoiceDocument from "@/app/dashboard/invoice/components/InvoiceDocument"
 interface OrderBillingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  targetServiceUuid?: string;
+  onNavigateToDownload?: () => void;
   orderId?: string | number;
   orderUuid?: string;
   orderData?: any;
