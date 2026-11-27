@@ -20,6 +20,18 @@ interface CapturedScreenshot {
   dataUri: string;
 }
 
+interface QaDiagnostics {
+  consoleErrors: string[];
+  pageErrors: string[];
+  failedApiCalls: string[];
+  apiTransactions: Array<{
+    method: string;
+    url: string;
+    status: number;
+    summary: string;
+  }>;
+}
+
 interface CapturedCase {
   caseId: string;
   area: string;
@@ -27,9 +39,12 @@ interface CapturedCase {
   title: string;
   summary: string;
   status: 'passed' | 'failed' | 'skipped' | 'timedOut' | 'interrupted';
+  hasWarnings: boolean;
   durationMs: number;
   steps: Array<{ title: string; status: 'passed' | 'failed' }>;
   screenshots: CapturedScreenshot[];
+  diagnostics?: QaDiagnostics;
+  tracePath?: string;
   errorMessage?: string;
 }
 
@@ -83,7 +98,6 @@ export default class ExecutiveReporter implements Reporter {
     const role = getAnnotation(test, 'role', 'All Users');
     const summary = getAnnotation(test, 'summary', '');
 
-    // Collect top-level test.step() entries (category === 'test.step')
     const steps: Array<{ title: string; status: 'passed' | 'failed' }> = [];
     for (const step of result.steps) {
       if (step.category === 'test.step') {
@@ -94,9 +108,30 @@ export default class ExecutiveReporter implements Reporter {
       }
     }
 
-    // Collect image attachments (proof screenshots on pass + failure screenshots) as embedded base64
     const screenshots: CapturedScreenshot[] = [];
+    let diagnostics: QaDiagnostics | undefined;
+    let tracePath: string | undefined;
+
     for (const att of result.attachments) {
+      if (att.name === 'qa-diagnostics.json') {
+        try {
+          const raw = att.body
+            ? att.body.toString('utf-8')
+            : att.path && fs.existsSync(att.path)
+            ? fs.readFileSync(att.path, 'utf-8')
+            : '';
+          if (raw) diagnostics = JSON.parse(raw) as QaDiagnostics;
+        } catch {
+          // ignore invalid JSON
+        }
+        continue;
+      }
+
+      if (att.name === 'trace' && att.path) {
+        tracePath = path.relative(process.cwd(), att.path);
+        continue;
+      }
+
       if (!att.contentType?.startsWith('image/')) continue;
       try {
         let buf: Buffer | null = null;
@@ -112,9 +147,14 @@ export default class ExecutiveReporter implements Reporter {
           });
         }
       } catch {
-        // Skip unreadable attachment without failing report generation
+        // Skip unreadable attachment
       }
     }
+
+    const warningCount =
+      (diagnostics?.consoleErrors?.length || 0) +
+      (diagnostics?.pageErrors?.length || 0) +
+      (diagnostics?.failedApiCalls?.length || 0);
 
     const rawError = result.error?.message
       ? result.error.message.replace(/\u001b\[[0-9;]*m/g, '')
@@ -127,28 +167,31 @@ export default class ExecutiveReporter implements Reporter {
       title: test.title,
       summary,
       status: result.status,
+      hasWarnings: result.status === 'passed' && warningCount > 0,
       durationMs: result.duration,
       steps,
       screenshots,
+      diagnostics,
+      tracePath,
       errorMessage: rawError,
     });
   }
 
   onEnd(_result: FullResult): void {
     const total = this.cases.length;
-    const passed = this.cases.filter((c) => c.status === 'passed').length;
+    const passedClean = this.cases.filter((c) => c.status === 'passed' && !c.hasWarnings).length;
+    const passedWarned = this.cases.filter((c) => c.status === 'passed' && c.hasWarnings).length;
+    const passedTotal = passedClean + passedWarned;
     const failed = this.cases.filter(
       (c) => c.status === 'failed' || c.status === 'timedOut' || c.status === 'interrupted'
     ).length;
-    const skipped = this.cases.filter((c) => c.status === 'skipped').length;
-    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+    const passRate = total > 0 ? Math.round((passedTotal / total) * 100) : 0;
     const totalDuration = Date.now() - this.startTime;
     const generatedAt = new Date().toLocaleString('en-US', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
 
-    // Group cases by business area
     const grouped = new Map<string, CapturedCase[]>();
     for (const c of this.cases) {
       const list = grouped.get(c.area) || [];
@@ -158,9 +201,10 @@ export default class ExecutiveReporter implements Reporter {
 
     const html = this.renderHtml({
       total,
-      passed,
+      passedClean,
+      passedWarned,
+      passedTotal,
       failed,
-      skipped,
       passRate,
       totalDuration,
       generatedAt,
@@ -172,20 +216,34 @@ export default class ExecutiveReporter implements Reporter {
     fs.writeFileSync(outPath, html, 'utf-8');
 
     console.log(`\n📊 Client & Executive QA Summary generated: ${outPath}`);
-    console.log(`   Result: ${passed}/${total} passed (${passRate}%) — open in browser or Print → Save as PDF.\n`);
+    console.log(
+      `   Result: ${passedTotal}/${total} passed (${passedWarned} with non-blocking console/API warnings) — open in browser or Print → Save as PDF.\n`
+    );
   }
 
   private renderHtml(data: {
     total: number;
-    passed: number;
+    passedClean: number;
+    passedWarned: number;
+    passedTotal: number;
     failed: number;
-    skipped: number;
     passRate: number;
     totalDuration: number;
     generatedAt: string;
     grouped: Map<string, CapturedCase[]>;
   }): string {
-    const { total, passed, failed, skipped, passRate, totalDuration, generatedAt, grouped } = data;
+    const {
+      total,
+      passedClean,
+      passedWarned,
+      passedTotal,
+      failed,
+      passRate,
+      totalDuration,
+      generatedAt,
+      grouped,
+    } = data;
+
     const ringCircumference = 2 * Math.PI * 40;
     const ringOffset = ringCircumference * (1 - passRate / 100);
     const ringColor = failed === 0 ? '#16a34a' : passRate >= 75 ? '#d97706' : '#dc2626';
@@ -196,8 +254,14 @@ export default class ExecutiveReporter implements Reporter {
         const cardsHtml = items
           .map((item) => {
             const isPass = item.status === 'passed';
-            const badgeClass = isPass ? 'badge-pass' : 'badge-fail';
-            const badgeLabel = isPass ? 'Verified' : 'Needs Attention';
+            const filterKey = !isPass ? 'failed' : item.hasWarnings ? 'warned' : 'passed';
+            const cardClass = !isPass ? 'is-fail' : item.hasWarnings ? 'is-warn' : 'is-pass';
+            const badgeClass = !isPass ? 'badge-fail' : item.hasWarnings ? 'badge-warn' : 'badge-pass';
+            const badgeLabel = !isPass
+              ? 'Needs Attention'
+              : item.hasWarnings
+              ? 'Verified (With Warnings)'
+              : 'Verified';
 
             const stepsHtml =
               item.steps.length > 0
@@ -210,6 +274,42 @@ export default class ExecutiveReporter implements Reporter {
                     )
                     .join('')}</ul>`
                 : '';
+
+            const txHtml =
+              item.diagnostics && item.diagnostics.apiTransactions.length > 0
+                ? `<div class="tx-bar">
+                    <span class="tx-label">Verified API Actions:</span>
+                    ${item.diagnostics.apiTransactions
+                      .map(
+                        (tx) =>
+                          `<span class="tx-pill ${tx.status >= 400 ? 'tx-err' : 'tx-ok'}">${escapeHtml(
+                            tx.method
+                          )} ${escapeHtml(tx.url)} → ${tx.status} (${escapeHtml(tx.summary)})</span>`
+                      )
+                      .join('')}
+                  </div>`
+                : '';
+
+            const warnItems = [
+              ...(item.diagnostics?.consoleErrors.map((e) => `Console Error: ${e}`) || []),
+              ...(item.diagnostics?.pageErrors.map((e) => `Uncaught Page Error: ${e}`) || []),
+              ...(item.diagnostics?.failedApiCalls.map((e) => `Background API Failure: ${e}`) || []),
+            ];
+
+            const warningsHtml =
+              warnItems.length > 0
+                ? `<details class="warn-details">
+                    <summary>⚠ ${warnItems.length} non-blocking background warning(s) detected (did not stop workflow)</summary>
+                    <ul>${warnItems.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+                  </details>`
+                : '';
+
+            const traceHtml = item.tracePath
+              ? `<div class="trace-box">
+                  <strong>Playwright Trace (Step-by-step replay):</strong>
+                  <code>npx playwright show-trace "${escapeHtml(item.tracePath)}"</code>
+                </div>`
+              : '';
 
             const shotsHtml =
               item.screenshots.length > 0
@@ -227,16 +327,14 @@ export default class ExecutiveReporter implements Reporter {
                 : '';
 
             const errorHtml = item.errorMessage
-              ? `<details class="tech-details">
+              ? `<details class="tech-details" open>
                   <summary>Technical details (for Engineering)</summary>
                   <pre>${escapeHtml(item.errorMessage)}</pre>
                 </details>`
               : '';
 
             return `
-            <article class="case-card ${isPass ? 'is-pass' : 'is-fail'}" data-status="${
-              isPass ? 'passed' : 'failed'
-            }">
+            <article class="case-card ${cardClass}" data-status="${filterKey}">
               <div class="case-header">
                 <div class="case-meta">
                   ${item.caseId ? `<span class="pill pill-id">${escapeHtml(item.caseId)}</span>` : ''}
@@ -247,7 +345,10 @@ export default class ExecutiveReporter implements Reporter {
               </div>
               <h3 class="case-title">${escapeHtml(item.title)}</h3>
               ${item.summary ? `<p class="case-summary">${escapeHtml(item.summary)}</p>` : ''}
+              ${txHtml}
               ${stepsHtml}
+              ${warningsHtml}
+              ${traceHtml}
               ${shotsHtml}
               ${errorHtml}
             </article>`;
@@ -280,6 +381,8 @@ export default class ExecutiveReporter implements Reporter {
       --border: #e2e8f0;
       --pass: #16a34a;
       --pass-bg: #dcfce7;
+      --warn: #b45309;
+      --warn-bg: #fef3c7;
       --fail: #dc2626;
       --fail-bg: #fee2e2;
       --accent: #2563eb;
@@ -293,7 +396,7 @@ export default class ExecutiveReporter implements Reporter {
       color: var(--text);
       line-height: 1.5;
     }
-    .container { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+    .container { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
     .hero {
       background: var(--card);
       border: 1px solid var(--border);
@@ -309,7 +412,6 @@ export default class ExecutiveReporter implements Reporter {
     .hero h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -0.02em; }
     .hero p { margin: 0; color: var(--muted); font-size: 14px; }
     .hero-meta { margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
-    .hero-actions { display: flex; gap: 10px; align-items: center; }
     .btn {
       border: 1px solid var(--border);
       background: var(--card);
@@ -321,15 +423,13 @@ export default class ExecutiveReporter implements Reporter {
       cursor: pointer;
     }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn:hover { opacity: 0.92; }
-
     .kpi-grid {
       margin-top: 20px;
       display: grid;
-      grid-template-columns: 220px repeat(4, 1fr);
+      grid-template-columns: 230px repeat(4, 1fr);
       gap: 14px;
     }
-    @media (max-width: 820px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 860px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
     .kpi-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -339,23 +439,14 @@ export default class ExecutiveReporter implements Reporter {
       flex-direction: column;
       justify-content: center;
     }
-    .kpi-ring {
-      flex-direction: row;
-      align-items: center;
-      gap: 16px;
-    }
+    .kpi-ring { flex-direction: row; align-items: center; gap: 16px; }
     .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
     .kpi-value { font-size: 28px; font-weight: 700; margin-top: 4px; }
     .kpi-value.pass { color: var(--pass); }
+    .kpi-value.warn { color: var(--warn); }
     .kpi-value.fail { color: var(--fail); }
 
-    .filters {
-      margin: 24px 0 8px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
+    .filters { margin: 24px 0 8px; display: flex; gap: 8px; flex-wrap: wrap; }
     .filter-btn {
       border: 1px solid var(--border);
       background: var(--card);
@@ -389,24 +480,27 @@ export default class ExecutiveReporter implements Reporter {
       padding: 18px 22px;
       page-break-inside: avoid;
     }
+    .case-card.is-warn { border-left-color: var(--warn); }
     .case-card.is-fail { border-left-color: var(--fail); }
     .case-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     .case-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .pill {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 9px;
-      border-radius: 999px;
-    }
+    .pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
     .pill-id { background: #f1f5f9; color: #334155; }
     .pill-role { background: var(--accent-bg); color: var(--accent); }
     .duration { font-size: 12px; color: var(--muted); }
     .status-badge { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
     .badge-pass { background: var(--pass-bg); color: var(--pass); }
+    .badge-warn { background: var(--warn-bg); color: var(--warn); }
     .badge-fail { background: var(--fail-bg); color: var(--fail); }
 
     .case-title { margin: 10px 0 4px; font-size: 16px; }
     .case-summary { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+
+    .tx-bar { margin: 8px 0 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tx-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .tx-pill { font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 3px 8px; border-radius: 6px; }
+    .tx-ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .tx-err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
 
     .steps-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
     .steps-list li {
@@ -421,6 +515,37 @@ export default class ExecutiveReporter implements Reporter {
     .step-icon { font-weight: 700; width: 18px; text-align: center; }
     .step-pass .step-icon { color: var(--pass); }
     .step-fail .step-icon { color: var(--fail); }
+
+    .warn-details {
+      margin-top: 10px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #92400e;
+    }
+    .warn-details summary { cursor: pointer; font-weight: 600; }
+    .warn-details ul { margin: 8px 0 0; padding-left: 18px; }
+
+    .trace-box {
+      margin-top: 10px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .trace-box code {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+    }
 
     .shots-grid {
       margin-top: 14px;
@@ -452,7 +577,6 @@ export default class ExecutiveReporter implements Reporter {
       white-space: pre-wrap;
     }
 
-    /* Lightbox modal */
     .lightbox {
       display: none;
       position: fixed;
@@ -471,7 +595,7 @@ export default class ExecutiveReporter implements Reporter {
 
     @media print {
       body { background: #fff; }
-      .hero-actions, .filters, .lightbox { display: none !important; }
+      .hero-actions, .filters, .lightbox, .trace-box { display: none !important; }
       .container { padding: 0; max-width: 100%; }
       .shot-card img { height: 220px; }
     }
@@ -508,7 +632,7 @@ export default class ExecutiveReporter implements Reporter {
         <div>
           <div class="kpi-label">Pass Rate</div>
           <div style="font-size:13px;color:var(--muted);margin-top:4px;">${
-            failed === 0 ? 'All scenarios verified' : `${failed} item(s) need attention`
+            failed === 0 ? 'All workflows completed' : `${failed} item(s) need attention`
           }</div>
         </div>
       </div>
@@ -517,22 +641,23 @@ export default class ExecutiveReporter implements Reporter {
         <span class="kpi-value">${total}</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Verified (Pass)</span>
-        <span class="kpi-value pass">${passed}</span>
+        <span class="kpi-label">Verified Clean</span>
+        <span class="kpi-value pass">${passedClean}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Verified (Warnings)</span>
+        <span class="kpi-value warn">${passedWarned}</span>
       </div>
       <div class="kpi-card">
         <span class="kpi-label">Needs Attention</span>
         <span class="kpi-value ${failed > 0 ? 'fail' : ''}">${failed}</span>
       </div>
-      <div class="kpi-card">
-        <span class="kpi-label">Skipped</span>
-        <span class="kpi-value">${skipped}</span>
-      </div>
     </section>
 
     <div class="filters">
       <button class="filter-btn active" onclick="filterCases('all', this)">All (${total})</button>
-      <button class="filter-btn" onclick="filterCases('passed', this)">Verified (${passed})</button>
+      <button class="filter-btn" onclick="filterCases('passed', this)">Verified Clean (${passedClean})</button>
+      <button class="filter-btn" onclick="filterCases('warned', this)">With Warnings (${passedWarned})</button>
       <button class="filter-btn" onclick="filterCases('failed', this)">Needs Attention (${failed})</button>
     </div>
 

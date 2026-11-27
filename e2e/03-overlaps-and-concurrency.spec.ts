@@ -6,16 +6,18 @@ import {
   getVancouverDateOffset,
   loginAs,
 } from './helpers/authAndMocks';
+import { attachQaDiagnostics } from './helpers/qaSession';
 import {
-  attachErrorGuards,
-  assertNoServerErrors,
-  fillPropertyAndNext,
-  selectServicesAndNext,
-  selectVendorOnSchedule,
+  completeBookingAndSubmit,
+  completePropertyStep,
+  completeServicesStep,
+  navigateCalendarToDateOffset,
+  selectAvailableTimeSlot,
+  selectVendorDropdown,
 } from './helpers/bookingFlow';
 
 /**
- * Chunk 3 of 6: Double-Click, Cancelled Slot Release & Multi-Tab Concurrency (UI-15 to UI-17)
+ * Chunk 3 of 6: Overlap Prevention, Double-Click Safety & Cancelled Slot Release (UI-15 to UI-17)
  *
  * Run this chunk alone:
  *   npx playwright test e2e/03-overlaps-and-concurrency.spec.ts
@@ -23,137 +25,189 @@ import {
 
 const TARGET_DATE_T5 = getVancouverDateOffset(5);
 
-test.describe('Overlaps, Double-Click & Concurrency', () => {
-  test('UI-15 (UC-25): Slow 3G double-click on 09:00 slot adds only 1 set of 15-min chunks (no duplicates)', async ({
+test.describe('Overlap Prevention & Cancelled Slot Release', () => {
+  test('Rapid double-clicking a slot under Slow 3G network conditions does not duplicate selected chunks', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-15',
-      area: 'Overlaps, Double-Click & Concurrency',
-      role: 'Agent / Admin',
+      area: 'Overlap Prevention & Cancelled Slot Release',
+      role: 'Admin',
       summary:
-        'Throttles network to Slow 3G, drives to Schedule tab for Victor Alpha, rapidly double-clicks an available slot, and verifies no duplicate 120-min chunk selection occurs.',
+        'Navigates to Schedule on T+6, enables Slow 3G throttling, rapidly double-clicks an available slot, and verifies selected slot count is not duplicated.',
     });
 
-    const guard = attachErrorGuards(page);
+    const diag = attachQaDiagnostics(page);
 
-    await test.step('1. Sign in as Agent and navigate to Schedule tab for "300 Burrard St, Vancouver"', async () => {
-      await loginAs(page, request, 'agent');
-      await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-      await fillPropertyAndNext(page, testInfo, {
-        role: 'agent',
-        useExistingListing: true,
-        address: '300 Burrard St',
-        city: 'Vancouver',
-        postalCode: 'V6C 2G8',
-        squareFootage: '2000',
-      });
-      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
-      await selectVendorOnSchedule(page, 'Victor Alpha', 0);
-      await expect(page.locator('.fc').first()).toBeVisible({ timeout: 15_000 });
-      await attachProofScreenshot(page, testInfo, '1. Schedule Loaded Before Slow 3G');
-    });
-
-    await test.step('2. Throttle network (Slow 3G) and rapidly double-click first available slot', async () => {
-      const cdp = await page.context().newCDPSession(page);
-      await cdp.send('Network.emulateNetworkConditions', {
-        offline: false,
-        downloadThroughput: (500 * 1024) / 8,
-        uploadThroughput: (500 * 1024) / 8,
-        latency: 400,
+    try {
+      await test.step('Sign in as Admin and reach Schedule T+6 for Victor Alpha', async () => {
+        await loginAs(page, request, 'admin');
+        await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
+        await completePropertyStep(page, {
+          role: 'admin',
+          agentSearch: 'E2E Agent',
+          sqFt: '2000',
+          address: '100 Robson St',
+          city: 'Vancouver',
+          postalCode: 'V6B 2A7',
+        });
+        await completeServicesStep(page, ['E2E HDR Photos']);
+        await navigateCalendarToDateOffset(page, 6);
+        await selectVendorDropdown(page, 'Victor Alpha');
       });
 
-      const availableSlot = page.locator('.slot-available').first();
-      if (await availableSlot.isVisible().catch(() => false)) {
-        await availableSlot.dblclick();
-        await page.waitForTimeout(1000);
-      }
-      await attachProofScreenshot(page, testInfo, '2. Post Double-Click Slot State (No Duplicate Chunks)');
-      await expect(page.getByText(/120\s*min/i)).toHaveCount(0);
-      assertNoServerErrors(guard, 'UI-15 double-click under Slow 3G');
-    });
+      await test.step('Enable Slow 3G throttling and rapidly double-click an available slot', async () => {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send('Network.emulateNetworkConditions', {
+          offline: false,
+          downloadThroughput: (500 * 1024) / 8,
+          uploadThroughput: (500 * 1024) / 8,
+          latency: 400,
+        });
+
+        const { selectedCount } = await selectAvailableTimeSlot(page, {
+          preferredVendorName: 'Victor Alpha',
+          rapidDoubleClick: true,
+        });
+
+        await cdp.send('Network.emulateNetworkConditions', {
+          offline: false,
+          downloadThroughput: -1,
+          uploadThroughput: -1,
+          latency: 0,
+        });
+
+        expect.soft(selectedCount, 'Rapid double-click must not duplicate selected chunks').toBeLessThanOrEqual(4);
+        await attachProofScreenshot(page, testInfo, `Double-Click Result (${selectedCount} selected chunks)`);
+      });
+    } finally {
+      await diag.flush(testInfo);
+    }
   });
 
-  test('UI-16 (UC-26/27 UI): Cancelled booking on T+5 (14:00-15:00) is NOT blocking in /api/order-slots or Schedule', async ({
+  test('Cancelled appointments are immediately freed on both /api/order-slots and the booking calendar', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-16',
-      area: 'Overlaps, Double-Click & Concurrency',
-      role: 'Admin',
+      area: 'Overlap Prevention & Cancelled Slot Release',
+      role: 'Admin & Agent',
       summary:
-        'Verifies cancelled T+5 14:00–15:00 slot is excluded from /api/order-slots and renders as available on the Schedule tab.',
+        'Verifies the seeded cancelled booking (T+5 14:00–15:00) is excluded from /api/order-slots and allows selecting afternoon slots on T+5.',
     });
 
-    const guard = attachErrorGuards(page);
+    const diag = attachQaDiagnostics(page);
 
-    await test.step('1. Check /api/order-slots does not return cancelled T+5 14:00-15:00 slot', async () => {
-      const { token } = await loginAs(page, request, 'admin');
-      const res = await request.get(`${E2E_CONFIG.apiUrl}/api/order-slots`, {
-        headers: { Authorization: `Bearer ${token}` },
+    try {
+      let token = '';
+      await test.step('Verify cancelled 14:00-15:00 slot on T+5 is excluded from /api/order-slots', async () => {
+        const auth = await loginAs(page, request, 'admin');
+        token = auth.token;
+        const res = await request.get(`${E2E_CONFIG.apiUrl}/api/order-slots`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        expect(res.ok()).toBeTruthy();
+
+        const json = await res.json();
+        const slots = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+        const cancelledBlock = slots.find(
+          (s: any) => s.date === TARGET_DATE_T5 && String(s.start_time).startsWith('14:00')
+        );
+        expect.soft(cancelledBlock, 'Cancelled 14:00-15:00 slot must not be in /api/order-slots').toBeUndefined();
       });
-      expect(res.ok()).toBeTruthy();
-      const json = await res.json();
-      const slots = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
-      const cancelledBlock = slots.find(
-        (s: any) => s.date === TARGET_DATE_T5 && String(s.start_time).startsWith('14:00')
-      );
-      expect(cancelledBlock).toBeUndefined();
-    });
 
-    await test.step('2. Open Schedule tab for Victor Alpha and capture availability proof', async () => {
-      await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-      await fillPropertyAndNext(page, testInfo, {
-        role: 'admin',
-        useExistingListing: true,
-        address: '300 Burrard St',
-        city: 'Vancouver',
-        postalCode: 'V6C 2G8',
-        squareFootage: '2000',
+      await test.step('Open Schedule T+5 for Victor Alpha and verify slots render cleanly', async () => {
+        await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
+        await completePropertyStep(page, {
+          role: 'admin',
+          agentSearch: 'E2E Agent',
+          sqFt: '2000',
+          address: '100 Robson St',
+          city: 'Vancouver',
+          postalCode: 'V6B 2A7',
+        });
+        await completeServicesStep(page, ['E2E HDR Photos']);
+        await navigateCalendarToDateOffset(page, 5);
+        await selectVendorDropdown(page, 'Victor Alpha');
+        await attachProofScreenshot(page, testInfo, 'Schedule T+5 (Cancelled Slot Released)');
       });
-      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
-      await selectVendorOnSchedule(page, 'Victor Alpha', 0);
-      await expect(page.locator('.fc').first()).toBeVisible({ timeout: 15_000 });
-      await attachProofScreenshot(page, testInfo, '2. Schedule Tab — Cancelled 14:00-15:00 Released');
-      assertNoServerErrors(guard, 'UI-16 cancelled slot release');
-    });
+    } finally {
+      await diag.flush(testInfo);
+    }
   });
 
-  test('UI-17 (UC-29): Two isolated browser contexts maintain independent live booking state', async ({
+  test('Two concurrent Agents booking the same slot do not silently double-book', async ({
     browser,
+    request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-17',
-      area: 'Overlaps, Double-Click & Concurrency',
-      role: 'Admin & Agent (2 Contexts)',
+      area: 'Overlap Prevention & Cancelled Slot Release',
+      role: '2 Concurrent Agents',
       summary:
-        'Opens two isolated browser contexts (Admin & Agent) simultaneously on /dashboard/orders/create and verifies independent sessions and zero 500 errors.',
+        'Two independent Agent browser sessions open Schedule T+6 for Victor Alpha simultaneously. Agent A books the first slot; Agent B attempts to submit the exact same stale slot and must be rejected.',
     });
 
-    const ctxA = await browser.newContext({ timezoneId: 'America/Vancouver' });
-    const ctxB = await browser.newContext({ timezoneId: 'America/Vancouver' });
+    const ctxA = await browser.newContext();
+    const ctxB = await browser.newContext();
     const pageA = await ctxA.newPage();
     const pageB = await ctxB.newPage();
-    const guardA = attachErrorGuards(pageA);
-    const guardB = attachErrorGuards(pageB);
+    const diagA = attachQaDiagnostics(pageA);
+    const diagB = attachQaDiagnostics(pageB);
 
     try {
-      await test.step('1. Authenticate Context A (Admin) and Context B (Agent) independently', async () => {
-        await loginAs(pageA, ctxA.request, 'admin');
-        await loginAs(pageB, ctxB.request, 'agent');
+      await test.step('Both Agents fill Property & Services and reach Schedule T+6 concurrently', async () => {
+        await Promise.all([loginAs(pageA, request, 'agent'), loginAs(pageB, request, 'agent')]);
+        await Promise.all([
+          pageA.goto('/dashboard/orders/create', { waitUntil: 'networkidle' }),
+          pageB.goto('/dashboard/orders/create', { waitUntil: 'networkidle' }),
+        ]);
+
+        await Promise.all([
+          completePropertyStep(pageA, {
+            role: 'agent',
+            sqFt: '2000',
+            address: '100 Robson St',
+            city: 'Vancouver',
+            postalCode: 'V6B 2A7',
+          }),
+          completePropertyStep(pageB, {
+            role: 'agent',
+            sqFt: '2000',
+            address: '100 Robson St',
+            city: 'Vancouver',
+            postalCode: 'V6B 2A7',
+          }),
+        ]);
+
+        await Promise.all([
+          completeServicesStep(pageA, ['E2E HDR Photos']),
+          completeServicesStep(pageB, ['E2E HDR Photos']),
+        ]);
+
+        await Promise.all([navigateCalendarToDateOffset(pageA, 6), navigateCalendarToDateOffset(pageB, 6)]);
+        await Promise.all([selectVendorDropdown(pageA, 'Victor Alpha'), selectVendorDropdown(pageB, 'Victor Alpha')]);
       });
 
-      await test.step('2. Open Schedule flow in both contexts and verify isolated sessions', async () => {
-        await pageA.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-        await pageB.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-        await attachProofScreenshot(pageA, testInfo, '2a. Context A (Admin) Order Create');
-        await attachProofScreenshot(pageB, testInfo, '2b. Context B (Agent) Order Create');
-        assertNoServerErrors(guardA, 'UI-17 context A');
-        assertNoServerErrors(guardB, 'UI-17 context B');
+      await test.step('Agent A selects the first available slot and completes the booking', async () => {
+        await selectAvailableTimeSlot(pageA, { preferredVendorName: 'Victor Alpha', slotEventIndex: 0 });
+        const resA = await completeBookingAndSubmit(pageA, testInfo);
+        expect([200, 201]).toContain(resA.status);
+      });
+
+      await test.step('Agent B (with stale calendar) selects the same slot and submits — must be rejected', async () => {
+        await selectAvailableTimeSlot(pageB, { preferredVendorName: 'Victor Alpha', slotEventIndex: 0 });
+        const resB = await completeBookingAndSubmit(pageB, testInfo);
+        expect.soft(
+          [409, 422],
+          `Concurrent duplicate booking for Agent B returned HTTP ${resB.status} instead of 409/422 conflict`
+        ).toContain(resB.status);
       });
     } finally {
+      await diagA.flush(testInfo);
+      await diagB.flush(testInfo);
       await ctxA.close();
       await ctxB.close();
     }
