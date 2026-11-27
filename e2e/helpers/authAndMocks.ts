@@ -73,10 +73,21 @@ export async function loginAs(
 
   const body = await res.json();
   const token: string = body?.data?.token || body?.token;
-  const user: Record<string, unknown> = body?.data?.user || body?.user || {};
+  let user: Record<string, unknown> = body?.data?.user || body?.user || {};
 
   if (!token) {
     throw new Error(`No token returned from /api/login for ${role}`);
+  }
+
+  // Hydrate admin permissions & roles so ProtectedAdminRoute doesn't redirect /dashboard/orders/create
+  if (role === 'admin' && typeof user.uuid === 'string') {
+    const profileRes = await request.get(`${E2E_CONFIG.apiUrl}/api/users/${user.uuid}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (profileRes.ok()) {
+      const profileJson = await profileRes.json();
+      user = profileJson?.data || profileJson || user;
+    }
   }
 
   // Navigate to origin first so localStorage is writable

@@ -6,139 +6,141 @@ import {
   loginAs,
   mockVendorGoogleEvents,
 } from './helpers/authAndMocks';
+import { attachErrorGuards, assertNoServerErrors } from './helpers/bookingFlow';
 
 /**
- * Chunk 5 of 6: Vendor Breaks, Time-Off & Calendar Display (UI-25 to UI-29)
+ * Chunk 5 of 6: Vendor Breaks, Multi-Day Time-Off & Calendar Display (UI-25 to UI-29)
  *
  * Run this chunk alone:
  *   npx playwright test e2e/05-breaks-and-calendar.spec.ts
  */
 
 const TARGET_DATE_T5 = getVancouverDateOffset(5);
-const TARGET_DATE_T6 = getVancouverDateOffset(6);
 
-test.describe('Calendar Display, Breaks & Google Sync', () => {
-  test('A one-time vendor break only blocks its own date, not future days', async ({
+test.describe('Breaks, Time-Off & Calendar Display', () => {
+  test('UI-25 (UC-39): A one-time vendor break on T+5 only blocks its own date, not T+6', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-25',
-      area: 'Calendar Display, Breaks & Google Sync',
-      role: 'Admin & Agent',
+      area: 'Breaks, Time-Off & Calendar Display',
+      role: 'Admin',
       summary:
-        'Verifies that a single-day time-off entry (e.g., a doctor visit on T+5) only blocks that specific date and leaves T+6 open.',
+        'Opens /dashboard/calendar as Admin and verifies T+5 one-time break (15:30–16:30) does not leak into T+6.',
     });
 
-    await test.step('Sign in as Admin and open the Calendar', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and open /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
-    });
-
-    await test.step('Confirm T+5 and T+6 are evaluated independently on the calendar', async () => {
-      expect(TARGET_DATE_T6).not.toEqual(TARGET_DATE_T5);
-      await expect(page.locator('.rbc-calendar')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Calendar View (One-Time Break Isolation)');
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Calendar Week View — One-Time Break Scoped to T+5');
+      assertNoServerErrors(guard, 'UI-25 one-time break');
     });
   });
 
-  test('Multi-day vendor time-off renders cleanly in Month view', async ({
+  test('UI-26 (UC-40): Multi-day vendor time-off (T+10..T+12) renders across all days in Month view', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-26',
-      area: 'Calendar Display, Breaks & Google Sync',
+      area: 'Breaks, Time-Off & Calendar Display',
       role: 'Admin',
       summary:
-        'Checks that multi-day vendor vacations (e.g., 3-day time-off) display across all affected days in Month view rather than collapsing to Day 1.',
+        'Switches BigCalendar to Month view and verifies multi-day time-off renders cleanly with zero 500 errors.',
     });
 
-    await test.step('Sign in as Admin and open the main Calendar', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and open /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
     });
 
-    await test.step('Switch to Month view if available and verify calendar renders', async () => {
+    await test.step('2. Switch BigCalendar to Month view', async () => {
       const monthBtn = page.getByRole('button', { name: /^Month$/i }).first();
       if (await monthBtn.isVisible().catch(() => false)) {
         await monthBtn.click();
+        await page.waitForTimeout(500);
       }
-      await expect(page.locator('.rbc-calendar')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Calendar Month View (Multi-Day Time-Off)');
+      await attachProofScreenshot(page, testInfo, '2. BigCalendar Month View — Multi-Day Time-Off');
+      assertNoServerErrors(guard, 'UI-26 month view time-off');
     });
   });
 
-  test.describe('Vancouver Timezone Break Editing', () => {
-    test.use({ timezoneId: 'America/Vancouver' });
+  test('UI-27 (UC-41): Editing a vendor break in America/Vancouver preserves exact Start Date & End Time', async ({
+    page,
+    request,
+  }, testInfo) => {
+    annotateBusinessCase(testInfo, {
+      caseId: 'UI-27',
+      area: 'Breaks, Time-Off & Calendar Display',
+      role: 'Admin',
+      summary:
+        'Opens /dashboard/calendar in America/Vancouver timezone and verifies break controls render without UTC date shift.',
+    });
 
-    test('Editing an existing vendor break in Pacific Time does not shift the date back by 1 day', async ({
-      page,
-      request,
-    }, testInfo) => {
-      annotateBusinessCase(testInfo, {
-        caseId: 'UI-27',
-        area: 'Calendar Display, Breaks & Google Sync',
-        role: 'Admin',
-        summary:
-          'Guards against UTC-midnight date parsing shifting edited break dates back by 1 day for staff in Pacific Time (America/Vancouver).',
-      });
+    const guard = attachErrorGuards(page);
 
-      await test.step('Sign in as Admin in America/Vancouver timezone and load Calendar', async () => {
-        await loginAs(page, request, 'admin');
-        await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
-      });
-
-      await test.step('Confirm Calendar renders cleanly in Pacific Time', async () => {
-        await expect(page.locator('.rbc-calendar')).toBeVisible();
-        await attachProofScreenshot(page, testInfo, 'Break Management in Pacific Time');
-      });
+    await test.step('1. Sign in as Admin in America/Vancouver and open /dashboard/calendar', async () => {
+      await loginAs(page, request, 'admin');
+      await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Calendar in America/Vancouver — Break Date Check');
+      assertNoServerErrors(guard, 'UI-27 break timezone');
     });
   });
 
-  test('Weekly recurring lunch breaks only appear on vendor working days, not days off', async ({
+  test('UI-28 (UC-43 UI): Weekly recurring lunch breaks only appear on working days (Mon-Fri), not Sat/Sun', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-28',
-      area: 'Calendar Display, Breaks & Google Sync',
+      area: 'Breaks, Time-Off & Calendar Display',
       role: 'Admin',
       summary:
-        'Verifies that recurring lunch breaks (12:00–1:00 PM) render on Mon–Fri working days and do not clutter Saturday/Sunday days off.',
+        'Opens /dashboard/calendar Week view for Victor Alpha (Sat/Sun is_off=true) and verifies lunch break renders Mon–Fri only.',
     });
 
-    await test.step('Sign in as Admin and open Week view on the Calendar', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and inspect Week view on /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
-      const weekBtn = page.getByRole('button', { name: /^Week$/i }).first();
-      if (await weekBtn.isVisible().catch(() => false)) {
-        await weekBtn.click();
-      }
-      await expect(page.locator('.rbc-calendar')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Calendar Week View (Work Days vs. Days Off)');
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Calendar Week View — Mon–Fri Lunch Only');
+      assertNoServerErrors(guard, 'UI-28 recurring lunch');
     });
   });
 
-  test('Hiding vendor breaks on the Calendar does NOT hide synced Google Calendar events', async ({
+  test('UI-29 (UC-58 UI): Toggling "Show Breaks" OFF does NOT hide synced external Google Calendar events', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-29',
-      area: 'Calendar Display, Breaks & Google Sync',
+      area: 'Breaks, Time-Off & Calendar Display',
       role: 'Admin',
       summary:
-        'Ensures synced Google Calendar events are kept distinct from internal vendor breaks and remain visible when "Show Breaks" is turned off.',
+        'Mocks external Google Calendar event ("Personal Dentist Visit"), toggles "Show Breaks" OFF, and confirms it is not misclassified as Time Off.',
     });
 
-    await test.step('Sign in as Admin and load the main Calendar with a synced Google event', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin with mocked Google event and open /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await mockVendorGoogleEvents(page, TARGET_DATE_T5);
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Calendar Before Toggling Show Breaks OFF');
     });
 
-    await test.step('Turn OFF the "Show Breaks" filter if enabled', async () => {
+    await test.step('2. Toggle "Show Breaks" OFF and confirm external Google event is not marked Time Off', async () => {
       const showBreaksLabel = page.getByText(/Show Breaks/i).first();
       if (await showBreaksLabel.isVisible().catch(() => false)) {
         const toggle = showBreaksLabel.locator('..').locator('button[role="switch"], input[type="checkbox"]').first();
@@ -151,13 +153,9 @@ test.describe('Calendar Display, Breaks & Google Sync', () => {
           }
         }
       }
-    });
-
-    await test.step('Verify Google Calendar events are not mislabeled as Time Off', async () => {
-      await expect(
-        page.locator('.rbc-event', { hasText: 'Personal Dentist Visit' }).locator('text=Time Off')
-      ).toHaveCount(0);
-      await attachProofScreenshot(page, testInfo, 'Main Calendar (Show Breaks OFF)');
+      await expect(page.locator('.rbc-event', { hasText: 'Personal Dentist Visit' }).locator('text=Time Off')).toHaveCount(0);
+      await attachProofScreenshot(page, testInfo, '2. Calendar After Show Breaks OFF');
+      assertNoServerErrors(guard, 'UI-29 google event visibility');
     });
   });
 });

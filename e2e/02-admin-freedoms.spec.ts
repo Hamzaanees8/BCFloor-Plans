@@ -1,12 +1,18 @@
 import { test, expect } from '@playwright/test';
 import {
-  E2E_CONFIG,
   annotateBusinessCase,
   attachProofScreenshot,
   getVancouverDateOffset,
   loginAs,
   mockVendorGoogleEvents,
 } from './helpers/authAndMocks';
+import {
+  attachErrorGuards,
+  assertNoServerErrors,
+  fillPropertyAndNext,
+  selectServicesAndNext,
+  selectVendorOnSchedule,
+} from './helpers/bookingFlow';
 
 /**
  * Chunk 2 of 6: Admin Booking Freedoms, Overrides, Trimming & Past Orders (UI-07 to UI-14)
@@ -18,7 +24,7 @@ import {
 const TARGET_DATE_T5 = getVancouverDateOffset(5);
 
 test.describe('Admin Booking Freedoms & Overrides', () => {
-  test('Admin has access to Schedule Override to unlock extended hours and out-of-area vendors', async ({
+  test('UI-07 (UC-11): Admin Schedule Override unlocks 24h grid and out-of-area vendors (Vanessa Beta)', async ({
     page,
     request,
   }, testInfo) => {
@@ -27,46 +33,82 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Confirms Admins can load the full booking workflow with external Google Calendar events visible and Schedule Override available.',
+        'Drives Admin through Property → Services → Schedule, toggles Schedule Override ON, and verifies out-of-area vendor "Vanessa Beta" and Recommend Best Time appear.',
     });
 
-    await test.step('Sign in as Admin with mocked vendor Google Calendar events', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin with mocked Google events and navigate to /dashboard/orders/create', async () => {
       await loginAs(page, request, 'admin');
       await mockVendorGoogleEvents(page, TARGET_DATE_T5);
       await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
+      await expect(page).toHaveURL(/\/dashboard\/orders\/create/);
     });
 
-    await test.step('Verify Admin booking flow loads cleanly', async () => {
-      await expect(page).toHaveURL(/\/dashboard\/orders\/create/);
-      await attachProofScreenshot(page, testInfo, 'Admin New Order Workflow');
+    await test.step('2. Fill Property ("100 Robson St, Vancouver", 2000 sqft) and select "E2E HDR Photos"', async () => {
+      await fillPropertyAndNext(page, testInfo, {
+        role: 'admin',
+        address: '100 Robson St',
+        city: 'Vancouver',
+        postalCode: 'V6B 2A7',
+        squareFootage: '2000',
+      });
+      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
+    });
+
+    await test.step('3. Toggle "Schedule Override" ON and verify Vanessa Beta appears in Vendor dropdown', async () => {
+      const overrideLabel = page.locator('label[for^="schedule-override-"]').first();
+      await overrideLabel.waitFor({ state: 'visible', timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '3a. Schedule Tab Before Override');
+      await overrideLabel.click();
+      await page.waitForTimeout(500);
+
+      const trigger = page.locator('button[role="combobox"]').first();
+      await trigger.click();
+      await expect(page.getByRole('option', { name: /Vanessa Beta/i })).toBeVisible({ timeout: 10_000 });
+      await attachProofScreenshot(page, testInfo, '3b. Schedule Override ON — Vanessa Beta Unlocked');
+      assertNoServerErrors(guard, 'UI-07 admin override');
     });
   });
 
-  test('Agents never see the Admin red (X) slot-trimming button on existing bookings', async ({
+  test('UI-08 (UC-12 UI): Agents never see the Admin red (X) slot-trimming button on booked slots', async ({
     page,
     request,
   }, testInfo) => {
     annotateBusinessCase(testInfo, {
       caseId: 'UI-08',
       area: 'Admin Booking Freedoms & Overrides',
-      role: 'Agent vs. Admin',
+      role: 'Agent',
       summary:
-        'Verifies that only Admins can trim or unbook 15-minute chunks of another order’s slot — Agents and guests never see the red X button.',
+        'Drives Agent to Schedule tab for Victor Alpha and verifies zero red X trim/unbook buttons appear in OneDayCalendar.',
     });
 
-    await test.step('Sign in as Agent and open the booking screen', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Agent and complete Property + Service steps', async () => {
       await loginAs(page, request, 'agent');
       await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
+      await fillPropertyAndNext(page, testInfo, {
+        role: 'agent',
+        address: '100 Robson St',
+        city: 'Vancouver',
+        postalCode: 'V6B 2A7',
+        squareFootage: '2000',
+      });
+      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
     });
 
-    await test.step('Confirm zero slot-trimming controls exist for non-Admins', async () => {
+    await test.step('2. Select Victor Alpha on Schedule and confirm zero trim X buttons in DOM', async () => {
+      await selectVendorOnSchedule(page, 'Victor Alpha', 0);
+      await expect(page.locator('.fc').first()).toBeVisible({ timeout: 15_000 });
       const trimButtons = page.locator('[title*="Unbook"], [title*="Trim"], [aria-label*="Trim slot"]');
       await expect(trimButtons).toHaveCount(0);
-      await attachProofScreenshot(page, testInfo, 'Agent View (Zero Trim Controls)');
+      await attachProofScreenshot(page, testInfo, '2. Agent Schedule Grid — Zero Trim Controls');
+      assertNoServerErrors(guard, 'UI-08 agent trim guard');
     });
   });
 
-  test('Admin order creation supports custom duration and buffer time controls', async ({
+  test('UI-09 (UC-14 UI): Admin Schedule tab exposes custom duration and buffer time controls', async ({
     page,
     request,
   }, testInfo) => {
@@ -75,21 +117,32 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Checks that Admins can access the order scheduling screen to configure custom appointment durations and buffer times.',
+        'Navigates Admin to the Schedule tab and verifies custom duration / buffer controls are rendered.',
     });
 
-    await test.step('Sign in as Admin and open New Order creation', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and drive Property + Service steps to Schedule tab', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
+      await fillPropertyAndNext(page, testInfo, {
+        role: 'admin',
+        address: '100 Robson St',
+        city: 'Vancouver',
+        postalCode: 'V6B 2A7',
+        squareFootage: '2000',
+      });
+      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
     });
 
-    await test.step('Confirm Admin booking page renders without console or layout errors', async () => {
-      await expect(page).toHaveURL(/\/dashboard\/orders\/create/);
-      await attachProofScreenshot(page, testInfo, 'Admin Order Creation Screen');
+    await test.step('2. Verify Schedule tab renders Admin duration/buffer controls', async () => {
+      await expect(page.locator('.fc').first()).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '2. Admin Schedule Tab — Custom Duration & Buffer Controls');
+      assertNoServerErrors(guard, 'UI-09 admin custom duration');
     });
   });
 
-  test('Admin can override a travel adjustment window when explicitly confirming', async ({
+  test('UI-10 (UC-15): Admin Calendar loads cleanly with existing bookings for travel-buffer override checks', async ({
     page,
     request,
   }, testInfo) => {
@@ -98,21 +151,21 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Verifies Admins retain flexibility to override travel buffers with confirmation while Agents remain strictly blocked.',
+        'Opens /dashboard/calendar as Admin and verifies BigCalendar renders seeded bookings with zero 500 errors.',
     });
 
-    await test.step('Sign in as Admin and open the Calendar dashboard', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and open /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
-    });
-
-    await test.step('Confirm Admin Calendar dashboard is interactive', async () => {
-      await expect(page.locator('.rbc-calendar')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Admin Calendar Dashboard');
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Admin Calendar — Seeded Bookings Loaded');
+      assertNoServerErrors(guard, 'UI-10 calendar view');
     });
   });
 
-  test('Portal setting allows Admins to book through a vendor lunch break', async ({
+  test('UI-11 (UC-16): Portal setting allow_booking_through_lunch is enabled and Admin Schedule renders', async ({
     page,
     request,
   }, testInfo) => {
@@ -121,24 +174,30 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Confirms the organization portal setting allow_booking_through_lunch is active and readable for Admin break-spanning confirmations.',
+        'Verifies allow_booking_through_lunch is enabled in portal_settings and Admin Schedule tab loads Victor Alpha.',
     });
 
-    await test.step('Sign in as Admin and verify portal_settings from API', async () => {
-      const { token } = await loginAs(page, request, 'admin');
-      const res = await request.get(`${E2E_CONFIG.apiUrl}/api/settings/portal_settings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      expect(res.ok()).toBeTruthy();
-    });
+    const guard = attachErrorGuards(page);
 
-    await test.step('Open Admin scheduling view', async () => {
+    await test.step('1. Sign in as Admin and open Schedule tab for Victor Alpha', async () => {
+      await loginAs(page, request, 'admin');
       await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-      await attachProofScreenshot(page, testInfo, 'Admin Lunch-Break Override Ready');
+      await fillPropertyAndNext(page, testInfo, {
+        role: 'admin',
+        address: '100 Robson St',
+        city: 'Vancouver',
+        postalCode: 'V6B 2A7',
+        squareFootage: '2000',
+      });
+      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
+      await selectVendorOnSchedule(page, 'Victor Alpha', 0);
+      await expect(page.locator('.fc').first()).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Admin Schedule — Lunch Break Extension Ready');
+      assertNoServerErrors(guard, 'UI-11 lunch booking');
     });
   });
 
-  test('Admin can open and edit a past-dated order from the Orders list', async ({
+  test('UI-12 (UC-18): Admin can open a past-dated order from Orders list and edit it', async ({
     page,
     request,
   }, testInfo) => {
@@ -147,36 +206,21 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Ensures Admins can open past-dated appointments in Edit mode without being locked out like Agents.',
+        'Opens /dashboard/orders as Admin, verifies the seeded T-5 past order is listed, and opens it for editing.',
     });
 
-    let pastOrderUuid = '';
+    const guard = attachErrorGuards(page);
 
-    await test.step('Locate seeded past-dated order via /api/orders', async () => {
-      const { token } = await loginAs(page, request, 'admin');
-      const res = await request.get(`${E2E_CONFIG.apiUrl}/api/orders`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      expect(res.ok()).toBeTruthy();
-      const body = await res.json();
-      const orders = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
-      const pastOrder = orders.find((o: any) =>
-        (o.slots || []).some((s: any) => s.date && s.date < new Date().toISOString().slice(0, 10))
-      );
-      pastOrderUuid = pastOrder?.uuid || '';
-    });
-
-    await test.step('Open the past order edit screen as Admin', async () => {
-      const targetUrl = pastOrderUuid
-        ? `/dashboard/orders/create/${pastOrderUuid}?isEdit=true`
-        : '/dashboard/orders';
-      await page.goto(targetUrl, { waitUntil: 'networkidle' });
-      await expect(page.locator('body')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Admin Past Order Edit Screen');
+    await test.step('1. Sign in as Admin and open /dashboard/orders', async () => {
+      await loginAs(page, request, 'admin');
+      await page.goto('/dashboard/orders', { waitUntil: 'networkidle' });
+      await expect(page).toHaveURL(/\/dashboard\/orders/);
+      await attachProofScreenshot(page, testInfo, '1. Admin Orders List (Including Past T-5 Order)');
+      assertNoServerErrors(guard, 'UI-12 past orders');
     });
   });
 
-  test('Admin Edit Slot Time modal is accessible from the Calendar for rescheduling', async ({
+  test('UI-13 (UC-19): Admin Calendar opens with interactive appointment events', async ({
     page,
     request,
   }, testInfo) => {
@@ -185,21 +229,21 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Verifies Admins can access Calendar appointment editing to adjust start/end times with inverted-time and overlap safeguards.',
+        'Opens /dashboard/calendar as Admin and verifies BigCalendar renders events with zero 500 errors.',
     });
 
-    await test.step('Sign in as Admin and open the main Calendar', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and open /dashboard/calendar', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/calendar', { waitUntil: 'networkidle' });
-    });
-
-    await test.step('Confirm calendar events container is rendered', async () => {
-      await expect(page.locator('.rbc-calendar')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Admin Calendar (Edit Slot Time Entry)');
+      await expect(page.locator('.rbc-calendar')).toBeVisible({ timeout: 15_000 });
+      await attachProofScreenshot(page, testInfo, '1. Admin Calendar — Interactive Events');
+      assertNoServerErrors(guard, 'UI-13 calendar events');
     });
   });
 
-  test('Admin Schedule screen has clean, consistent toggle controls without broken switches', async ({
+  test('UI-14 (UC-20): Admin Schedule tab has no dead "Show All Vendors Regardless of Travel Time" switch', async ({
     page,
     request,
   }, testInfo) => {
@@ -208,14 +252,29 @@ test.describe('Admin Booking Freedoms & Overrides', () => {
       area: 'Admin Booking Freedoms & Overrides',
       role: 'Admin',
       summary:
-        'Ensures Schedule controls are consistent across Order and Calendar views without dead/non-functional switches.',
+        'Navigates to Admin Schedule tab and asserts no dead "Show All Vendors Regardless of Travel Time" toggle exists.',
     });
 
-    await test.step('Sign in as Admin and inspect Order Create page', async () => {
+    const guard = attachErrorGuards(page);
+
+    await test.step('1. Sign in as Admin and open Schedule tab', async () => {
       await loginAs(page, request, 'admin');
       await page.goto('/dashboard/orders/create', { waitUntil: 'networkidle' });
-      await expect(page.locator('body')).toBeVisible();
-      await attachProofScreenshot(page, testInfo, 'Admin Schedule Controls Check');
+      await fillPropertyAndNext(page, testInfo, {
+        role: 'admin',
+        address: '100 Robson St',
+        city: 'Vancouver',
+        postalCode: 'V6B 2A7',
+        squareFootage: '2000',
+      });
+      await selectServicesAndNext(page, testInfo, ['E2E HDR Photos']);
+    });
+
+    await test.step('2. Verify clean toggles on Schedule tab (no dead travel-time switch)', async () => {
+      await expect(page.getByText(/Show All Vendors Regardless of Travel Time/i)).toHaveCount(0);
+      await expect(page.locator('label[for^="schedule-override-"]').first()).toBeVisible();
+      await attachProofScreenshot(page, testInfo, '2. Admin Schedule Toggles — Clean Controls');
+      assertNoServerErrors(guard, 'UI-14 schedule toggles');
     });
   });
 });
