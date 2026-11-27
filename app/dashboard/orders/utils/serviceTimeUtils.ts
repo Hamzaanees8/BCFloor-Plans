@@ -44,10 +44,123 @@ export interface ServiceDurationService {
     [key: string]: any;
 }
 
+export interface VendorOptionAdjustment {
+    uuid?: string;
+    option_id?: number | string;
+    option_uuid?: string;
+    vendor_adjustment_time?: number | string | null;
+    adjustment_time?: number | string | null;
+    product_option?: { id?: number | string; uuid?: string; title?: string } | null;
+    productOption?: { id?: number | string; uuid?: string; title?: string } | null;
+}
+
+export interface VendorServiceWithOptions {
+    uuid?: string;
+    service_id?: number | string;
+    service?: { id?: number | string; uuid?: string; name?: string } | null;
+    options?: VendorOptionAdjustment[];
+}
+
+export interface VendorWithServices {
+    uuid?: string;
+    id?: number | string;
+    vendor_services?: VendorServiceWithOptions[];
+}
+
+function extractIdAndUuid(input: any): { uuid?: string; id?: string | number } {
+    if (input === undefined || input === null) return {};
+    if (typeof input === 'object') {
+        const uuid = input.uuid || input.service_uuid || input.option_uuid;
+        const id = input.id ?? input.service_id ?? input.option_id;
+        return { uuid: uuid ? String(uuid) : undefined, id };
+    }
+    const str = String(input);
+    const isUuidLike = str.includes('-');
+    return isUuidLike ? { uuid: str } : { id: input, uuid: str };
+}
+
+export function getVendorServiceTimeAdjustment(
+    vendor?: VendorWithServices | null,
+    service?: any,
+    optionOrId?: any
+): number {
+    if (!vendor?.vendor_services?.length) return 0;
+
+    const directService = extractIdAndUuid(service);
+    const nestedService = typeof service === 'object' && service?.service
+        ? extractIdAndUuid(service.service)
+        : {};
+    const targetServiceUuid = nestedService.uuid || directService.uuid;
+    const targetServiceId =
+        nestedService.id ??
+        (typeof service === 'object' && service !== null ? service.service_id : undefined) ??
+        directService.id;
+
+    const vendorService = vendor.vendor_services.find((vs) => {
+        const vsServiceUuid = vs.service?.uuid ? String(vs.service.uuid) : undefined;
+        const vsServiceId = vs.service?.id ?? vs.service_id;
+
+        if (targetServiceUuid && vsServiceUuid && vsServiceUuid === String(targetServiceUuid)) {
+            return true;
+        }
+        if (targetServiceId !== undefined && targetServiceId !== null && vsServiceId !== undefined && vsServiceId !== null) {
+            if (String(vsServiceId) === String(targetServiceId)) return true;
+        }
+        if (targetServiceUuid && vsServiceId !== undefined && vsServiceId !== null) {
+            if (String(vsServiceId) === String(targetServiceUuid)) return true;
+        }
+        return false;
+    });
+
+    if (!vendorService?.options?.length) return 0;
+
+    const { uuid: targetOptUuid, id: targetOptId } = extractIdAndUuid(optionOrId);
+
+    let vendorOption: VendorOptionAdjustment | undefined;
+    if (targetOptUuid || (targetOptId !== undefined && targetOptId !== null && targetOptId !== '')) {
+        vendorOption = vendorService.options.find((opt) => {
+            const optUuid = opt.product_option?.uuid || opt.productOption?.uuid || opt.option_uuid;
+            if (targetOptUuid && optUuid && String(optUuid) === String(targetOptUuid)) {
+                return true;
+            }
+            const optIds = [opt.option_id, opt.product_option?.id, opt.productOption?.id].filter(
+                (v) => v !== undefined && v !== null && v !== ''
+            );
+            if (targetOptId !== undefined && targetOptId !== null && targetOptId !== '') {
+                if (optIds.some((idVal) => String(idVal) === String(targetOptId))) {
+                    return true;
+                }
+            }
+            if (targetOptUuid && opt.option_id !== undefined && opt.option_id !== null) {
+                if (String(opt.option_id) === String(targetOptUuid)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    if (!vendorOption && vendorService.options.length === 1) {
+        const masterOpts = service?.product_options || service?.service?.product_options;
+        if (!masterOpts || masterOpts.length <= 1) {
+            vendorOption = vendorService.options[0];
+        }
+    }
+
+    const raw = vendorOption?.vendor_adjustment_time ?? vendorOption?.adjustment_time;
+    if (raw === undefined || raw === null || raw === '' || raw === 'no adjustment') {
+        return 0;
+    }
+
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function getEffectiveServiceDuration(
     optionOrDuration?: ServiceDurationOption | number | string | null,
     serviceOrSqFt?: ServiceDurationService | number | string | null,
-    squareFootageInput?: number | string | null
+    squareFootageInput?: number | string | null,
+    vendorAdjustmentMins: number = 0
 ): number {
     let option: ServiceDurationOption | null = null;
     let service: ServiceDurationService | null = null;
@@ -104,42 +217,47 @@ export function getEffectiveServiceDuration(
         }
     }
 
-    // If it's a fixed sqft range tier and has an option duration, return it directly without extra increments
+    let computedBaseDuration: number;
+
+    // If it's a fixed sqft range tier and has an option duration, use it without extra increments
     if (isFixedSqFtRangeTier && optionDuration !== null) {
-        return optionDuration;
+        computedBaseDuration = optionDuration;
+    } else {
+        const baseDuration = optionDuration ?? serviceBaseDuration ?? 60;
+
+        // 2. Read Service Increment Settings
+        const baseSqFtRaw = service?.base_sq_ft;
+        const baseSqFt = (baseSqFtRaw !== undefined && baseSqFtRaw !== null && baseSqFtRaw !== '')
+            ? (typeof baseSqFtRaw === 'string' ? parseFloat(baseSqFtRaw) : Number(baseSqFtRaw))
+            : 2000;
+
+        const incSqFtRaw = service?.increment_sq_ft;
+        const incSqFt = (incSqFtRaw !== undefined && incSqFtRaw !== null && incSqFtRaw !== '')
+            ? (typeof incSqFtRaw === 'string' ? parseFloat(incSqFtRaw) : Number(incSqFtRaw))
+            : 1000;
+
+        const incMinsRaw = service?.increment_duration_mins;
+        const incMins = (incMinsRaw !== undefined && incMinsRaw !== null && incMinsRaw !== '')
+            ? (typeof incMinsRaw === 'string' ? parseInt(incMinsRaw, 10) : Number(incMinsRaw))
+            : 30;
+
+        const effectiveBaseSqFt = (!isNaN(baseSqFt) && baseSqFt > 0) ? baseSqFt : 2000;
+        const effectiveIncSqFt = (!isNaN(incSqFt) && incSqFt > 0) ? incSqFt : 1000;
+        const effectiveIncMins = (!isNaN(incMins) && incMins > 0) ? incMins : 30;
+
+        // If no extra sq ft or square footage <= baseSqFt, use base duration
+        if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
+            computedBaseDuration = baseDuration;
+        } else {
+            // Calculate incremental time based on service settings
+            const excessSqFt = sqFtNum - effectiveBaseSqFt;
+            const increments = Math.ceil(excessSqFt / effectiveIncSqFt);
+            computedBaseDuration = baseDuration + (increments * effectiveIncMins);
+        }
     }
 
-    const baseDuration = optionDuration ?? serviceBaseDuration ?? 60;
-
-    // 2. Read Service Increment Settings
-    const baseSqFtRaw = service?.base_sq_ft;
-    const baseSqFt = (baseSqFtRaw !== undefined && baseSqFtRaw !== null && baseSqFtRaw !== '')
-        ? (typeof baseSqFtRaw === 'string' ? parseFloat(baseSqFtRaw) : Number(baseSqFtRaw))
-        : 2000;
-
-    const incSqFtRaw = service?.increment_sq_ft;
-    const incSqFt = (incSqFtRaw !== undefined && incSqFtRaw !== null && incSqFtRaw !== '')
-        ? (typeof incSqFtRaw === 'string' ? parseFloat(incSqFtRaw) : Number(incSqFtRaw))
-        : 1000;
-
-    const incMinsRaw = service?.increment_duration_mins;
-    const incMins = (incMinsRaw !== undefined && incMinsRaw !== null && incMinsRaw !== '')
-        ? (typeof incMinsRaw === 'string' ? parseInt(incMinsRaw, 10) : Number(incMinsRaw))
-        : 30;
-
-    const effectiveBaseSqFt = (!isNaN(baseSqFt) && baseSqFt > 0) ? baseSqFt : 2000;
-    const effectiveIncSqFt = (!isNaN(incSqFt) && incSqFt > 0) ? incSqFt : 1000;
-    const effectiveIncMins = (!isNaN(incMins) && incMins > 0) ? incMins : 30;
-
-    // If no extra sq ft or square footage <= baseSqFt, return base duration
-    if (!sqFtNum || isNaN(sqFtNum) || sqFtNum <= effectiveBaseSqFt) {
-        return baseDuration;
-    }
-
-    // Calculate incremental time based on service settings
-    const excessSqFt = sqFtNum - effectiveBaseSqFt;
-    const increments = Math.ceil(excessSqFt / effectiveIncSqFt);
-    return baseDuration + (increments * effectiveIncMins);
+    const adjustment = Number.isFinite(vendorAdjustmentMins) ? vendorAdjustmentMins : 0;
+    return adjustment !== 0 ? Math.max(15, computedBaseDuration + adjustment) : computedBaseDuration;
 }
 
 

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover"
 import { format } from "date-fns"
 import VendorWorkCarousel from '../../orders/components/VendorWorkCarousel'
-import { getEffectiveServiceDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../../orders/utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, getVendorServiceTimeAdjustment, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../../orders/utils/serviceTimeUtils'
 import { Slot } from '../../orders/context/OrderContext'
 
 interface AppointmentTab {
@@ -135,7 +135,7 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
     const [filteredVendorsByService, setFilteredVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [overridableVendorsByService, setOverridableVendorsByService] = useState<Record<string, VendorData[]>>({});
     const [mergedServices, setMergedServices] = useState<OrderService[]>([]);
-    const { setSelectedSlots, calendarServices, selectedSlots } = useOrderContext();
+    const { setSelectedSlots, calendarServices, selectedSlots, setVendorsData: setContextVendorsData } = useOrderContext();
     const [serviceDates, setServiceDates] = useState<Record<number, Date | undefined>>({}); // For calendar control
     const [vendorDistances, setVendorDistances] = useState<Record<string, number>>({});
     const [customDurationMap, setCustomDurationMap] = useState<Record<string, number | null>>({});
@@ -312,10 +312,12 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
 
         GetVendors(token)
             .then((data) => {
-                setVendorsData(data.data);
+                const list = Array.isArray(data.data) ? data.data : [];
+                setVendorsData(list);
+                setContextVendorsData(list);
             })
             .catch((err) => console.log(err.message));
-    }, []);
+    }, [setContextVendorsData]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -554,13 +556,38 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                     const overridableUUIDs = new Set(overridableVendors.map(v => v.uuid));
                     const noVendors = !isCalculating && !!service.service.uuid && visibleVendors.length === 0;
 
-                    const squareFootage = getSquareFootageFromOrder(currentOrder, propSquareFootage);
-                    const requiredDuration = getEffectiveServiceDuration(
-                        service.option?.service_duration,
-                        squareFootage
+                    const matchedGlobalService = servicesData?.find(
+                        (s) => s.uuid === service.service.uuid || (service.service.id && String(s.id) === String(service.service.id))
+                    );
+                    const matchedOption = matchedGlobalService?.product_options?.find(
+                        (opt) =>
+                            (service.option_id && opt.uuid === service.option_id) ||
+                            (service.option?.uuid && opt.uuid === service.option.uuid)
+                    ) || (service.option as any);
+
+                    const serviceSlots = selectedSlots.filter((s: Slot) =>
+                        s.service_id === service.service.uuid ||
+                        (service.service.id && String(s.service_id) === String(service.service.id))
+                    );
+                    const activeVendorId =
+                        typeof selectedVendor === 'string' && selectedVendor !== 'all' && selectedVendor !== 'none'
+                            ? selectedVendor
+                            : (serviceSlots[0]?.vendor?.uuid || serviceSlots[0]?.vendor_id);
+                    const activeVendor = activeVendorId ? vendorsData.find((v) => v.uuid === activeVendorId) : undefined;
+                    const vendorAdjustment = getVendorServiceTimeAdjustment(
+                        activeVendor,
+                        matchedGlobalService || service.service,
+                        matchedOption || service.option_id || service.option?.uuid
                     );
 
-                    const serviceSlots = selectedSlots.filter((s: Slot) => s.service_id === service.service.uuid);
+                    const squareFootage = getSquareFootageFromOrder(currentOrder, propSquareFootage);
+                    const requiredDuration = getEffectiveServiceDuration(
+                        matchedOption,
+                        matchedGlobalService,
+                        squareFootage,
+                        vendorAdjustment
+                    );
+
                     const currentDuration = serviceSlots.length * 15;
                     const isFullyScheduled = currentDuration >= requiredDuration && requiredDuration > 0;
                     const isInvalid = invalidServices.includes(service.service.uuid || '');
@@ -592,18 +619,19 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                             Approx. Duration <br />
                                             <span className="text-[16px] font-[700] block min-h-[24px]">
                                                 {(() => {
-                                                    const effectiveDuration = getEffectiveServiceDuration(
-                                                        service.option?.service_duration,
-                                                        squareFootage
-                                                    );
                                                     const isCalculated = !service.option?.service_duration || Number(service.option.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
 
                                                     return (
                                                         <>
-                                                            {effectiveDuration} Minutes
+                                                            {requiredDuration} Minutes
                                                             {isCalculated && (
                                                                 <span className="text-[10px] font-[400] text-gray-500 block mt-1">
                                                                     (Calculated based on property size)
+                                                                </span>
+                                                            )}
+                                                            {vendorAdjustment !== 0 && (
+                                                                <span className="text-[10px] font-[400] text-blue-600 block mt-0.5">
+                                                                    ({vendorAdjustment < 0 ? `Reduced by ${Math.abs(vendorAdjustment)} mins` : `Increased by ${vendorAdjustment} mins`} for {activeVendor?.first_name} {activeVendor?.last_name})
                                                                 </span>
                                                             )}
                                                         </>
@@ -1005,6 +1033,7 @@ const Schedule = ({ currentOrder, squareFootage: propSquareFootage, invalidServi
                                             propertyTimezone={propertyLocation?.timeZoneId}
                                             squareFootage={squareFootage}
                                             isCalculating={isCalculating}
+                                            externalVendorsData={vendorsData}
                                             serviceKey={service.service?.uuid || String(service.id || idx)}
                                             masterDate={serviceDates[idx] || new Date()}
                                         />

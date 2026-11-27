@@ -1,7 +1,14 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { useFileManagerContext, Files } from "../FileManagerContext";
 import { Button } from "@/components/ui/button";
-import { Download, CheckCircle2, Loader2, PlayCircle } from "lucide-react";
+import {
+  Download,
+  CheckCircle2,
+  Loader2,
+  PlayCircle,
+  Lock,
+  Receipt,
+} from "lucide-react";
 import { PdfPlaceholder } from "./OptimizedPreview";
 import { toast } from "sonner";
 import { useAppContext } from "@/app/context/AppContext";
@@ -13,7 +20,9 @@ import { useGlobalDownload } from "@/context/GlobalDownloadContext";
 import { Order } from "../../orders/page";
 import {
   canDownloadFile,
+  getBookingDownloadStatus,
   getDownloadBlockReason,
+  isAdminOrVendorUser,
 } from "../utils/filePermissions";
 import { MediaDateBoundary } from "./FileManager";
 
@@ -25,6 +34,25 @@ interface DownloadTabProps {
   groupedOrderServices?: Map<string, OrderServiceEntry[]>;
   onOpenInvoice?: (serviceName?: string, orderServiceUuid?: string) => void;
 }
+
+type SectionDescriptor = {
+  key: string;
+  serviceUuid: string;
+  bookingIndex: number;
+  bookingEntry: OrderServiceEntry | null;
+  label: string;
+  isActuallyPaid: boolean;
+  isMediaReleased: boolean;
+  isDownloadReady: boolean;
+  isRefunded: boolean;
+  boundary: MediaDateBoundary;
+  files: Files[];
+  hasAnyUploadedValidFiles: boolean;
+  hasUnapprovedFiles: boolean;
+  hasUploadedPhotos: boolean;
+  hasUploadedVideos: boolean;
+  hasUploadedFloorPlans: boolean;
+};
 
 const API_URL = process.env.NEXT_PUBLIC_FILES_API_URL;
 
@@ -93,134 +121,20 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
   const [selectedImageUuids, setSelectedImageUuids] = useState<Set<string>>(
     new Set(),
   );
-  const [openingInvoiceServiceUuid, setOpeningInvoiceServiceUuid] = useState<string | null>(null);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
 
-  // Helper to check if a service or the entire order is actually paid or media is released
-  const isServicePaid = useCallback(
-    (serviceUuid: string, fileIsPaid?: boolean) => {
-      const service = orderData?.services?.find(
-        (s) =>
-          s.service?.uuid === serviceUuid ||
-          s.uuid === serviceUuid ||
-          String(s.service_id) === String(serviceUuid) ||
-          String(s.service?.id) === String(serviceUuid),
-      );
-
-      if (
-        service?.status === "cancelled" ||
-        service?.media_access === false ||
-        (service?.service as any)?.media_access === false
-      ) {
-        return false;
-      }
-
-      if (fileIsPaid !== undefined && fileIsPaid) return true;
-
-      if (orderData?.release_media_before_payment) return true;
-      if (orderData?.payment_status?.toUpperCase() === "PAID") return true;
-      if (
-        service?.media_access === true ||
-        (service?.service as any)?.media_access === true
-      )
-        return true;
-      return service?.payment_status?.toUpperCase() === "PAID";
-    },
-    [orderData],
-  );
-
-  // For "Download all", check if at least one photo service is paid or media released
-  const isAnyPhotoPaid = useMemo(() => {
-    if (userType !== "agent") return true;
-    if (orderData?.release_media_before_payment) return true;
-    if (orderData?.payment_status === "PAID") return true;
-
-    return filesData?.files?.some(
-      (f) =>
-        isPhotoFile(f) && (f.is_paid || isServicePaid(f.service?.uuid || "")),
-    );
-  }, [userType, orderData, filesData, isServicePaid]);
-
-  // For "Download all videos", check if at least one video service is paid or media released
-  const isAnyVideoPaid = useMemo(() => {
-    if (userType !== "agent") return true;
-    if (orderData?.release_media_before_payment) return true;
-    if (orderData?.payment_status === "PAID") return true;
-
-    return filesData?.files?.some(
-      (f) =>
-        isVideoFile(f) && (f.is_paid || isServicePaid(f.service?.uuid || "")),
-    );
-  }, [userType, orderData, filesData, isServicePaid]);
-
-  // For "Download all floor plans", check if at least one floor plan service is paid or media released
-  const isAnyFloorPlanPaid = useMemo(() => {
-    if (userType !== "agent") return true;
-    if (orderData?.release_media_before_payment) return true;
-    if (orderData?.payment_status === "PAID") return true;
-
-    return filesData?.files?.some(
-      (f) =>
-        isFloorPlanFile(f) &&
-        (f.is_paid || isServicePaid(f.service?.uuid || "")),
-    );
-  }, [userType, orderData, filesData, isServicePaid]);
-
-
-
-  const unapprovedServiceNames = useMemo(() => {
-    if (!filesData?.files) return [];
-    const isOrderMediaReleased = Boolean(
-      orderData?.release_media_before_payment,
-    );
-
-    const unapprovedFiles = filesData.files.filter((file) => {
-      const serviceName = file.service?.name || "";
-      const isForbiddenService =
-        serviceName.toLowerCase().includes("3d tour") ||
-        serviceName.toLowerCase().includes("matterport") ||
-        serviceName.toLowerCase().includes("virtual tour");
-      if (isForbiddenService || !file.service) return false;
-
-      const matchedService = orderData?.services?.find(
-        (s: any) =>
-          s.service?.uuid === file.service?.uuid ||
-          s.uuid === file.service?.uuid ||
-          s.service_id === file.service?.id,
-      );
-
-      if (userType === "agent") {
-        if (
-          matchedService?.media_access === false ||
-          (matchedService?.service as any)?.media_access === false
-        ) {
-          return false;
-        }
-      }
-
-      const isServiceReleased =
-        isOrderMediaReleased ||
-        matchedService?.media_access === true ||
-        (matchedService?.service as any)?.media_access === true;
-
-      const isApproved =
-        userType === "agent"
-          ? isServiceReleased
-            ? true
-            : isFloorPlanFile(file)
-              ? file.is_complimentary || file.is_admin_approved !== false
-              : file.is_agent_approved || file.is_complimentary
-          : true;
-      const isValidType =
-        isPhotoFile(file) || isVideoFile(file) || isFloorPlanFile(file);
-
-      return !isApproved && isValidType;
-    });
-
-    const names = new Set(
-      unapprovedFiles.map((f) => f.service?.name).filter(Boolean),
-    );
-    return Array.from(names);
-  }, [filesData?.files, userType, orderData]);
+  const handleOpenInvoiceClick = async (
+    serviceName?: string,
+    orderServiceUuid?: string,
+  ) => {
+    if (!onOpenInvoice || isOpeningInvoice) return;
+    setIsOpeningInvoice(true);
+    try {
+      await onOpenInvoice(serviceName, orderServiceUuid);
+    } finally {
+      setIsOpeningInvoice(false);
+    }
+  };
 
   // Helper to compute date boundary for a specific booking index within a group
   const computeBookingBoundary = useCallback(
@@ -234,195 +148,208 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
     [],
   );
 
-  // Group files by service uuid + booking index (handles duplicate service bookings)
-  // Returns a flat list of booking sections: { serviceUuid, bookingIndex, bookingEntry, label, files[] }
-  const bookingSections = useMemo(() => {
-    if (!filesData?.files) return [];
+  // Unified booking-aware analysis:
+  // - Paid / media-released bookings with approved files populate `bookingSections`
+  // - Unpaid bookings with uploaded media populate `unpaidSections` (without rendering thumbnails)
+  const sectionAnalysis = useMemo(() => {
+    if (!filesData?.files) {
+      return {
+        bookingSections: [] as SectionDescriptor[],
+        unpaidSections: [] as SectionDescriptor[],
+        unapprovedServiceNames: [] as string[],
+        hasUnpaidPhoto: false,
+        hasUnpaidVideo: false,
+        hasUnpaidFloorPlan: false,
+      };
+    }
 
-    const isOrderMediaReleased = Boolean(
-      orderData?.release_media_before_payment,
-    );
-
-    // Build a list of section descriptors from groupedOrderServices
-    // Fall back to a flat per-service grouping if prop not provided
-    const sections: {
-      key: string;
-      serviceUuid: string;
-      bookingIndex: number;
-      bookingEntry: OrderServiceEntry | null;
-      label: string;
-      isPaid: boolean;
-      boundary: MediaDateBoundary;
-      files: Files[];
-    }[] = [];
+    const allSections: SectionDescriptor[] = [];
 
     if (groupedOrderServices && groupedOrderServices.size > 0) {
       groupedOrderServices.forEach((group, serviceUuid) => {
         group.forEach((booking, idx) => {
-          const isServiceCancelled =
-            booking.status === "cancelled" ||
-            (booking.service as any)?.status === "cancelled";
-
-          const isMediaBlocked =
-            userType === "agent" &&
-            (isServiceCancelled ||
-              booking.media_access === false ||
-              (booking.service as any)?.media_access === false);
-          if (isMediaBlocked) return;
+          const paymentStatus = getBookingDownloadStatus(booking, orderData);
+          if (paymentStatus.isCancelled || paymentStatus.isRevoked) return;
 
           const boundary = computeBookingBoundary(group, idx);
-          const isMediaReleased =
-            isOrderMediaReleased ||
-            booking.media_access === true ||
-            (booking.service as any)?.media_access === true;
-          const isPaid =
-            isMediaReleased ||
-            orderData?.payment_status?.toUpperCase() === "PAID" ||
-            booking.payment_status?.toUpperCase() === "PAID";
           const label =
-            isServiceCancelled
-              ? `${booking.service.name} (Cancelled)`
-              : group.length > 1
-                ? `${booking.service.name} — Booking #${idx + 1}`
-                : booking.service.name;
-          sections.push({
+            group.length > 1
+              ? `${booking.service.name} — Booking #${idx + 1}`
+              : booking.service.name;
+
+          allSections.push({
             key: `${serviceUuid}-${idx}`,
             serviceUuid,
             bookingIndex: idx,
             bookingEntry: booking,
             label,
-            isPaid,
+            isActuallyPaid: paymentStatus.isActuallyPaid,
+            isMediaReleased: paymentStatus.isMediaReleased,
+            isDownloadReady: paymentStatus.isDownloadReady,
+            isRefunded: paymentStatus.isRefunded,
             boundary,
             files: [],
+            hasAnyUploadedValidFiles: false,
+            hasUnapprovedFiles: false,
+            hasUploadedPhotos: false,
+            hasUploadedVideos: false,
+            hasUploadedFloorPlans: false,
           });
         });
       });
     }
 
-    // Now populate files into sections
-    filesData.files.forEach((file) => {
-      if (file.is_deleted) return;
+    const isStaff = isAdminOrVendorUser(userType);
 
-      const serviceName = file.service?.name || "";
+    filesData.files.forEach((file) => {
+      if (file.is_deleted || file.is_hidden || !file.service) return;
+
+      const serviceName = file.service.name || "";
       const isForbiddenService =
         serviceName.toLowerCase().includes("3d tour") ||
         serviceName.toLowerCase().includes("matterport") ||
         serviceName.toLowerCase().includes("virtual tour");
+      if (isForbiddenService) return;
 
-      const matchedService = orderData?.services?.find(
-        (s: any) =>
-          s.service?.uuid === file.service?.uuid ||
-          s.uuid === file.service?.uuid ||
-          s.service_id === file.service?.id,
-      );
-
-      if (userType === "agent") {
-        if (
-          matchedService?.media_access === false ||
-          (matchedService?.service as any)?.media_access === false
-        ) {
-          return;
-        }
-
-        // For agent, do NOT show service media in download tab until the service is paid
-        const isServicePaidForAgent =
-          isOrderMediaReleased ||
-          matchedService?.media_access === true ||
-          (matchedService?.service as any)?.media_access === true ||
-          orderData?.payment_status?.toUpperCase() === "PAID" ||
-          matchedService?.payment_status?.toUpperCase() === "PAID" ||
-          Boolean(file.is_paid);
-
-        if (!isServicePaidForAgent) {
-          return;
-        }
-      }
-
-      const isServiceReleased =
-        isOrderMediaReleased ||
-        matchedService?.media_access === true ||
-        (matchedService?.service as any)?.media_access === true;
-
-      const isApproved =
-        userType === "agent"
-          ? isServiceReleased
-            ? true
-            : isFloorPlanFile(file)
-              ? file.is_complimentary || file.is_admin_approved !== false
-              : file.is_agent_approved || file.is_complimentary
-          : true;
-      const isValidType =
-        isPhotoFile(file) || isVideoFile(file) || isFloorPlanFile(file);
-
-      if (!isApproved || !isValidType || !file.service || isForbiddenService)
-        return;
+      const isPhoto = isPhotoFile(file);
+      const isVideo = isVideoFile(file);
+      const isFloorPlan = isFloorPlanFile(file);
+      if (!isPhoto && !isVideo && !isFloorPlan) return;
 
       const fileDate = new Date(file.created_at).getTime();
 
-      // Find the matching section
-      let matched = false;
-      for (const section of sections) {
+      let targetSection: SectionDescriptor | undefined;
+      for (const section of allSections) {
         if (section.serviceUuid !== file.service.uuid) continue;
         const { from, to } = section.boundary;
         const afterFrom = from ? fileDate >= from.getTime() : true;
         const beforeTo = to ? fileDate < to.getTime() : true;
         if (afterFrom && beforeTo) {
-          if (userType === "agent" && !section.isPaid && !file.is_paid) {
-            matched = true;
-            break;
-          }
-          section.files.push(file);
-          matched = true;
+          targetSection = section;
           break;
         }
       }
 
-      if (!matched) {
-        const fallback = sections.find(
+      if (!targetSection) {
+        targetSection = allSections.find(
           (s) => s.serviceUuid === file.service?.uuid,
         );
-        if (fallback) {
-          if (userType !== "agent" || fallback.isPaid || file.is_paid) {
-            fallback.files.push(file);
-          }
-        } else {
-          // Service not in groupedOrderServices at all — add a plain section
-          if (userType === "vendor") return;
-
-          const fallbackIsPaid =
-            isOrderMediaReleased ||
-            orderData?.payment_status?.toUpperCase() === "PAID" ||
-            isServicePaid(file.service.uuid);
-
-          if (userType === "agent" && !fallbackIsPaid && !file.is_paid) {
-            return;
-          }
-
-          sections.push({
-            key: file.service.uuid,
-            serviceUuid: file.service.uuid,
-            bookingIndex: 0,
-            bookingEntry: null,
-            label: file.service.name,
-            isPaid: fallbackIsPaid,
-            boundary: { from: null, to: null },
-            files: [file],
-          });
-        }
       }
+
+      if (!targetSection) {
+        if (userType === "vendor") return;
+
+        const matchedService = orderData?.services?.find(
+          (s: any) =>
+            s.service?.uuid === file.service?.uuid ||
+            s.uuid === file.service?.uuid ||
+            s.service_id === file.service?.id,
+        );
+
+        const paymentStatus = getBookingDownloadStatus(
+          matchedService,
+          orderData,
+        );
+        if (paymentStatus.isCancelled || paymentStatus.isRevoked) return;
+
+        targetSection = {
+          key: file.service.uuid,
+          serviceUuid: file.service.uuid,
+          bookingIndex: 0,
+          bookingEntry: matchedService || null,
+          label: file.service.name,
+          isActuallyPaid: paymentStatus.isActuallyPaid,
+          isMediaReleased: paymentStatus.isMediaReleased,
+          isDownloadReady: paymentStatus.isDownloadReady,
+          isRefunded: paymentStatus.isRefunded,
+          boundary: { from: null, to: null },
+          files: [],
+          hasAnyUploadedValidFiles: false,
+          hasUnapprovedFiles: false,
+          hasUploadedPhotos: false,
+          hasUploadedVideos: false,
+          hasUploadedFloorPlans: false,
+        };
+        allSections.push(targetSection);
+      }
+
+      targetSection.hasAnyUploadedValidFiles = true;
+      if (isPhoto) targetSection.hasUploadedPhotos = true;
+      if (isVideo) targetSection.hasUploadedVideos = true;
+      if (isFloorPlan) targetSection.hasUploadedFloorPlans = true;
+
+      // Strict payment gate: do not surface unpaid services or thumbnails in the download area
+      if (!targetSection.isDownloadReady) {
+        return;
+      }
+
+      if (!isStaff && file.is_show === false) {
+        return;
+      }
+
+      const isApproved = isStaff
+        ? true
+        : targetSection.isMediaReleased
+          ? true
+          : isFloorPlan
+            ? Boolean(file.is_complimentary || file.is_admin_approved !== false)
+            : Boolean(file.is_agent_approved || file.is_complimentary);
+
+      if (!isApproved) {
+        targetSection.hasUnapprovedFiles = true;
+        return;
+      }
+
+      targetSection.files.push(file);
     });
 
-    return sections.filter((s) => s.files.length > 0);
+    const bookingSections = allSections.filter(
+      (s) => s.isDownloadReady && s.files.length > 0,
+    );
+    const unpaidSections = allSections.filter(
+      (s) =>
+        !s.isDownloadReady && !s.isRefunded && s.hasAnyUploadedValidFiles,
+    );
+    const unapprovedServiceNames = Array.from(
+      new Set(
+        allSections
+          .filter(
+            (s) =>
+              s.isDownloadReady &&
+              s.hasUnapprovedFiles &&
+              s.files.length === 0,
+          )
+          .map((s) => s.label)
+          .filter(Boolean),
+      ),
+    );
+
+    return {
+      bookingSections,
+      unpaidSections,
+      unapprovedServiceNames,
+      hasUnpaidPhoto: unpaidSections.some((s) => s.hasUploadedPhotos),
+      hasUnpaidVideo: unpaidSections.some((s) => s.hasUploadedVideos),
+      hasUnpaidFloorPlan: unpaidSections.some((s) => s.hasUploadedFloorPlans),
+    };
   }, [
     filesData?.files,
     groupedOrderServices,
     userType,
     orderData,
     computeBookingBoundary,
-    isServicePaid,
   ]);
 
-  // All approved files (derived from bookingSections)
+  const {
+    bookingSections,
+    unpaidSections,
+    unapprovedServiceNames,
+    hasUnpaidPhoto,
+    hasUnpaidVideo,
+    hasUnpaidFloorPlan,
+  } = sectionAnalysis;
+
+  // All approved files (derived from paid / released bookingSections)
   const allApprovedPhotos = useMemo(() => {
     return bookingSections.flatMap((s) =>
       s.files.filter((f) => isPhotoFile(f)),
@@ -449,175 +376,66 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
     ];
   }, [allApprovedPhotos, allApprovedVideos, allApprovedFloorPlans]);
 
-  const hasAnyPhoto = useMemo(() => {
-    if (userType === "agent") return allApprovedPhotos.length > 0;
-    return filesData?.files?.some((f) => isPhotoFile(f)) ?? false;
-  }, [filesData?.files, userType, allApprovedPhotos]);
-
-  const hasAnyVideo = useMemo(() => {
-    if (userType === "agent") return allApprovedVideos.length > 0;
-    return filesData?.files?.some((f) => isVideoFile(f)) ?? false;
-  }, [filesData?.files, userType, allApprovedVideos]);
-
-  const hasAnyFloorPlan = useMemo(() => {
-    if (userType === "agent") return allApprovedFloorPlans.length > 0;
-    return filesData?.files?.some((f) => isFloorPlanFile(f)) ?? false;
-  }, [filesData?.files, userType, allApprovedFloorPlans]);
-
-  // Detailed status of services that have files (for agent empty state messaging)
-  const mediaStatusDetails = useMemo(() => {
-    if (!filesData?.files) {
-      return {
-        unselectedAndUnpaid: [],
-        unpaidOnly: [],
-        unselectedPaid: [],
-      };
-    }
-
-    const isOrderMediaReleased = Boolean(
-      orderData?.release_media_before_payment,
-    );
-    const isOrderPaid = orderData?.payment_status?.toUpperCase() === "PAID";
-
-    const serviceMap = new Map<
-      string,
-      {
-        name: string;
-        isPaid: boolean;
-        hasUnapproved: boolean;
-        hasApproved: boolean;
-      }
-    >();
-
-    filesData.files.forEach((file) => {
-      if (file.is_deleted || !file.service) return;
-
-      const serviceName = file.service.name || "";
-      const isForbiddenService =
-        serviceName.toLowerCase().includes("3d tour") ||
-        serviceName.toLowerCase().includes("matterport") ||
-        serviceName.toLowerCase().includes("virtual tour");
-      if (isForbiddenService) return;
-
-      const matchedService = orderData?.services?.find(
-        (s: any) =>
-          s.service?.uuid === file.service?.uuid ||
-          s.uuid === file.service?.uuid ||
-          String(s.service_id) === String(file.service?.id) ||
-          String(s.service?.id) === String(file.service?.id),
-      );
-
-      if (userType === "agent") {
-        if (
-          matchedService?.status === "cancelled" ||
-          matchedService?.media_access === false ||
-          (matchedService?.service as any)?.media_access === false
-        ) {
-          return;
-        }
-      }
-
-      const isServiceReleased =
-        isOrderMediaReleased ||
-        matchedService?.media_access === true ||
-        (matchedService?.service as any)?.media_access === true;
-
-      const isPaid =
-        isServiceReleased ||
-        isOrderPaid ||
-        matchedService?.payment_status?.toUpperCase() === "PAID" ||
-        Boolean(file.is_paid);
-
-      const isApproved = isServiceReleased
-        ? true
-        : isFloorPlanFile(file)
-          ? file.is_complimentary || file.is_admin_approved !== false
-          : file.is_agent_approved || file.is_complimentary;
-
-      const key = file.service.uuid || file.service.name;
-      if (!serviceMap.has(key)) {
-        serviceMap.set(key, {
-          name: serviceName,
-          isPaid,
-          hasUnapproved: false,
-          hasApproved: false,
-        });
-      }
-
-      const entry = serviceMap.get(key)!;
-      if (isPaid) entry.isPaid = true;
-      if (isApproved) entry.hasApproved = true;
-      else entry.hasUnapproved = true;
-    });
-
-    const unselectedAndUnpaid: string[] = [];
-    const unpaidOnly: string[] = [];
-    const unselectedPaid: string[] = [];
-
-    serviceMap.forEach((entry) => {
-      if (!entry.isPaid) {
-        if (entry.hasUnapproved) {
-          unselectedAndUnpaid.push(entry.name);
-        } else {
-          unpaidOnly.push(entry.name);
-        }
-      } else {
-        if (entry.hasUnapproved && !entry.hasApproved) {
-          unselectedPaid.push(entry.name);
-        }
-      }
-    });
-
-    return {
-      unselectedAndUnpaid: Array.from(new Set(unselectedAndUnpaid)),
-      unpaidOnly: Array.from(new Set(unpaidOnly)),
-      unselectedPaid: Array.from(new Set(unselectedPaid)),
-    };
-  }, [filesData?.files, orderData, userType]);
-
-  // Flat list for "download all" and MLS actions
+  // Flat list for per-service download actions (paid / released only)
   const groupedServices = useMemo(
     () =>
       bookingSections.map((s) => ({
+        key: s.key,
         uuid: s.serviceUuid,
         name: s.label,
         files: s.files,
-        isPaid: s.isPaid,
+        isActuallyPaid: s.isActuallyPaid,
+        isMediaReleased: s.isMediaReleased,
         bookingUuid: s.bookingEntry?.uuid,
       })),
     [bookingSections],
   );
 
-  // Filter paid files for agents (for download actions)
+  // Strictly payment-verified downloadable files using each section's exact booking entry
   const paidPhotos = useMemo(() => {
-    return allApprovedPhotos.filter((p) =>
-      canDownloadFile({
-        file: p,
-        orderData,
-        userType,
-      }),
+    return bookingSections.flatMap((section) =>
+      section.files.filter(
+        (p) =>
+          isPhotoFile(p) &&
+          canDownloadFile({
+            file: p,
+            currentService: section.bookingEntry,
+            orderData,
+            userType: "agent",
+          }),
+      ),
     );
-  }, [allApprovedPhotos, userType, orderData]);
+  }, [bookingSections, orderData]);
 
   const paidVideos = useMemo(() => {
-    return allApprovedVideos.filter((p) =>
-      canDownloadFile({
-        file: p,
-        orderData,
-        userType,
-      }),
+    return bookingSections.flatMap((section) =>
+      section.files.filter(
+        (p) =>
+          isVideoFile(p) &&
+          canDownloadFile({
+            file: p,
+            currentService: section.bookingEntry,
+            orderData,
+            userType: "agent",
+          }),
+      ),
     );
-  }, [allApprovedVideos, userType, orderData]);
+  }, [bookingSections, orderData]);
 
   const paidFloorPlans = useMemo(() => {
-    return allApprovedFloorPlans.filter((p) =>
-      canDownloadFile({
-        file: p,
-        orderData,
-        userType,
-      }),
+    return bookingSections.flatMap((section) =>
+      section.files.filter(
+        (p) =>
+          isFloorPlanFile(p) &&
+          canDownloadFile({
+            file: p,
+            currentService: section.bookingEntry,
+            orderData,
+            userType: "agent",
+          }),
+      ),
     );
-  }, [allApprovedFloorPlans, userType, orderData]);
+  }, [bookingSections, orderData]);
 
   // Selected files filter
   const selectedFiles = useMemo(() => {
@@ -627,35 +445,44 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
   // Filtered selected files (for manual download)
   const selectedPaidFiles = useMemo(() => {
     return selectedFiles
-      .filter((file) =>
-        canDownloadFile({
+      .filter((file) => {
+        const section = bookingSections.find((s) =>
+          s.files.some((f) => f.uuid === file.uuid),
+        );
+        return canDownloadFile({
           file,
+          currentService: section?.bookingEntry,
           orderData,
-          userType,
-        }),
-      )
+          userType: "agent",
+        });
+      })
       .map((file) => ({
         ...file,
-        is_paid: file.is_paid || canDownloadFile({ file, orderData, userType }),
+        is_paid: true,
       }));
-  }, [selectedFiles, userType, orderData]);
+  }, [selectedFiles, bookingSections, orderData]);
 
   const toggleImageSelection = (uuid: string) => {
-    const file = allApprovedFiles.find((f) => f.uuid === uuid);
+    const section = bookingSections.find((s) =>
+      s.files.some((f) => f.uuid === uuid),
+    );
+    const file = section?.files.find((f) => f.uuid === uuid);
 
     if (
       !file ||
       !canDownloadFile({
         file,
+        currentService: section?.bookingEntry,
         orderData,
-        userType,
+        userType: "agent",
       })
     ) {
       const reason = file
         ? getDownloadBlockReason({
             file,
+            currentService: section?.bookingEntry,
             orderData,
-            userType,
+            userType: "agent",
           })
         : "File not found";
       toast.error(reason || "Cannot select this file for download");
@@ -727,7 +554,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
     }, 500);
   };
 
-  if (!filesData) {
+  if (!filesData || !orderData) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -741,19 +568,18 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
       <div className="flex flex-wrap gap-3 mb-4">
         <Button
           onClick={() => {
-            if (!isAnyPhotoPaid) {
-              onOpenInvoice?.();
-              return;
-            }
-            if (paidPhotos.length === 0) {
-              toast.warning("No approved photos available to download.");
-              return;
-            }
+            if (paidPhotos.length === 0) return;
             openSizeModal(paidPhotos, "All Photos");
           }}
-          disabled={!hasAnyPhoto}
-          title={!isAnyPhotoPaid ? "service not paid yet" : ""}
-          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${!hasAnyPhoto ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={paidPhotos.length === 0}
+          title={
+            paidPhotos.length === 0
+              ? hasUnpaidPhoto
+                ? "Service not paid yet — photos are not ready to download"
+                : "No photos available to download"
+              : ""
+          }
+          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${paidPhotos.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <Download className="h-3.5 w-3.5" />
           Download all photos
@@ -761,19 +587,18 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
 
         <Button
           onClick={() => {
-            if (!isAnyVideoPaid) {
-              onOpenInvoice?.();
-              return;
-            }
-            if (paidVideos.length === 0) {
-              toast.warning("No approved videos available to download.");
-              return;
-            }
+            if (paidVideos.length === 0) return;
             handleDownload(paidVideos, "All Videos", "original");
           }}
-          disabled={!hasAnyVideo}
-          title={!isAnyVideoPaid ? "service not paid yet" : ""}
-          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${!hasAnyVideo ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={paidVideos.length === 0}
+          title={
+            paidVideos.length === 0
+              ? hasUnpaidVideo
+                ? "Service not paid yet — videos are not ready to download"
+                : "No videos available to download"
+              : ""
+          }
+          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${paidVideos.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <Download className="h-3.5 w-3.5" />
           Download all videos
@@ -781,19 +606,18 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
 
         <Button
           onClick={() => {
-            if (!isAnyFloorPlanPaid) {
-              onOpenInvoice?.();
-              return;
-            }
-            if (paidFloorPlans.length === 0) {
-              toast.warning("No approved floor plans available to download.");
-              return;
-            }
+            if (paidFloorPlans.length === 0) return;
             handleDownload(paidFloorPlans, "All Floor Plans", "original");
           }}
-          disabled={!hasAnyFloorPlan}
-          title={!isAnyFloorPlanPaid ? "service not paid yet" : ""}
-          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${!hasAnyFloorPlan ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={paidFloorPlans.length === 0}
+          title={
+            paidFloorPlans.length === 0
+              ? hasUnpaidFloorPlan
+                ? "Service not paid yet — floor plans are not ready to download"
+                : "No floor plans available to download"
+              : ""
+          }
+          className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] text-white flex gap-[5px] justify-center items-center ${userType}-bg hover:brightness-110 rounded-[6px] transition-all ${paidFloorPlans.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <Download className="h-3.5 w-3.5" />
           Download all floor plans
@@ -802,27 +626,25 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
         <div className="flex items-center gap-2">
           <Button
             onClick={() => {
-              if (selectedImageUuids.size === 0) {
+              if (selectedFiles.length === 0) {
                 toast.warning("Please select at least one file first.");
                 return;
               }
               setIsManualModalOpen(true);
             }}
             disabled={
-              selectedImageUuids.size === 0 ||
-              allApprovedFiles.length === 0 ||
-              (!isAnyPhotoPaid && !isAnyVideoPaid && !isAnyFloorPlanPaid)
+              selectedFiles.length === 0 || allApprovedFiles.length === 0
             }
-            className={`px-4 h-[32px] md:h-[38px] border-[1px] ${selectedImageUuids.size === 0 ? "border-gray-300 text-gray-500 bg-gray-100" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors ${!isAnyPhotoPaid && !isAnyVideoPaid && !isAnyFloorPlanPaid ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`px-4 h-[32px] md:h-[38px] border-[1px] ${selectedFiles.length === 0 || allApprovedFiles.length === 0 ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
             style={
-              selectedImageUuids.size === 0
+              selectedFiles.length === 0 || allApprovedFiles.length === 0
                 ? {}
                 : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }
             }
           >
             <Download className="h-3.5 w-3.5" />
             Download manually{" "}
-            {selectedImageUuids.size > 0 && `(${selectedImageUuids.size})`}
+            {selectedFiles.length > 0 && `(${selectedFiles.length})`}
           </Button>
           <span className="text-gray-500 text-sm hidden md:inline">
             Click a file to select it for downloading manually.
@@ -833,10 +655,17 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
         {(userType === "agent" || userType === "admin") && (
           <Button
             onClick={() => setIsSyncModalOpen(true)}
-            disabled={allApprovedPhotos.length === 0}
-            className={`px-4 h-[32px] md:h-[38px] border-[1px] ${allApprovedPhotos.length === 0 ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
+            disabled={paidPhotos.length === 0}
+            title={
+              paidPhotos.length === 0
+                ? hasUnpaidPhoto
+                  ? "Service not paid yet — photos are not ready to sync"
+                  : "No photos available to sync"
+                : ""
+            }
+            className={`px-4 h-[32px] md:h-[38px] border-[1px] ${paidPhotos.length === 0 ? "border-gray-300 text-gray-500 bg-gray-100 opacity-50 cursor-not-allowed" : `${userType}-border ${userType}-text hover:text-[#fff] hover-${userType}-bg ${userType}-button`} text-[12px] md:text-[13px] font-[500] flex gap-[5px] justify-center items-center rounded-[6px] transition-colors`}
             style={
-              allApprovedPhotos.length === 0
+              paidPhotos.length === 0
                 ? {}
                 : { backgroundColor: `var(--${userType}-page-bg, #EEEEEE)` }
             }
@@ -845,7 +674,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
           </Button>
         )}
 
-        {selectedImageUuids.size > 0 && (
+        {selectedFiles.length > 0 && (
           <Button
             variant="ghost"
             onClick={() => setSelectedImageUuids(new Set())}
@@ -856,84 +685,71 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
         )}
       </div>
 
-      {/* Per-service download buttons */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        {groupedServices.map((service) => {
-          const servicePhotos = service.files.filter((f) => isPhotoFile(f));
-          const serviceVideos = service.files.filter((f) => isVideoFile(f));
-          const serviceFloorPlans = service.files.filter((f) =>
-            isFloorPlanFile(f),
-          );
-          const isPaid = service.isPaid;
-          const canDownload = userType !== "agent" || isPaid;
+      {/* Per-service download buttons (paid / released services only) */}
+      {groupedServices.length > 0 && (
+        <div className="flex flex-wrap gap-3 mb-8">
+          {groupedServices.map((service) => {
+            const servicePhotos = service.files.filter((f) => isPhotoFile(f));
+            const serviceVideos = service.files.filter((f) => isVideoFile(f));
+            const serviceFloorPlans = service.files.filter((f) =>
+              isFloorPlanFile(f),
+            );
 
-          return (
-            <React.Fragment key={service.uuid + service.name}>
-              {servicePhotos.length > 0 && (
-                <Button
-                  onClick={() => {
-                    if (!canDownload) {
-                      onOpenInvoice?.(service.name, service.bookingUuid);
-                      return;
+            return (
+              <React.Fragment key={service.key}>
+                {servicePhotos.length > 0 && (
+                  <Button
+                    onClick={() => openSizeModal(servicePhotos, service.name)}
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                    style={{
+                      backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download {service.name} photos ({servicePhotos.length})
+                  </Button>
+                )}
+                {serviceVideos.length > 0 && (
+                  <Button
+                    onClick={() =>
+                      handleDownload(serviceVideos, service.name, "original")
                     }
-                    openSizeModal(servicePhotos, service.name);
-                  }}
-                  title={!canDownload ? "service not paid yet" : ""}
-                  className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                  style={{
-                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                  }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download {service.name} photos ({servicePhotos.length})
-                </Button>
-              )}
-              {serviceVideos.length > 0 && (
-                <Button
-                  onClick={() => {
-                    if (!canDownload) {
-                      onOpenInvoice?.(service.name, service.bookingUuid);
-                      return;
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                    style={{
+                      backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download {service.name} videos ({serviceVideos.length})
+                  </Button>
+                )}
+                {serviceFloorPlans.length > 0 && (
+                  <Button
+                    onClick={() =>
+                      handleDownload(
+                        serviceFloorPlans,
+                        service.name,
+                        "original",
+                      )
                     }
-                    handleDownload(serviceVideos, service.name, "original");
-                  }}
-                  title={!canDownload ? "service not paid yet" : ""}
-                  className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                  style={{
-                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                  }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download {service.name} videos ({serviceVideos.length})
-                </Button>
-              )}
-              {serviceFloorPlans.length > 0 && (
-                <Button
-                  onClick={() => {
-                    if (!canDownload) {
-                      onOpenInvoice?.(service.name, service.bookingUuid);
-                      return;
-                    }
-                    handleDownload(serviceFloorPlans, service.name, "original");
-                  }}
-                  title={!canDownload ? "service not paid yet" : ""}
-                  className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                  style={{
-                    backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                  }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download {service.name}{" "}
-                  {service.name.toLowerCase().includes("floor")
-                    ? ""
-                    : "floor plans "}
-                  ({serviceFloorPlans.length})
-                </Button>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+                    className={`px-4 h-[32px] md:h-[38px] border-[1px] ${userType}-border text-[12px] md:text-[13px] font-[500] ${userType}-text flex gap-[5px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                    style={{
+                      backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download {service.name}{" "}
+                    {service.name.toLowerCase().includes("floor")
+                      ? ""
+                      : "floor plans "}
+                    ({serviceFloorPlans.length})
+                  </Button>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
 
       {/* Booking-aware grouped file grid */}
       <div className="space-y-12">
@@ -948,7 +764,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
 
               return (
                 <div key={section.key} className="space-y-4">
-                  {/* Section header with label + paid badge + download button */}
+                  {/* Section header with label + status badge + download button */}
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3
                       className={`text-xl font-semibold ${userType}-text border-l-4 border-current pl-3`}
@@ -956,131 +772,68 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
                       {section.label}
                     </h3>
                     <div className="flex items-center gap-2">
-                      {/* Paid/Unpaid badge */}
-                      {userType !== "vendor" && (
-                        <span
-                          onClick={async () => {
-                            if (!section.isPaid && onOpenInvoice) {
-                              const sUuid = section.bookingEntry?.uuid || section.label;
-                              setOpeningInvoiceServiceUuid(sUuid);
-                              try {
-                                await onOpenInvoice(
-                                  section.bookingEntry?.service.name,
-                                  section.bookingEntry?.uuid,
-                                );
-                              } finally {
-                                setOpeningInvoiceServiceUuid(null);
-                              }
-                            }
-                          }}
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-                            section.isPaid
-                              ? "bg-[#6BAE41] text-white"
-                              : "bg-[#DC9600] text-white cursor-pointer hover:bg-[#eda304]"
-                          }`}
-                        >
-                          {openingInvoiceServiceUuid === (section.bookingEntry?.uuid || section.label) ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : section.isPaid ? (
-                            "PAID"
-                          ) : (
-                            "UNPAID"
-                          )}
-                        </span>
-                      )}
+                      {/* Paid / Media Released badge */}
+                      {userType !== "vendor" &&
+                        (section.isActuallyPaid ? (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-[#6BAE41] text-white">
+                            PAID
+                          </span>
+                        ) : section.isMediaReleased ? (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-600 text-white">
+                            MEDIA RELEASED
+                          </span>
+                        ) : null)}
                       {/* Per-section download buttons */}
-                      {(() => {
-                        const canDownloadSection = userType !== "agent" || section.isPaid;
-                        return (
-                          <>
-                            {sectionPhotos.length > 0 && (
-                              <Button
-                                onClick={async () => {
-                                  if (!canDownloadSection) {
-                                    if (onOpenInvoice) {
-                                      const sUuid = section.bookingEntry?.uuid || section.label;
-                                      setOpeningInvoiceServiceUuid(sUuid);
-                                      try {
-                                        await onOpenInvoice(
-                                          section.bookingEntry?.service.name ||
-                                            section.label,
-                                          section.bookingEntry?.uuid,
-                                        );
-                                      } finally {
-                                        setOpeningInvoiceServiceUuid(null);
-                                      }
-                                    }
-                                    return;
-                                  }
-                                  openSizeModal(sectionPhotos, section.label);
-                                }}
-                                title={!canDownloadSection ? "Service not paid yet" : ""}
-                                className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                                style={{
-                                  backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                }}
-                              >
-                                <Download className="h-3 w-3" />
-                                Photos ({sectionPhotos.length})
-                              </Button>
-                            )}
-                            {sectionVideos.length > 0 && (
-                              <Button
-                                onClick={() => {
-                                  if (!canDownloadSection) {
-                                    onOpenInvoice?.(
-                                      section.bookingEntry?.service.name ||
-                                        section.label,
-                                      section.bookingEntry?.uuid,
-                                    );
-                                    return;
-                                  }
-                                  handleDownload(
-                                    sectionVideos,
-                                    section.label,
-                                    "original",
-                                  );
-                                }}
-                                title={!canDownloadSection ? "Service not paid yet" : ""}
-                                className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                                style={{
-                                  backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                }}
-                              >
-                                <Download className="h-3 w-3" />
-                                Videos ({sectionVideos.length})
-                              </Button>
-                            )}
-                            {sectionFloorPlans.length > 0 && (
-                              <Button
-                                onClick={() => {
-                                  if (!canDownloadSection) {
-                                    onOpenInvoice?.(
-                                      section.bookingEntry?.service.name ||
-                                        section.label,
-                                      section.bookingEntry?.uuid,
-                                    );
-                                    return;
-                                  }
-                                  handleDownload(
-                                    sectionFloorPlans,
-                                    section.label,
-                                    "original",
-                                  );
-                                }}
-                                title={!canDownloadSection ? "Service not paid yet" : ""}
-                                className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
-                                style={{
-                                  backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
-                                }}
-                              >
-                                <Download className="h-3 w-3" />
-                                Floor Plans ({sectionFloorPlans.length})
-                              </Button>
-                            )}
-                          </>
-                        );
-                      })()}
+                      {sectionPhotos.length > 0 && (
+                        <Button
+                          onClick={() =>
+                            openSizeModal(sectionPhotos, section.label)
+                          }
+                          className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
+                        >
+                          <Download className="h-3 w-3" />
+                          Photos ({sectionPhotos.length})
+                        </Button>
+                      )}
+                      {sectionVideos.length > 0 && (
+                        <Button
+                          onClick={() =>
+                            handleDownload(
+                              sectionVideos,
+                              section.label,
+                              "original",
+                            )
+                          }
+                          className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
+                        >
+                          <Download className="h-3 w-3" />
+                          Videos ({sectionVideos.length})
+                        </Button>
+                      )}
+                      {sectionFloorPlans.length > 0 && (
+                        <Button
+                          onClick={() =>
+                            handleDownload(
+                              sectionFloorPlans,
+                              section.label,
+                              "original",
+                            )
+                          }
+                          className={`px-3 h-[30px] border-[1px] ${userType}-border text-[11px] font-[500] ${userType}-text flex gap-[4px] justify-center items-center hover:text-[#fff] hover-${userType}-bg ${userType}-button rounded-[6px] transition-colors`}
+                          style={{
+                            backgroundColor: `var(--${userType}-page-bg, #EEEEEE)`,
+                          }}
+                        >
+                          <Download className="h-3 w-3" />
+                          Floor Plans ({sectionFloorPlans.length})
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -1222,11 +975,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
                               ) : !cleanPdfUrl ? (
                                 <PdfPlaceholder
                                   className="w-full h-full object-contain"
-                                  message={
-                                    !section.isPaid
-                                      ? "service is not paid yet"
-                                      : "Preview not available"
-                                  }
+                                  message="Preview not available"
                                 />
                               ) : isLetterboxOn ? (
                                 /* Letterbox Correction ON: Show whole PDF, extra space filled with black like other media */
@@ -1302,23 +1051,6 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
                               <CheckCircle2 className="w-6 h-6 shadow-sm" />
                             </div>
                           )}
-                          {!isSelected &&
-                            !section.isPaid &&
-                            userType === "agent" && (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenInvoice?.(
-                                    section.bookingEntry?.service.name,
-                                    section.bookingEntry?.uuid,
-                                  );
-                                }}
-                                className="absolute top-2 right-2 z-10 bg-black/50 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1 cursor-pointer hover:bg-black/70"
-                              >
-                                <Loader2 className="w-3 h-3 animate-pulse" />
-                                Unpaid
-                              </div>
-                            )}
                           {isVideo && (
                             <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
                               <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-md group-hover:scale-110 transition-transform duration-300 fill-black/40" />
@@ -1359,70 +1091,87 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
                 </Button>
               </div>
             )}
+
+            {unpaidSections.length > 0 && (
+              <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5 text-sm text-amber-900">
+                  <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p>
+                    Media for{" "}
+                    <span className="font-semibold">
+                      {unpaidSections.map((s) => s.label).join(", ")}
+                    </span>{" "}
+                    is not yet ready to be downloaded. Files will appear here
+                    once payment is completed.
+                  </p>
+                </div>
+                {onOpenInvoice && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isOpeningInvoice}
+                    onClick={() => handleOpenInvoiceClick()}
+                    className="h-8 px-3 text-xs font-medium border-amber-300 bg-white text-amber-900 hover:bg-amber-100 shrink-0 inline-flex items-center gap-1.5"
+                  >
+                    {isOpeningInvoice ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Receipt className="w-3.5 h-3.5" />
+                    )}
+                    View Invoice
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="py-20 text-center">
-            {userType === "agent" &&
-            (mediaStatusDetails.unselectedAndUnpaid.length > 0 ||
-              mediaStatusDetails.unpaidOnly.length > 0 ||
-              mediaStatusDetails.unselectedPaid.length > 0) ? (
-              <div className="flex flex-col items-center gap-3 text-gray-600 max-w-lg mx-auto">
-                <p className="text-lg font-medium text-gray-800">
-                  {mediaStatusDetails.unselectedAndUnpaid.length > 0 &&
-                  mediaStatusDetails.unpaidOnly.length === 0 &&
-                  mediaStatusDetails.unselectedPaid.length === 0
-                    ? "Select Media & Complete Payment"
-                    : mediaStatusDetails.unselectedPaid.length > 0 &&
-                      mediaStatusDetails.unselectedAndUnpaid.length === 0 &&
-                      mediaStatusDetails.unpaidOnly.length === 0
-                    ? "Media Selection Required"
-                    : mediaStatusDetails.unpaidOnly.length > 0 &&
-                      mediaStatusDetails.unselectedAndUnpaid.length === 0 &&
-                      mediaStatusDetails.unselectedPaid.length === 0
-                    ? "Media Available After Payment"
-                    : "Action Required to Download Media"}
-                </p>
-
-                <div className="text-sm space-y-2 text-center">
-                  {mediaStatusDetails.unselectedAndUnpaid.length > 0 && (
-                    <p>
-                      You have unselected media for{" "}
-                      <span className="font-semibold text-gray-800">
-                        {mediaStatusDetails.unselectedAndUnpaid.join(", ")}
-                      </span>
-                      . Please select your media in the service tabs and complete the service payment to make it available for download.
-                    </p>
-                  )}
-                  {mediaStatusDetails.unpaidOnly.length > 0 && (
-                    <p>
-                      Media for{" "}
-                      <span className="font-semibold text-gray-800">
-                        {mediaStatusDetails.unpaidOnly.join(", ")}
-                      </span>{" "}
-                      will be available once the service payment is completed.
-                    </p>
-                  )}
-                  {mediaStatusDetails.unselectedPaid.length > 0 && (
-                    <p>
-                      You have paid media for{" "}
-                      <span className="font-semibold text-gray-800">
-                        {mediaStatusDetails.unselectedPaid.join(", ")}
-                      </span>
-                      , but it has not been selected yet. Please review and select your media in the service tabs to make it available for download.
+          <div className="py-16 text-center">
+            {unpaidSections.length > 0 ? (
+              <div className="max-w-lg mx-auto bg-white border border-amber-200 rounded-xl p-6 sm:p-8 shadow-sm text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-600">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold text-gray-900">
+                    Media Not Yet Ready for Download
+                  </p>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Media for{" "}
+                    <span className="font-semibold text-gray-800">
+                      {unpaidSections.map((s) => s.label).join(", ")}
+                    </span>{" "}
+                    is not yet ready to be downloaded because payment has not
+                    been completed.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Once payment is completed or media is released, your files
+                    will appear here ready for download.
+                  </p>
+                  {unapprovedServiceNames.length > 0 && (
+                    <p className="text-xs text-gray-500 pt-1">
+                      Media for {unapprovedServiceNames.join(", ")} also
+                      requires approval before download.
                     </p>
                   )}
                 </div>
-
-                {(mediaStatusDetails.unselectedAndUnpaid.length > 0 ||
-                  mediaStatusDetails.unpaidOnly.length > 0) &&
-                  onOpenInvoice && (
+                {onOpenInvoice && (
+                  <div className="pt-1">
                     <Button
-                      onClick={() => onOpenInvoice()}
-                      className="mt-1 text-xs font-semibold bg-[#DC9600] text-white hover:bg-[#eda304]"
+                      type="button"
+                      disabled={isOpeningInvoice}
+                      onClick={() => handleOpenInvoiceClick()}
+                      className={`px-5 h-9 text-sm font-medium text-white rounded-[6px] inline-flex items-center gap-2 ${userType}-bg hover:brightness-110`}
                     >
-                      View & Pay Invoice
+                      {isOpeningInvoice ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Receipt className="w-4 h-4" />
+                      )}
+                      View Invoice
                     </Button>
-                  )}
+                  </div>
+                )}
               </div>
             ) : unapprovedServiceNames.length > 0 ? (
               <div className="flex flex-col items-center gap-2 text-gray-600">
@@ -1470,15 +1219,7 @@ const DownloadTab: React.FC<DownloadTabProps> = ({
       <SyncMlsModal
         open={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
-        apiFiles={
-          [...allApprovedPhotos].filter((f) =>
-            canDownloadFile({
-              file: f,
-              orderData,
-              userType: "agent", // Force strict payment check even for Admins
-            }),
-          ) as unknown as ApiFile[]
-        }
+        apiFiles={paidPhotos as unknown as ApiFile[]}
         orderData={orderData}
         tourUuid={filesData?.uuid}
       />

@@ -15,3 +15,19 @@ export async function GetPublicTours(slug?: string) {
         throw error;
     }
 }
+
+export async function GetAgentTours(options?: { publishedOnly?: boolean }) {
+    try {
+        const response = await api.get(`/tours`, {
+            params: options?.publishedOnly ? { published_only: 'true' } : undefined,
+        });
+        const data = await response.data;
+        if (data.success !== true) {
+            throw new Error(data.message || `Request failed with status ${data.success}`);
+        }
+        return data;
+    } catch (error) {
+        console.error("Failed to fetch agent tours:", error);
+        throw error;
+    }
+}

@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { GetPublicTours } from '@/app/agent/agent'
+import { GetAgentTours, GetPublicTours } from '@/app/agent/agent'
+import { useAppContext } from '@/app/context/AppContext'
 import { useWhiteLabel } from '@/app/context/Whitelabel'
+import type { Role } from '@/app/context/whiteLabelConfig'
 import { toast } from 'sonner'
 import type { Tour } from '@/lib/types'
 import { getTourDomainUrl } from '@/lib/config/domains'
@@ -28,7 +30,9 @@ function getFeaturedImage(tour: Tour): string | null {
   if (!tour.files || tour.files.length === 0) return null
   const featured = tour.files.find((f) => f.is_featured)
   const file = featured || tour.files[0]
-  return file?.thumbnail_url || file?.file_path || null
+  const path = file?.thumbnail_url || file?.file_path || null
+  if (!path) return null
+  return path.startsWith('http') ? path : `${process.env.NEXT_PUBLIC_FILES_API_URL}/${path}`
 }
 
 function getTourUrl(tour: Tour): string {
@@ -70,29 +74,54 @@ function TourCardSkeleton() {
   )
 }
 
-export default function MobileAgentTours() {
+interface MobileAgentToursProps {
+  tours?: Tour[]
+  loading?: boolean
+}
+
+export default function MobileAgentTours({
+  tours: propTours,
+  loading: propLoading,
+}: MobileAgentToursProps = {}) {
+  const { userType } = useAppContext()
   const { appliedSettings } = useWhiteLabel()
-  const [tours, setTours] = useState<Tour[]>([])
-  const [loading, setLoading] = useState(true)
+  const [fetchedTours, setFetchedTours] = useState<Tour[]>([])
+  const [fetchedLoading, setFetchedLoading] = useState(propTours === undefined)
   const [search, setSearch] = useState('')
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
 
-  const agentColor = appliedSettings?.agent?.pageTabColor || '#6BAE41'
+  const role = (userType as string) || 'agent'
+  const agentColor =
+    appliedSettings?.[role as Role]?.pageTabColor ||
+    appliedSettings?.agent?.pageTabColor ||
+    '#6BAE41'
+
+  const tours = propTours ?? fetchedTours
+  const loading = propLoading ?? fetchedLoading
 
   useEffect(() => {
+    if (propTours !== undefined) {
+      return
+    }
+
     async function fetchTours() {
       try {
-        const res = await GetPublicTours()
+        const hasToken =
+          typeof window !== 'undefined' &&
+          Boolean(localStorage.getItem('token') || localStorage.getItem('agentToken'))
+        const res = hasToken
+          ? await GetAgentTours({ publishedOnly: true })
+          : await GetPublicTours()
         const data = res.data || res || []
-        setTours(Array.isArray(data) ? data : [])
+        setFetchedTours(Array.isArray(data) ? data : [])
       } catch (err) {
         console.error('Failed to fetch tours:', err)
       } finally {
-        setLoading(false)
+        setFetchedLoading(false)
       }
     }
     fetchTours()
-  }, [])
+  }, [propTours])
 
   const filteredTours = useMemo(() => {
     if (!search.trim()) return tours

@@ -85,10 +85,41 @@ export interface UpdateServicePayload {
     _method?: string;
 }
 
-function payloadToFormData(payload: ServicePayload): FormData {
+export function payloadToFormData(payload: ServicePayload): FormData {
     const formData = new FormData();
 
     for (const [key, value] of Object.entries(payload)) {
+        if (key === 'add_ons' && Array.isArray(value)) {
+            formData.append('sync_add_ons', '1');
+            let validIndex = 0;
+            value.forEach((item) => {
+                if (typeof item === 'object' && item !== null) {
+                    const { uuid, title, amount } = item as {
+                        uuid?: string;
+                        title?: string;
+                        amount?: string | number;
+                    };
+
+                    const isTitleFilled = title !== undefined && title !== null && title.trim() !== '';
+
+                    if (isTitleFilled) {
+                        if (uuid !== undefined && uuid !== null && String(uuid).trim() !== '') {
+                            formData.append(`add_ons[${validIndex}][uuid]`, String(uuid));
+                        }
+                        formData.append(`add_ons[${validIndex}][title]`, title.trim());
+                        formData.append(
+                            `add_ons[${validIndex}][amount]`,
+                            amount !== undefined && amount !== null && amount.toString().trim() !== ''
+                                ? String(amount)
+                                : '0'
+                        );
+                        validIndex++;
+                    }
+                }
+            });
+            continue;
+        }
+
         if (
             value === undefined ||
             value === null ||
@@ -109,17 +140,6 @@ function payloadToFormData(payload: ServicePayload): FormData {
                         for (const [subKey, subValue] of Object.entries(item)) {
                             if (subValue !== undefined && subValue !== null && subValue !== '') {
                                 formData.append(`product_options[${index}][${subKey}]`, subValue as string | Blob);
-                            }
-                        }
-                    } else if (key === 'add_ons') {
-                        const { title, amount } = item as { title?: string; amount?: string | number };
-
-                        const isTitleFilled = title !== undefined && title !== null && title.trim() !== '';
-
-                        if (isTitleFilled) {
-                            formData.append(`add_ons[${index}][title]`, title!);
-                            if (amount !== undefined && amount !== null && amount.toString().trim() !== '') {
-                                formData.append(`add_ons[${index}][amount]`, String(amount));
                             }
                         }
                     }

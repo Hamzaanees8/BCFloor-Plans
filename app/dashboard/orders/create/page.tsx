@@ -32,7 +32,7 @@ import { Agent } from '@/lib/types';
 import { useAppContext } from '@/app/context/AppContext';
 import { useWhiteLabel } from '@/app/context/Whitelabel';
 import OrderStepper from '../components/OrderStepper';
-import { getEffectiveServiceDuration, getMinRequiredDuration, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
+import { getEffectiveServiceDuration, getMinRequiredDuration, getVendorServiceTimeAdjustment, splitSlotInto15MinChunks, isServiceRequiringTravel } from '../utils/serviceTimeUtils';
 import { toast } from 'sonner';
 import { fetchServicesForBookNow, fetchVendorForBookNow } from '@/app/agent/book-now/book-now';
 
@@ -126,6 +126,7 @@ const OrderForm = () => {
         setServicesData,
         setAgentsData,
         setPackagesData,
+        vendorsData,
         setVendorsData,
         isPropertyValid,
         servicesData,
@@ -520,17 +521,31 @@ const OrderForm = () => {
 
                 const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
 
-                const requiredDuration = getEffectiveServiceDuration(
-                    productOption,
-                    globalService,
-                    squareFootage
-                );
-
                 const serviceSlots = selectedSlots.filter(s =>
                     s.service_id === serviceUuid ||
                     String(s.service_id) === String(serviceUuid) ||
                     (service.id && String(s.service_id) === String(service.id))
                 );
+                const assignedVendorId =
+                    serviceSlots[0]?.vendor?.uuid ||
+                    serviceSlots[0]?.vendor_id ||
+                    (service as any).vendor_id;
+                const assignedVendor = assignedVendorId
+                    ? vendorsData.find(v => v.uuid === assignedVendorId)
+                    : undefined;
+                const vendorAdjustment = getVendorServiceTimeAdjustment(
+                    assignedVendor,
+                    globalService || service,
+                    productOption || (service as any).option_id
+                );
+
+                const requiredDuration = getEffectiveServiceDuration(
+                    productOption,
+                    globalService,
+                    squareFootage,
+                    vendorAdjustment
+                );
+
                 const currentDuration = serviceSlots.length * 15;
 
                 const bookedDuration =
@@ -591,15 +606,28 @@ const OrderForm = () => {
             const globalService = servicesData?.find(s => s.uuid === serviceId || (service.id && String(s.id) === String(serviceId)));
 
             const productOption = globalService?.product_options?.find(opt => opt.uuid === (service as any).option_id || (opt.id && String(opt.id) === String((service as any).option_id)));
-            const requiredDuration = getEffectiveServiceDuration(
-                productOption,
-                globalService,
-                squareFootage
-            );
             const serviceSlots = selectedSlots.filter(slot =>
                 slot.service_id === serviceId ||
                 String(slot.service_id) === String(serviceId) ||
                 (service.id && String(slot.service_id) === String(service.id))
+            );
+            const assignedVendorId =
+                serviceSlots[0]?.vendor?.uuid ||
+                serviceSlots[0]?.vendor_id ||
+                (service as any).vendor_id;
+            const assignedVendor = assignedVendorId
+                ? vendorsData.find(v => v.uuid === assignedVendorId)
+                : undefined;
+            const vendorAdjustment = getVendorServiceTimeAdjustment(
+                assignedVendor,
+                globalService || service,
+                productOption || (service as any).option_id
+            );
+            const requiredDuration = getEffectiveServiceDuration(
+                productOption,
+                globalService,
+                squareFootage,
+                vendorAdjustment
             );
             const currentDuration = serviceSlots.length * 15;
 

@@ -17,7 +17,7 @@ import { getPropertyTimezone, PropertyLocation, getCachedGeocode, fetchTwilightT
 import { VendorData } from '../[id]/page'
 import { useOrderContext, Slot } from '../context/OrderContext'
 import VendorWorkCarousel from './VendorWorkCarousel'
-import { getEffectiveServiceDuration, getMinRequiredDuration, isServiceRequiringTravel } from '../utils/serviceTimeUtils'
+import { getEffectiveServiceDuration, getMinRequiredDuration, getVendorServiceTimeAdjustment, isServiceRequiringTravel } from '../utils/serviceTimeUtils'
 import { Services } from '../../services/page'
 import { CleanedProductOption } from '../../services/services'
 import { useSearchParams } from 'next/navigation'
@@ -659,16 +659,28 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
                                 (service.option_id && String(option.id) === String(service.option_id))
                         );
 
+                        const serviceSlots = selectedSlots.filter(
+                            (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
+                        );
+                        const activeVendorId =
+                            typeof selectedVendor === 'string' && selectedVendor !== 'all' && selectedVendor !== 'none'
+                                ? selectedVendor
+                                : (serviceSlots[0]?.vendor?.uuid || serviceSlots[0]?.vendor_id);
+                        const activeVendor = activeVendorId ? vendorsData.find((v) => v.uuid === activeVendorId) : undefined;
+                        const vendorAdjustment = getVendorServiceTimeAdjustment(
+                            activeVendor,
+                            currentService || service,
+                            productOption || service.option_id
+                        );
+
                         const squareFootage = selectedCurrentListing?.square_footage || tempPropertyData?.square_footage;
                         const requiredDuration = getEffectiveServiceDuration(
                             productOption,
                             currentService,
-                            squareFootage
+                            squareFootage,
+                            vendorAdjustment
                         );
 
-                        const serviceSlots = selectedSlots.filter(
-                            (s: Slot) => s.service_id === service.uuid || String(s.service_id) === String(service.uuid) || (service.id && String(s.service_id) === String(service.id))
-                        );
                         const currentDuration = serviceSlots.length * 15;
                         const bookedDuration =
                             (service.uuid ? bookedServiceDurations[service.uuid] : undefined) ??
@@ -732,19 +744,19 @@ const Schedule = ({ invalidServices = [], bookedServiceDurations = {} }: Schedul
                                                 <span className="text-[16px] font-[700] block min-h-[24px]">
                                                     {isTravelRequired ? (
                                                         (() => {
-                                                            const effectiveDuration = getEffectiveServiceDuration(
-                                                                productOption,
-                                                                currentService,
-                                                                squareFootage
-                                                            );
                                                             const isCalculated = !productOption?.service_duration || Number(productOption.service_duration) === 0 || (Boolean(squareFootage) && (squareFootage ?? 0) > 2000);
 
                                                             return (
                                                                 <>
-                                                                    {effectiveDuration} Minutes
+                                                                    {requiredDuration} Minutes
                                                                     {isCalculated && (
                                                                         <span className="text-[10px] font-[400] text-gray-500 block mt-1">
                                                                             (Calculated based on property size)
+                                                                        </span>
+                                                                    )}
+                                                                    {vendorAdjustment !== 0 && (
+                                                                        <span className="text-[10px] font-[400] text-blue-600 block mt-0.5">
+                                                                            ({vendorAdjustment < 0 ? `Reduced by ${Math.abs(vendorAdjustment)} mins` : `Increased by ${vendorAdjustment} mins`} for {activeVendor?.first_name} {activeVendor?.last_name})
                                                                         </span>
                                                                     )}
                                                                 </>

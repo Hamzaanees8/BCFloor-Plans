@@ -58,12 +58,43 @@ export type Discount = {
   expiry_date: string | null;
   created_at: string;
   updated_at: string;
-  services: {
+  services?: {
     id: number;
     uuid: string;
     name?: string;
   }[];
 };
+
+export function isServiceEligibleForDiscount(
+  discount: Pick<Discount, "services"> | null | undefined,
+  serviceUuid?: string,
+): boolean {
+  if (!discount) return false;
+  if (!discount.services || discount.services.length === 0) return true;
+  if (!serviceUuid) return false;
+  return discount.services.some((s) => s.uuid === serviceUuid);
+}
+
+function getBestEligibleCodeOrQuantityDiscount(
+  appliedCodeDiscount: Discount | null,
+  appliedQuantityDiscounts: Discount[],
+  serviceUuid?: string,
+): Discount | null {
+  const candidates: Discount[] = [];
+  if (isServiceEligibleForDiscount(appliedCodeDiscount, serviceUuid)) {
+    candidates.push(appliedCodeDiscount!);
+  }
+  candidates.push(
+    ...appliedQuantityDiscounts.filter((d) =>
+      isServiceEligibleForDiscount(d, serviceUuid),
+    ),
+  );
+  return candidates.reduce<Discount | null>((best, curr) => {
+    const currPercent = parseFloat(curr.percentage ?? "0");
+    const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
+    return currPercent > bestPercent ? curr : best;
+  }, null);
+}
 export interface NotificationOptions {
   notify_agent?: boolean;
   notify_vendor?: boolean;
@@ -215,26 +246,10 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
         return originalPrice;
       }
 
-      const codeDiscount = appliedCodeDiscount?.services?.some(
-        (d) => d.uuid === sel.uuid,
-      )
-        ? appliedCodeDiscount
-        : null;
-      const quantityDiscounts = appliedQuantityDiscounts.filter((d) =>
-        d.services?.some((s) => s.uuid === sel.uuid),
-      );
-
-      const applicableDiscounts: Discount[] = [];
-      if (codeDiscount) applicableDiscounts.push(codeDiscount);
-      applicableDiscounts.push(...quantityDiscounts);
-
-      const bestDiscount = applicableDiscounts.reduce(
-        (best, curr) => {
-          const currPercent = parseFloat(curr.percentage ?? "0");
-          const bestPercent = best ? parseFloat(best.percentage ?? "0") : 0;
-          return currPercent > bestPercent ? curr : best;
-        },
-        null as Discount | null,
+      const bestDiscount = getBestEligibleCodeOrQuantityDiscount(
+        appliedCodeDiscount,
+        appliedQuantityDiscounts,
+        sel.uuid,
       );
 
       if (!bestDiscount) return originalPrice;
@@ -376,17 +391,24 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
       // 3. Candidate Code / Coupon
       let codeSavings = 0;
       let codeRateText = "";
+      let matchedDiscountName = "";
       const discountedPrice = calculateServicePriceAfterDiscounts(sel);
       if (discountedPrice < originalPrice) {
         codeSavings = originalPrice - discountedPrice;
-        const matchedCode = appliedCodeDiscount?.services?.find(
-          (d) => d.uuid === sel.uuid,
-        )
-          ? appliedCodeDiscount
-          : null;
-        codeRateText = matchedCode?.percentage
-          ? `${matchedCode.percentage}% OFF`
+        const bestMatched = getBestEligibleCodeOrQuantityDiscount(
+          appliedCodeDiscount,
+          appliedQuantityDiscounts,
+          sel.uuid,
+        );
+        codeRateText = bestMatched?.percentage
+          ? `${bestMatched.percentage}% OFF`
           : "Coupon";
+        matchedDiscountName =
+          bestMatched?.name ||
+          bestMatched?.code_key ||
+          appliedCodeDiscount?.name ||
+          appliedCodeDiscount?.code_key ||
+          "Coupon Discount";
       }
 
       // Line-Item Max Comparison with tie-breaker: Agent >= Package >= Code
@@ -431,6 +453,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
       return {
         type: "code" as const,
         name:
+          matchedDiscountName ||
           appliedCodeDiscount?.name ||
           appliedCodeDiscount?.code_key ||
           "Coupon Discount",
@@ -451,6 +474,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
       agentDiscount,
       calculateServicePriceAfterDiscounts,
       appliedCodeDiscount,
+      appliedQuantityDiscounts,
     ],
   );
 
@@ -584,7 +608,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
   useEffect(() => {
     const validQuantityDiscounts = discounts.filter((discount) => {
-      if (discount.type !== "quantity" || !discount.services) return false;
+      if (discount.type !== "quantity") return false;
 
       // ✅ check status
       if (!discount.status) return false;
@@ -598,9 +622,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
 
       // Count total quantity of eligible services (including matching PAID services)
       const eligibleCount = selectedServices
-        .filter((sel) =>
-          discount.services?.some((dService) => dService.uuid === sel.uuid),
-        )
+        .filter((sel) => isServiceEligibleForDiscount(discount, sel.uuid))
         .reduce((sum, sel) => sum + (Number(sel.quantity) || 1), 0);
 
       const requiredQty = Number(discount.quantity) || 0;
@@ -678,7 +700,7 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     }
 
     const validForService = selectedServices.some((sel) =>
-      matched.services?.some((dService) => dService.uuid === sel.uuid),
+      isServiceEligibleForDiscount(matched, sel.uuid),
     );
 
     if (!validForService) {
@@ -702,15 +724,11 @@ const Confirmation = forwardRef<OrderConfirmationHandle>((props, ref) => {
     selectedServices.forEach((sel) => {
       const discInfo = resolveServiceDiscount(sel);
       if (discInfo.type === "code" && discInfo.savings > 0) {
-        const matchedCode = appliedCodeDiscount?.services?.some(
-          (d) => d.uuid === sel.uuid,
-        )
-          ? appliedCodeDiscount
-          : null;
-        const matchedQty = appliedQuantityDiscounts.find((d) =>
-          d.services?.some((s) => s.uuid === sel.uuid),
+        const targetDiscount = getBestEligibleCodeOrQuantityDiscount(
+          appliedCodeDiscount,
+          appliedQuantityDiscounts,
+          sel.uuid,
         );
-        const targetDiscount = matchedCode || matchedQty;
         if (targetDiscount) {
           discountPayload.push({
             discount_id: targetDiscount.uuid,
