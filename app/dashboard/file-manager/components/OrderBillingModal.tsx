@@ -44,6 +44,8 @@ import { useWhiteLabel } from "@/app/context/Whitelabel";
 import { isUserCoAgent } from "@/lib/permissions";
 import {
   BillingItem,
+  computeSplitOrderInvoiceTotals,
+  filterInvoicesByAgentRole,
   formatOrderDate,
   getBillings,
   getBestTargetInvoice,
@@ -168,6 +170,7 @@ export default function OrderBillingModal({
     useState<any>(null);
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] =
     useState<any>(null);
+  const [orderInvoicesDialogOpen, setOrderInvoicesDialogOpen] = useState(false);
 
   const effectiveOrderUuid =
     orderUuid || orderData?.uuid || billing?.order_uuid;
@@ -295,6 +298,13 @@ export default function OrderBillingModal({
         (inv) =>
           !isRenewalInvoice(inv) &&
           !isVoidOrCancelled(inv.status) &&
+          inv.notes?.toLowerCase().includes("consolidated") &&
+          (inv.agent_type === "primary" || (inv.agent && !inv.split_details)),
+      ) ||
+      rawInvoices.find(
+        (inv) =>
+          !isRenewalInvoice(inv) &&
+          !isVoidOrCancelled(inv.status) &&
           !inv.notes?.toLowerCase().includes("service invoice") &&
           (inv.agent_type === "primary" || (inv.agent && !inv.split_details)),
       ) ||
@@ -337,13 +347,6 @@ export default function OrderBillingModal({
         : rawInvoices.length > 0 &&
           rawInvoices.every((inv) => isVoidOrCancelled(inv.status)));
 
-    const taxRate = parseFloat(
-      primaryInvoice?.tax_rate ||
-        (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
-    );
-    const orderTaxDetails =
-      primaryInvoice?.tax_details || billing.tax_details || null;
-
     const orderHasSplits =
       Boolean(
         (billing as any)?.split_invoice ||
@@ -358,26 +361,23 @@ export default function OrderBillingModal({
           (inv.split_details?.splits && inv.split_details.splits.length > 1),
       );
 
-    const nonVoidInvoices = rawInvoices.filter(
-      (inv) => !isVoidOrCancelled(inv.status) && !isRenewalInvoice(inv),
-    );
+    const splitTotals = orderHasSplits
+      ? computeSplitOrderInvoiceTotals(rawInvoices)
+      : { subtotal: 0, tax: 0, total: 0, paid: 0, taxDetails: null };
 
-    const combinedInvoicesTotal = nonVoidInvoices.reduce(
-      (sum, inv) => sum + parseFloat(inv.total || "0"),
-      0,
+    const taxRate = parseFloat(
+      primaryInvoice?.tax_rate ||
+        (billing.tax_rate != null ? String(billing.tax_rate) : "0"),
     );
-    const combinedInvoicesSubtotal = nonVoidInvoices.reduce(
-      (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
-      0,
-    );
-    const combinedInvoicesTax = nonVoidInvoices.reduce(
-      (sum, inv) => sum + parseFloat(inv.tax_amount || "0"),
-      0,
-    );
-    const combinedInvoicesPaid = nonVoidInvoices.reduce(
-      (sum, inv) => sum + parseFloat(inv.paid_amount || "0"),
-      0,
-    );
+    const orderTaxDetails =
+      (orderHasSplits && splitTotals.taxDetails) ||
+      primaryInvoice?.tax_details ||
+      billing.tax_details ||
+      null;
+    const combinedInvoicesTotal = splitTotals.total;
+    const combinedInvoicesSubtotal = splitTotals.subtotal;
+    const combinedInvoicesTax = splitTotals.tax;
+    const combinedInvoicesPaid = splitTotals.paid;
 
     const subtotalVal =
       orderHasSplits && combinedInvoicesSubtotal > 0
@@ -480,6 +480,15 @@ export default function OrderBillingModal({
     const servicesWithoutMedia =
       userType === "agent" && filesData
         ? billing.services.filter((svc) => {
+            const svcStatus = (svc.status || "").toLowerCase();
+            if (
+              isPaidOrSucceeded(svcStatus) ||
+              isRefunded(svcStatus) ||
+              svcStatus === "cancelled" ||
+              svcStatus === "canceled"
+            ) {
+              return false;
+            }
             const svcId = svc.service_id;
             const matchItem = (f: any) =>
               f.service?.id === svcId ||
@@ -495,6 +504,33 @@ export default function OrderBillingModal({
         : [];
     const payAllBlockedByMedia =
       userType === "agent" && servicesWithoutMedia.length > 0;
+
+    // For Admin on split orders, collect one main/consolidated invoice per agent (Main + Co-Agent)
+    const adminMainInvoices = (() => {
+      if (!orderHasSplits) return targetOrderInvoice ? [targetOrderInvoice] : [];
+      const primaryMain = getBestTargetInvoice(
+        rawInvoices,
+        undefined,
+        undefined,
+        currentUser,
+        userType,
+        "primary",
+      );
+      const coAgentMain = getBestTargetInvoice(
+        rawInvoices,
+        undefined,
+        undefined,
+        currentUser,
+        userType,
+        "co-agent",
+      );
+      const list = [primaryMain, coAgentMain].filter(Boolean);
+      return list.length > 0
+        ? list
+        : targetOrderInvoice
+          ? [targetOrderInvoice]
+          : [];
+    })();
 
     const isPartiallyRefundedOrder =
       isPartiallyRefunded(billing.status) ||
@@ -536,6 +572,8 @@ export default function OrderBillingModal({
       payAllBlockedByMedia,
       shouldShowPayAll,
       orderInvoiceUrl,
+      orderHasSplits,
+      adminMainInvoices,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [billing, invoices, currentUser, userType, filesData]);
@@ -900,13 +938,47 @@ export default function OrderBillingModal({
                         {orderCalculations.targetOrderInvoice ? (
                           <>
                             <Button
-                              onClick={() =>
-                                handleOpenInvoiceDoc(
-                                  orderCalculations.targetOrderInvoice,
-                                )
+                              onClick={() => {
+                                if (
+                                  userType === "agent" &&
+                                  orderCalculations.payAllBlockedByMedia
+                                ) {
+                                  return;
+                                }
+                                if (
+                                  role !== "agent" &&
+                                  orderCalculations.orderHasSplits &&
+                                  orderCalculations.adminMainInvoices.length > 1
+                                ) {
+                                  setOrderInvoicesDialogOpen(true);
+                                } else {
+                                  handleOpenInvoiceDoc(
+                                    orderCalculations.targetOrderInvoice,
+                                  );
+                                }
+                              }}
+                              disabled={
+                                userType === "agent" &&
+                                orderCalculations.payAllBlockedByMedia
                               }
-                              className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
+                              title={
+                                userType === "agent" &&
+                                orderCalculations.payAllBlockedByMedia
+                                  ? "Invoices are currently being calculated and will be available once all services are ready."
+                                  : undefined
+                              }
+                              className={`h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] ${
+                                userType === "agent" &&
+                                orderCalculations.payAllBlockedByMedia
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
                               onMouseEnter={(e) => {
+                                if (
+                                  userType === "agent" &&
+                                  orderCalculations.payAllBlockedByMedia
+                                )
+                                  return;
                                 e.currentTarget.style.backgroundColor =
                                   roleSettings.pageTabColor;
                                 e.currentTarget.style.color = "white";
@@ -928,12 +1000,29 @@ export default function OrderBillingModal({
                                 )
                               }
                               disabled={
+                                (userType === "agent" &&
+                                  orderCalculations.payAllBlockedByMedia) ||
                                 downloadingUuid ===
-                                orderCalculations.targetOrderInvoice.uuid
+                                  orderCalculations.targetOrderInvoice.uuid
                               }
-                              className="h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center cursor-pointer gap-1.5"
-                              title="Download Invoice PDF"
+                              className={`h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center gap-1.5 ${
+                                userType === "agent" &&
+                                orderCalculations.payAllBlockedByMedia
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
+                              title={
+                                userType === "agent" &&
+                                orderCalculations.payAllBlockedByMedia
+                                  ? "Invoices are currently being calculated and will be available once all services are ready."
+                                  : "Download Invoice PDF"
+                              }
                               onMouseEnter={(e) => {
+                                if (
+                                  userType === "agent" &&
+                                  orderCalculations.payAllBlockedByMedia
+                                )
+                                  return;
                                 e.currentTarget.style.backgroundColor =
                                   roleSettings.pageTabColor;
                                 e.currentTarget.style.color = "white";
@@ -980,7 +1069,7 @@ export default function OrderBillingModal({
                                     >
                                       {orderCalculations.hasCancellationFee
                                         ? "Pay Cancellation Fee"
-                                        : "Pay All"}
+                                        : "Pay for All Available Services"}
                                     </Button>
                                   </span>
                                 </TooltipTrigger>
@@ -1023,7 +1112,7 @@ export default function OrderBillingModal({
                               ) : orderCalculations.hasCancellationFee ? (
                                 "Pay Cancellation Fee"
                               ) : (
-                                "Pay All"
+                                "Pay for All Available Services"
                               )}
                             </Button>
                           ))}
@@ -1114,9 +1203,15 @@ export default function OrderBillingModal({
                   </div>
 
                   {/* Financial Breakdown Grid */}
+                  {(() => {
+                    const isAgentInProgress =
+                      userType === "agent" &&
+                      orderCalculations.payAllBlockedByMedia;
+                    return (
                   <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap justify-between items-center gap-4 text-sm font-alexandria">
                     <div className="flex flex-wrap gap-6">
-                      {orderCalculations.packageDiscountVal > 0 && (
+                      {!isAgentInProgress &&
+                        orderCalculations.packageDiscountVal > 0 && (
                         <>
                           <div>
                             <span className="text-gray-500 block text-xs">
@@ -1158,13 +1253,15 @@ export default function OrderBillingModal({
                           Subtotal
                         </span>
                         <span className="font-semibold text-gray-700">
-                          {orderCalculations.subtotalVal.toLocaleString(
-                            "en-US",
-                            {
-                              style: "currency",
-                              currency: "USD",
-                            },
-                          )}
+                          {isAgentInProgress
+                            ? "—"
+                            : orderCalculations.subtotalVal.toLocaleString(
+                                "en-US",
+                                {
+                                  style: "currency",
+                                  currency: "USD",
+                                },
+                              )}
                         </span>
                       </div>
 
@@ -1182,10 +1279,12 @@ export default function OrderBillingModal({
                                   {taxKey} ({rate}%)
                                 </span>
                                 <span className="font-semibold text-[#DC9600]">
-                                  {amt.toLocaleString("en-US", {
-                                    style: "currency",
-                                    currency: "USD",
-                                  })}
+                                  {isAgentInProgress
+                                    ? "—"
+                                    : amt.toLocaleString("en-US", {
+                                        style: "currency",
+                                        currency: "USD",
+                                      })}
                                 </span>
                               </div>
                             );
@@ -1197,13 +1296,15 @@ export default function OrderBillingModal({
                             GST/HST ({orderCalculations.taxRate}%)
                           </span>
                           <span className="font-semibold text-[#DC9600]">
-                            {orderCalculations.taxAmount.toLocaleString(
-                              "en-US",
-                              {
-                                style: "currency",
-                                currency: "USD",
-                              },
-                            )}
+                            {isAgentInProgress
+                              ? "—"
+                              : orderCalculations.taxAmount.toLocaleString(
+                                  "en-US",
+                                  {
+                                    style: "currency",
+                                    currency: "USD",
+                                  },
+                                )}
                           </span>
                         </div>
                       ) : null}
@@ -1211,6 +1312,7 @@ export default function OrderBillingModal({
                       <div>
                         <span className="text-gray-500 block text-xs">
                           Grand Total
+                          {isAgentInProgress ? " (Quote Approx.)" : ""}
                         </span>
                         <span className="font-bold text-gray-800">
                           {orderCalculations.grandTotalVal.toLocaleString(
@@ -1228,17 +1330,20 @@ export default function OrderBillingModal({
                           Total Paid
                         </span>
                         <span className="font-semibold text-[#6BAE41]">
-                          {(orderCalculations.isOrderRefunded
-                            ? 0
-                            : orderCalculations.safeRowTotalPaid
-                          ).toLocaleString("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                          })}
+                          {isAgentInProgress
+                            ? "—"
+                            : (orderCalculations.isOrderRefunded
+                                ? 0
+                                : orderCalculations.safeRowTotalPaid
+                              ).toLocaleString("en-US", {
+                                style: "currency",
+                                currency: "USD",
+                              })}
                         </span>
                       </div>
 
-                      {orderCalculations.totalRefunded > 0 && (
+                      {!isAgentInProgress &&
+                        orderCalculations.totalRefunded > 0 && (
                         <div>
                           <span className="text-gray-500 block text-xs">
                             Total Refunded
@@ -1260,17 +1365,21 @@ export default function OrderBillingModal({
                           Balance Due
                         </span>
                         <span className="font-bold text-[#E06D5E]">
-                          {orderCalculations.displayRemaining.toLocaleString(
-                            "en-US",
-                            {
-                              style: "currency",
-                              currency: "USD",
-                            },
-                          )}
+                          {isAgentInProgress
+                            ? "—"
+                            : orderCalculations.displayRemaining.toLocaleString(
+                                "en-US",
+                                {
+                                  style: "currency",
+                                  currency: "USD",
+                                },
+                              )}
                         </span>
                       </div>
                     </div>
                   </div>
+                    );
+                  })()}
 
                   {/* 2. TRANSACTION HISTORY & RECEIPTS (PAYMENT BREAKDOWN) */}
                   {billing.invoices && billing.invoices.length > 0 && (
@@ -1450,12 +1559,22 @@ export default function OrderBillingModal({
                     ) => {
                       const serviceUuid =
                         service.uuid || service.order_service_uuid;
+                      const sectionRole: "primary" | "co-agent" | undefined =
+                        orderHasSplits
+                          ? isCoAgentSection
+                            ? "co-agent"
+                            : "primary"
+                          : undefined;
+                      const sectionInvoices = sectionRole
+                        ? filterInvoicesByAgentRole(invoices, sectionRole)
+                        : invoices;
                       const serviceTargetInvoice = getBestTargetInvoice(
-                        invoices,
+                        sectionInvoices,
                         serviceUuid,
                         service.service_id,
                         currentUser,
                         userType,
+                        sectionRole,
                       );
 
                       const isServiceRefunded =
@@ -1465,17 +1584,22 @@ export default function OrderBillingModal({
                         !isServiceRefunded &&
                         (isPartiallyRefunded(service.status) ||
                           isPartiallyRefunded(serviceTargetInvoice?.status));
-                      const isServicePaid =
-                        (isPaidOrSucceeded(service.status) ||
-                          isPaidOrSucceeded(serviceTargetInvoice?.status) ||
-                          billing.status === "paid" ||
-                          (parseFloat(serviceTargetInvoice?.paid_amount || 0) >
+                      const isTargetInvoicePaid = serviceTargetInvoice
+                        ? isPaidOrSucceeded(serviceTargetInvoice.status) ||
+                          (parseFloat(serviceTargetInvoice.paid_amount || 0) >
                             0 &&
                             parseFloat(
-                              serviceTargetInvoice?.paid_amount || 0,
+                              serviceTargetInvoice.paid_amount || 0,
                             ) >=
-                              parseFloat(serviceTargetInvoice?.total || 0) -
-                                0.01)) &&
+                              parseFloat(serviceTargetInvoice.total || 0) -
+                                0.01)
+                        : false;
+                      const isServicePaid =
+                        (orderHasSplits && serviceTargetInvoice
+                          ? isTargetInvoicePaid
+                          : isPaidOrSucceeded(service.status) ||
+                            isTargetInvoicePaid ||
+                            billing.status === "paid") &&
                         !isServiceRefunded &&
                         !isServicePartiallyRefunded;
                       const isServiceInProgress =
@@ -1494,13 +1618,14 @@ export default function OrderBillingModal({
                       const isServiceCompleted = !isServiceInProgress;
 
                       const pricing = getServiceActualInvoicePricing({
-                        invoices,
+                        invoices: sectionInvoices,
                         service,
                         splitMultiplier: currentSplitMultiplier,
                         isCoAgentUser: isCoAgentSection,
                         userType,
                         currentUser,
                         fallbackTaxRate: orderCalculations.taxRate,
+                        targetAgentRole: sectionRole,
                       });
 
                       return (
@@ -1699,6 +1824,12 @@ export default function OrderBillingModal({
                               </div>
 
                               {/* Service Pricing Details - EXACT 1:1 COLORS FROM BILLING SCREEN */}
+                              {isServiceInProgress && userType === "agent" ? (
+                                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-[4px] px-3 py-2 mt-1">
+                                  Invoices are currently being calculated and
+                                  will be shown once media is ready.
+                                </p>
+                              ) : (
                               <div className="text-sm text-gray-600 space-y-0.5">
                                 <p>
                                   Base Price:{" "}
@@ -1852,9 +1983,10 @@ export default function OrderBillingModal({
                                   );
                                 })()}
                               </div>
+                              )}
 
                               {/* Scheduled slot strip */}
-                              {(() => {
+                              {!(isServiceInProgress && userType === "agent") && (() => {
                                 const serviceSlot = billing.slots.find(
                                   (s) => s.service_id === service.service_id,
                                 );
@@ -1995,6 +2127,51 @@ export default function OrderBillingModal({
                               </div>
                             </AccordionTrigger>
                             <AccordionContent className="p-4 space-y-3 bg-white">
+                              {(() => {
+                                const coAgentMainInv = getBestTargetInvoice(
+                                  invoices,
+                                  undefined,
+                                  undefined,
+                                  currentUser,
+                                  userType,
+                                  "co-agent",
+                                );
+                                if (!coAgentMainInv) return null;
+                                return (
+                                  <div className="flex items-center justify-between px-3 py-2 rounded-[6px] bg-blue-50/70 border border-blue-200">
+                                    <div className="flex items-center gap-2 text-xs text-blue-950">
+                                      <span className="font-semibold">
+                                        Co-Agent Main Invoice:
+                                      </span>
+                                      <span>
+                                        {coAgentMainInv.invoice_number ||
+                                          `INV-${coAgentMainInv.id}`}
+                                      </span>
+                                      <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-800 uppercase font-medium">
+                                        {coAgentMainInv.status || "unpaid"}
+                                      </span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      disabled={
+                                        userType === "agent" &&
+                                        orderCalculations.payAllBlockedByMedia
+                                      }
+                                      onClick={() =>
+                                        handleOpenInvoiceDoc(coAgentMainInv)
+                                      }
+                                      className={`h-[30px] px-3 bg-white border border-blue-300 text-blue-700 rounded-[6px] text-xs font-medium transition-colors ${
+                                        userType === "agent" &&
+                                        orderCalculations.payAllBlockedByMedia
+                                          ? "opacity-50 cursor-not-allowed"
+                                          : "hover:bg-blue-600 hover:text-white cursor-pointer"
+                                      }`}
+                                    >
+                                      View Co-Agent Invoice
+                                    </Button>
+                                  </div>
+                                );
+                              })()}
                               <div className="space-y-3">
                                 {billing.services.map((service) =>
                                   renderOrderServiceCard(
@@ -2407,6 +2584,177 @@ export default function OrderBillingModal({
           }}
         />
       )}
+
+      {/* Admin Split Order Invoices Selector (matches older Billing Order Split Invoices UI) */}
+      <Dialog
+        open={orderInvoicesDialogOpen}
+        onOpenChange={setOrderInvoicesDialogOpen}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] md:w-[850px] rounded-[6px] p-0 font-alexandria overflow-hidden border border-[#BBBBBB] bg-white [&>button]:hidden">
+          <DialogHeader className="p-4 sm:p-6 border-b border-[#BBBBBB] bg-white">
+            <DialogTitle
+              className="flex items-center justify-between text-base sm:text-lg font-bold tracking-tight uppercase"
+              style={{ color: roleSettings.pageTabColor }}
+            >
+              <span>Order Split Invoices</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-gray-100 rounded-full animate-none"
+                onClick={() => setOrderInvoicesDialogOpen(false)}
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="max-h-[65vh] overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#F9F9F9]">
+            <div className="flex flex-col gap-4">
+              {(orderCalculations?.adminMainInvoices || []).map(
+                (invoice: any) => {
+                  const status = (invoice.status || "unpaid").toUpperCase();
+                  let badgeBg = "#E06D5E";
+                  let badgeText = "Unpaid";
+                  if (status === "PAID") {
+                    badgeBg = "#6BAE41";
+                    badgeText = "Paid";
+                  } else if (status === "ISSUED") {
+                    badgeBg = "#4A90E2";
+                    badgeText = "Issued";
+                  } else if (status === "VOID") {
+                    badgeBg = "#A0A0A0";
+                    badgeText = "Void";
+                  } else if (
+                    status === "PARTIAL_PAID" ||
+                    status === "PARTIALLY_PAID" ||
+                    status === "PARTIAL"
+                  ) {
+                    badgeBg = "#DC9600";
+                    badgeText = "Partial";
+                  } else if (status === "REFUNDED") {
+                    badgeBg = "#D0021B";
+                    badgeText = "Refunded";
+                  } else if (
+                    status === "PARTIALLY_REFUNDED" ||
+                    status === "PARTIAL_REFUNDED"
+                  ) {
+                    badgeBg = "#D9534F";
+                    badgeText = "Partially Refunded";
+                  }
+
+                  const splitPercentage =
+                    invoice.split_details?.splits?.find(
+                      (s: any) =>
+                        s.email === invoice.agent?.email ||
+                        s.agent_id === invoice.agent_id,
+                    )?.percentage || null;
+
+                  return (
+                    <div
+                      key={invoice.uuid || invoice.id}
+                      className="group flex flex-col p-4 sm:p-5 rounded-[6px] border border-[#BBBBBB] bg-white transition-all duration-300 gap-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                          <span className="font-bold text-[16px] text-gray-800 tracking-tight whitespace-nowrap">
+                            Invoice #{invoice.invoice_number || invoice.id}
+                          </span>
+                          <span
+                            className="text-white px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase leading-none whitespace-nowrap"
+                            style={{ backgroundColor: badgeBg }}
+                          >
+                            {badgeText}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-[4px] text-[10px] font-semibold bg-emerald-100 text-emerald-800 uppercase border border-emerald-300 whitespace-nowrap">
+                            Main Invoice
+                          </span>
+                          {invoice.agent_type && (
+                            <span className="px-2 py-0.5 rounded-[4px] text-[10px] font-semibold bg-gray-100 text-gray-600 uppercase border border-[#BBBBBB] whitespace-nowrap">
+                              {invoice.agent_type}{" "}
+                              {splitPercentage ? `(${splitPercentage}%)` : ""}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center gap-1 shrink-0">
+                          <span className="text-[18px] sm:text-[20px] font-bold text-gray-800">
+                            ${parseFloat(invoice.total || "0").toFixed(2)}
+                          </span>
+                          {parseFloat(invoice.paid_amount || "0") > 0 && (
+                            <span className="text-[11px] sm:text-[12px] text-[#6BAE41] font-semibold">
+                              Paid: $
+                              {parseFloat(invoice.paid_amount || "0").toFixed(
+                                2,
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1 text-[13px] text-gray-500 py-0.5">
+                        <span className="font-medium text-gray-700">
+                          Agent: {invoice.agent?.first_name}{" "}
+                          {invoice.agent?.last_name}{" "}
+                          {invoice.agent?.email
+                            ? `(${invoice.agent.email})`
+                            : ""}
+                        </span>
+                        {invoice.issued_at && (
+                          <span>
+                            Issued:{" "}
+                            {new Date(invoice.issued_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              },
+                            )}
+                          </span>
+                        )}
+                        {invoice.items && invoice.items.length > 0 && (
+                          <div className="text-[12px] font-normal text-[#7D7D7D] line-clamp-1">
+                            Services:{" "}
+                            {invoice.items
+                              .map((i: any) => i.description || "Service Item")
+                              .join(", ")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2.5 border-t border-gray-100 flex items-center gap-2 flex-wrap justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setOrderInvoicesDialogOpen(false);
+                            handleOpenInvoiceDoc(invoice);
+                          }}
+                          className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm cursor-pointer"
+                        >
+                          View Invoice
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={downloadingUuid === invoice.uuid}
+                          onClick={() => handleDownloadInvoice(invoice)}
+                          className="h-[30px] text-xs px-3 font-medium border border-[#BBBBBB] hover:bg-gray-700 hover:text-white hover:border-gray-700 text-[#555555] rounded-[6px] transition-colors shadow-sm bg-white flex items-center gap-1.5 cursor-pointer"
+                        >
+                          {downloadingUuid === invoice.uuid ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                },
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Refund Receipt Modal */}
       {receiptModalOpen && selectedReceiptPayment && (

@@ -205,22 +205,120 @@ export {
 };
 
 
+export function filterInvoicesByAgentRole(
+  invoicesList: any[],
+  agentRole?: "primary" | "co-agent",
+): any[] {
+  if (!Array.isArray(invoicesList) || !agentRole) return invoicesList || [];
+  if (agentRole === "co-agent") {
+    return invoicesList.filter(
+      (inv: any) => inv?.agent_type === "co-agent" || inv?.agent_type === "co_agent",
+    );
+  }
+  return invoicesList.filter(
+    (inv: any) =>
+      inv?.agent_type === "primary" ||
+      (!inv?.split_details && inv?.agent_type !== "co-agent" && inv?.agent_type !== "co_agent"),
+  );
+}
+
+export function computeSplitOrderInvoiceTotals(orderInvoices: any[]): {
+  subtotal: number;
+  tax: number;
+  total: number;
+  paid: number;
+  taxDetails: Record<string, { rate: number; amount: number }> | null;
+} {
+  const nonVoid = (orderInvoices || []).filter(
+    (inv: any) => !isVoidOrCancelled(inv?.status) && !isRenewalInvoice(inv),
+  );
+  if (nonVoid.length === 0) {
+    return { subtotal: 0, tax: 0, total: 0, paid: 0, taxDetails: null };
+  }
+
+  // Group by unique agent so consolidated + per-service invoices for the same agent are never double-counted
+  const agentGroups = new Map<string, any[]>();
+  nonVoid.forEach((inv: any, idx: number) => {
+    const key =
+      inv.agent_id != null
+        ? `id:${inv.agent_id}`
+        : inv.agent?.uuid || inv.agent_uuid
+          ? `uuid:${inv.agent?.uuid || inv.agent_uuid}`
+          : inv.agent_type
+            ? `type:${inv.agent_type}`
+            : `inv:${inv.id || inv.uuid || idx}`;
+    if (!agentGroups.has(key)) agentGroups.set(key, []);
+    agentGroups.get(key)!.push(inv);
+  });
+
+  let subtotal = 0;
+  let tax = 0;
+  let total = 0;
+  let paid = 0;
+  const aggregatedTaxDetails: Record<string, { rate: number; amount: number }> = {};
+
+  agentGroups.forEach((group) => {
+    const consolidated = group.filter(
+      (inv: any) =>
+        inv.notes?.toLowerCase().includes("consolidated") ||
+        (!isServiceInvoice(inv) &&
+          !inv.notes?.toLowerCase().includes("add-on") &&
+          (inv.items?.length || 0) > 1),
+    );
+    const chosen = consolidated.length > 0 ? [consolidated[0]] : group;
+    chosen.forEach((inv: any) => {
+      subtotal += parseFloat(inv.subtotal || "0");
+      tax += parseFloat(inv.tax_amount || "0");
+      total += parseFloat(inv.total || "0");
+      paid += parseFloat(inv.paid_amount || "0");
+      if (inv.tax_details && typeof inv.tax_details === "object") {
+        Object.entries(inv.tax_details).forEach(([k, v]: [string, any]) => {
+          const amt = parseFloat(v?.amount || "0");
+          const rate = parseFloat(v?.rate || "0");
+          if (!aggregatedTaxDetails[k]) {
+            aggregatedTaxDetails[k] = { rate, amount: 0 };
+          }
+          aggregatedTaxDetails[k].amount += amt;
+        });
+      }
+    });
+  });
+
+  return {
+    subtotal,
+    tax,
+    total,
+    paid,
+    taxDetails: Object.keys(aggregatedTaxDetails).length > 0 ? aggregatedTaxDetails : null,
+  };
+}
+
 export function getBestTargetInvoice(
   invoicesList: any[],
   serviceUuid?: string,
   serviceId?: number | string,
   userInfo?: any,
   userType?: string | null,
+  forceAgentRole?: "primary" | "co-agent",
 ) {
   if (!Array.isArray(invoicesList) || invoicesList.length === 0) {
     return null;
   }
 
-  // Filter out redundant duplicate service invoices when single service
-  const cleanedInvoices = filterVisibleInvoices(invoicesList);
-  const effectiveInvoices = cleanedInvoices.length > 0 ? cleanedInvoices : invoicesList;
+  const roleScopedInvoices = forceAgentRole
+    ? filterInvoicesByAgentRole(invoicesList, forceAgentRole)
+    : invoicesList;
+  if (forceAgentRole && roleScopedInvoices.length === 0) {
+    return null;
+  }
 
-  const isCoAgent = isUserCoAgent(userInfo, userType);
+  // Filter out redundant duplicate service invoices when single service
+  const cleanedInvoices = filterVisibleInvoices(roleScopedInvoices);
+  const effectiveInvoices = cleanedInvoices.length > 0 ? cleanedInvoices : roleScopedInvoices;
+
+  const isCoAgent = forceAgentRole
+    ? forceAgentRole === "co-agent"
+    : isUserCoAgent(userInfo, userType);
   const userUuid = userInfo?.data?.uuid || userInfo?.uuid;
   const userEmail = (
     userInfo?.data?.primary_email ||
@@ -312,54 +410,65 @@ export function getBestTargetInvoice(
   const nonRenewalOrderPool = rawOrderPool.filter((inv: any) => !isRenewalInvoice(inv));
   const pool = nonRenewalOrderPool.length > 0 ? nonRenewalOrderPool : rawOrderPool;
 
-  // Top Priority: Consolidated / whole-order invoice
-  const consolidated = pool.find(
-    (inv: any) =>
-      inv.notes?.toLowerCase().includes("consolidated") ||
-      (Array.isArray(inv.items) && inv.items.length > 1 && !inv.split_details && !inv.notes?.toLowerCase().includes("service invoice"))
-  );
+  // Top Priority: Consolidated / whole-order invoice (never treat single-service invoices as consolidated)
+  const isConsolidatedInv = (inv: any) =>
+    inv.notes?.toLowerCase().includes("consolidated") ||
+    (!isServiceInvoice(inv) &&
+      !inv.notes?.toLowerCase().includes("service invoice") &&
+      (inv.items?.length || 0) > 1);
+
+  const isNonServiceInv = (inv: any) =>
+    !isServiceInvoice(inv) && !inv.notes?.toLowerCase().includes("service invoice");
+
+  const consolidated = pool.find((inv: any) => isConsolidatedInv(inv));
 
   if (isCoAgent) {
-    const multiCoInv = pool.find(
-      (inv: any) =>
-        matchesCoAgent(inv) &&
-        (inv.notes?.toLowerCase().includes("consolidated") ||
-          !inv.notes?.toLowerCase().includes("service invoice") ||
-          (inv.items?.length || 0) > 1),
+    const coConsolidated = pool.find(
+      (inv: any) => matchesCoAgent(inv) && isConsolidatedInv(inv),
     );
-    const coAgentInv = multiCoInv || pool.find((inv: any) => matchesCoAgent(inv));
+    if (coConsolidated) return coConsolidated;
+    const coNonService = pool.find(
+      (inv: any) => matchesCoAgent(inv) && isNonServiceInv(inv),
+    );
+    if (coNonService) return coNonService;
+    const coAgentInv = pool.find((inv: any) => matchesCoAgent(inv));
     if (coAgentInv) return coAgentInv;
+    if (forceAgentRole === "co-agent") return null;
   } else if (userType === "agent") {
-    const multiPrimaryInv = pool.find(
-      (inv: any) =>
-        (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) &&
-        (inv.notes?.toLowerCase().includes("consolidated") ||
-          !inv.notes?.toLowerCase().includes("service invoice") ||
-          (inv.items?.length || 0) > 1),
+    const matchesOwnerOrPrimary = (inv: any) =>
+      matchesPrimary(inv) ||
+      (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid));
+
+    const primaryConsolidated = pool.find(
+      (inv: any) => matchesOwnerOrPrimary(inv) && isConsolidatedInv(inv),
     );
-    if (multiPrimaryInv) return multiPrimaryInv;
-    if (consolidated) return consolidated;
-    const nonServiceInv = pool.find(
-      (inv: any) => matchesPrimary(inv) && !inv.notes?.toLowerCase().includes("service invoice")
+    if (primaryConsolidated) return primaryConsolidated;
+    const primaryNonService = pool.find(
+      (inv: any) => matchesOwnerOrPrimary(inv) && isNonServiceInv(inv),
     );
-    if (nonServiceInv) return nonServiceInv;
-    const primaryInv = pool.find(
-      (inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))
-    );
+    if (primaryNonService) return primaryNonService;
+    if (consolidated && matchesOwnerOrPrimary(consolidated)) return consolidated;
+    const primaryInv = pool.find((inv: any) => matchesOwnerOrPrimary(inv));
     if (primaryInv) return primaryInv;
+    if (forceAgentRole === "primary") return null;
   } else {
-    // Admin: prioritize consolidated / whole-order invoice over single-service invoices
+    // Admin: prioritize primary consolidated / whole-order invoice over co-agent or single-service invoices
+    const primaryConsolidated = pool.find(
+      (inv: any) => matchesPrimary(inv) && isConsolidatedInv(inv),
+    );
+    if (primaryConsolidated) return primaryConsolidated;
     if (consolidated) return consolidated;
     const nonServiceInv = pool.find(
-      (inv: any) =>
-        (matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))) &&
-        !inv.notes?.toLowerCase().includes("service invoice")
+      (inv: any) => matchesPrimary(inv) && isNonServiceInv(inv),
     );
     if (nonServiceInv) return nonServiceInv;
     const primaryInv = pool.find(
-      (inv: any) => matchesPrimary(inv) || (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid))
+      (inv: any) =>
+        matchesPrimary(inv) ||
+        (userUuid && (inv.agent?.uuid === userUuid || inv.agent_uuid === userUuid)),
     );
     if (primaryInv) return primaryInv;
+    if (forceAgentRole === "primary") return null;
   }
 
   // Priority 2: Cancellation fee invoice
@@ -697,6 +806,7 @@ export function getServiceActualInvoicePricing({
   userType,
   currentUser,
   fallbackTaxRate = 0,
+  targetAgentRole,
 }: {
   invoices?: any[];
   service: any;
@@ -705,6 +815,7 @@ export function getServiceActualInvoicePricing({
   userType?: string | null;
   currentUser?: any;
   fallbackTaxRate?: number;
+  targetAgentRole?: "primary" | "co-agent";
 }): ServicePricingDetails {
   const serviceUuid = service?.uuid || service?.order_service_uuid;
   const serviceNumericId = service?.service_id;
@@ -800,11 +911,21 @@ export function getServiceActualInvoicePricing({
     return false;
   };
 
-  const isAgent = userType === "agent" || isCoAgentUser;
+  const isAgent = userType === "agent" || isCoAgentUser || Boolean(targetAgentRole);
 
   if (isAgent) {
     // AGENT VIEW: isolate this specific agent's invoice(s)
     const matchesThisAgent = (inv: any) => {
+      if (targetAgentRole === "co-agent") {
+        return inv?.agent_type === "co-agent" || inv?.agent_type === "co_agent";
+      }
+      if (targetAgentRole === "primary") {
+        return (
+          inv?.agent_type === "primary" ||
+          (!inv?.split_details && inv?.agent_type !== "co-agent" && inv?.agent_type !== "co_agent")
+        );
+      }
+
       const invEmail = (inv?.agent?.email || inv?.email || "").toLowerCase().trim();
       const invName = (inv?.agent?.name || inv?.agent_name || `${inv?.agent?.first_name || ""} ${inv?.agent?.last_name || ""}`).toLowerCase().trim();
       const invUuid = inv?.agent?.uuid || inv?.agent_uuid;
@@ -821,7 +942,9 @@ export function getServiceActualInvoicePricing({
     };
 
     const agentInvoices = invoicePool.filter(matchesThisAgent);
-    const targetInvoices = agentInvoices.length > 0 ? agentInvoices : invoicePool;
+    const targetInvoices = targetAgentRole
+      ? agentInvoices
+      : (agentInvoices.length > 0 ? agentInvoices : invoicePool);
 
     // Prefer dedicated service invoice
     const singleSvcInv = targetInvoices.find(isDedicatedServiceInvoice);

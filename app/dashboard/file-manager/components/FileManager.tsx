@@ -1805,17 +1805,12 @@ const FileManager = () => {
     const targetServiceUuid = matchedBooking?.uuid || orderServiceUuid;
     const targetServiceId = matchedBooking?.id;
 
-    if (userType === "agent") {
-      setSelectedBillingServiceUuid(targetServiceUuid || null);
+    if (userType === "agent" && !isSpecificServiceRequested) {
+      setSelectedBillingServiceUuid(null);
       setShowInvoicesModal(true);
       return;
     }
 
-    if (userType === "agent") {
-      setSelectedBillingServiceUuid(targetServiceUuid || null);
-      setShowInvoicesModal(true);
-      return;
-    }
     const targetFsUuid =
       (matchedBooking as any)?.feature_sheet_uuid ||
       (matchedBooking as any)?.feature_sheet?.uuid ||

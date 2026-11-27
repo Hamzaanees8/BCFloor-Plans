@@ -30,7 +30,9 @@ import { useAppContext } from "@/app/context/AppContext";
 import { useWhiteLabel } from "@/app/context/Whitelabel";
 import {
   BillingItem,
+  computeSplitOrderInvoiceTotals,
   createQuickBilling,
+  filterInvoicesByAgentRole,
   getBillings,
   isVoidOrCancelled,
   isPaidOrSucceeded,
@@ -755,19 +757,24 @@ const Page = () => {
     serviceId?: string,
     serviceAmount?: number,
     serviceNumericId?: number | string,
+    targetAgentRole?: "primary" | "co-agent",
   ) => {
     try {
       setInvoicesLoading(true);
       setActionLoading({ id: serviceId || billing.order_id, action });
       const res = await GetInvoicesByOrder(billing.order_uuid);
       const rawInvoicesList = Array.isArray(res.data) ? res.data : [res.data];
-      const invoicesList = filterVisibleInvoices(
+      const visibleInvoices = filterVisibleInvoices(
         rawInvoicesList,
         billing.services,
       );
+      const invoicesList = targetAgentRole
+        ? filterInvoicesByAgentRole(visibleInvoices, targetAgentRole)
+        : visibleInvoices;
 
       const isCoAgent =
-        userType === "agent" && isUserCoAgent(currentUser, userType);
+        targetAgentRole === "co-agent" ||
+        (userType === "agent" && isUserCoAgent(currentUser, userType));
 
       const targetInvoice = getBestTargetInvoice(
         invoicesList,
@@ -775,6 +782,7 @@ const Page = () => {
         serviceNumericId,
         currentUser,
         userType,
+        targetAgentRole,
       );
 
       // Find all invoices matching this specific service
@@ -2177,10 +2185,6 @@ const Page = () => {
                               ? String(billing.tax_rate)
                               : "0"),
                         );
-                        const orderTaxDetails =
-                          primaryInvoice?.tax_details ||
-                          billing.tax_details ||
-                          null;
                         const orderHasSplits =
                           Boolean(
                             (billing as any).split_invoice ||
@@ -2195,32 +2199,19 @@ const Page = () => {
                                 inv.split_details.splits.length > 1),
                           );
 
-                        const nonVoidOrderInvoices = orderInvoices.filter(
-                          (inv) =>
-                            !isVoidOrCancelled(inv.status) &&
-                            !isRenewalInvoice(inv),
-                        );
+                        const splitTotals = orderHasSplits
+                          ? computeSplitOrderInvoiceTotals(orderInvoices)
+                          : { subtotal: 0, tax: 0, total: 0, paid: 0, taxDetails: null };
+                        const combinedInvoicesTotal = splitTotals.total;
+                        const combinedInvoicesSubtotal = splitTotals.subtotal;
+                        const combinedInvoicesTax = splitTotals.tax;
+                        const combinedInvoicesPaid = splitTotals.paid;
 
-                        const combinedInvoicesTotal =
-                          nonVoidOrderInvoices.reduce(
-                            (sum, inv) => sum + parseFloat(inv.total || "0"),
-                            0,
-                          );
-                        const combinedInvoicesSubtotal =
-                          nonVoidOrderInvoices.reduce(
-                            (sum, inv) => sum + parseFloat(inv.subtotal || "0"),
-                            0,
-                          );
-                        const combinedInvoicesTax = nonVoidOrderInvoices.reduce(
-                          (sum, inv) => sum + parseFloat(inv.tax_amount || "0"),
-                          0,
-                        );
-                        const combinedInvoicesPaid =
-                          nonVoidOrderInvoices.reduce(
-                            (sum, inv) =>
-                              sum + parseFloat(inv.paid_amount || "0"),
-                            0,
-                          );
+                        const orderTaxDetails =
+                          (orderHasSplits && splitTotals.taxDetails) ||
+                          primaryInvoice?.tax_details ||
+                          billing.tax_details ||
+                          null;
 
                         const subtotalVal =
                           orderHasSplits && combinedInvoicesSubtotal > 0
@@ -2279,6 +2270,15 @@ const Page = () => {
                           userType === "agent" && serviceMediaSet !== undefined;
                         const servicesWithoutMedia = agentMediaRestriction
                           ? billing.services.filter((svc) => {
+                              const svcStatus = (svc.status || "").toLowerCase();
+                              if (
+                                isPaidOrSucceeded(svcStatus) ||
+                                isRefunded(svcStatus) ||
+                                svcStatus === "cancelled" ||
+                                svcStatus === "canceled"
+                              ) {
+                                return false;
+                              }
                               const svcId = svc.service_id;
                               const hasMedia =
                                 serviceMediaSet.has(svcId) ||
@@ -2365,10 +2365,28 @@ const Page = () => {
                                                   )
                                                 }
                                                 disabled={
-                                                  actionLoading !== null
+                                                  actionLoading !== null ||
+                                                  (userType === "agent" &&
+                                                    payAllBlockedByMedia)
                                                 }
-                                                className="h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] cursor-pointer"
+                                                title={
+                                                  userType === "agent" &&
+                                                  payAllBlockedByMedia
+                                                    ? "Invoices are currently being calculated and will be available once all services are ready."
+                                                    : undefined
+                                                }
+                                                className={`h-[35px] px-4 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center min-w-[100px] ${
+                                                  userType === "agent" &&
+                                                  payAllBlockedByMedia
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
                                                 onMouseEnter={(e) => {
+                                                  if (
+                                                    userType === "agent" &&
+                                                    payAllBlockedByMedia
+                                                  )
+                                                    return;
                                                   e.currentTarget.style.backgroundColor =
                                                     roleSettings.pageTabColor;
                                                   e.currentTarget.style.color =
@@ -2404,12 +2422,29 @@ const Page = () => {
                                                   )
                                                 }
                                                 disabled={
+                                                  (userType === "agent" &&
+                                                    payAllBlockedByMedia) ||
                                                   downloadingInvoiceUuid ===
-                                                  targetOrderInvoice.uuid
+                                                    targetOrderInvoice.uuid
                                                 }
-                                                className="h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center cursor-pointer gap-1.5"
-                                                title="Download Invoice PDF"
+                                                className={`h-[35px] px-3 border border-[#BBBBBB] text-[#666666] bg-white rounded-[6px] text-xs font-normal transition-colors flex items-center justify-center gap-1.5 ${
+                                                  userType === "agent" &&
+                                                  payAllBlockedByMedia
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
+                                                title={
+                                                  userType === "agent" &&
+                                                  payAllBlockedByMedia
+                                                    ? "Invoices are currently being calculated and will be available once all services are ready."
+                                                    : "Download Invoice PDF"
+                                                }
                                                 onMouseEnter={(e) => {
+                                                  if (
+                                                    userType === "agent" &&
+                                                    payAllBlockedByMedia
+                                                  )
+                                                    return;
                                                   e.currentTarget.style.backgroundColor =
                                                     roleSettings.pageTabColor;
                                                   e.currentTarget.style.color =
@@ -2462,7 +2497,7 @@ const Page = () => {
                                                       >
                                                         {hasCancellationFee
                                                           ? "Pay Cancellation Fee"
-                                                          : "Pay All"}
+                                                          : "Pay for All Available Services"}
                                                       </Button>
                                                     </span>
                                                   </TooltipTrigger>
@@ -2546,7 +2581,7 @@ const Page = () => {
                                                 ) : hasCancellationFee ? (
                                                   "Pay Cancellation Fee"
                                                 ) : (
-                                                  "Pay All"
+                                                  "Pay for All Available Services"
                                                 )}
                                               </Button>
                                             ))}
@@ -2801,7 +2836,13 @@ const Page = () => {
                                                   ?.package_name ||
                                                 null;
 
-                                              if (packageDiscountVal > 0) {
+                                              if (
+                                                packageDiscountVal > 0 &&
+                                                !(
+                                                  userType === "agent" &&
+                                                  payAllBlockedByMedia
+                                                )
+                                              ) {
                                                 return (
                                                   <>
                                                     <div>
@@ -2844,126 +2885,153 @@ const Page = () => {
                                               }
                                               return null;
                                             })()}
-                                            <div>
-                                              <span className="text-gray-500 block text-xs">
-                                                Subtotal
-                                              </span>
-                                              <span className="font-semibold text-gray-700">
-                                                {(
-                                                  subtotalVal * splitMultiplier
-                                                ).toLocaleString("en-US", {
-                                                  style: "currency",
-                                                  currency: "USD",
-                                                })}
-                                              </span>
-                                            </div>
-                                            {orderTaxDetails &&
-                                            Object.keys(orderTaxDetails)
-                                              .length > 0 ? (
-                                              Object.entries(
-                                                orderTaxDetails,
-                                              ).map(
-                                                ([taxKey, taxVal]: [
-                                                  string,
-                                                  any,
-                                                ]) => {
-                                                  const rate =
-                                                    taxVal?.rate ?? taxRate;
-                                                  const amt = parseFloat(
-                                                    taxVal?.amount || 0,
-                                                  );
-                                                  return (
-                                                    <div key={taxKey}>
-                                                      <span className="text-gray-500 block text-xs">
-                                                        {taxKey} ({rate}%)
-                                                      </span>
-                                                      <span className="font-semibold text-[#DC9600]">
-                                                        {amt.toLocaleString(
-                                                          "en-US",
-                                                          {
-                                                            style: "currency",
-                                                            currency: "USD",
-                                                          },
-                                                        )}
-                                                      </span>
-                                                    </div>
-                                                  );
-                                                },
-                                              )
-                                            ) : taxRate > 0 ? (
-                                              <div>
-                                                <span className="text-gray-500 block text-xs">
-                                                  GST/HST ({taxRate}%)
-                                                </span>
-                                                <span className="font-semibold text-[#DC9600]">
-                                                  {taxAmount.toLocaleString(
-                                                    "en-US",
-                                                    {
-                                                      style: "currency",
-                                                      currency: "USD",
-                                                    },
-                                                  )}
-                                                </span>
-                                              </div>
-                                            ) : null}
-                                            <div>
-                                              <span className="text-gray-500 block text-xs">
-                                                Grand Total
-                                              </span>
-                                              <span className="font-bold text-gray-800">
-                                                {grandTotalVal.toLocaleString(
-                                                  "en-US",
-                                                  {
-                                                    style: "currency",
-                                                    currency: "USD",
-                                                  },
-                                                )}
-                                              </span>
-                                            </div>
-                                            <div>
-                                              <span className="text-gray-500 block text-xs">
-                                                Total Paid
-                                              </span>
-                                              <span className="font-semibold text-[#6BAE41]">
-                                                {safeRowTotalPaid.toLocaleString(
-                                                  "en-US",
-                                                  {
-                                                    style: "currency",
-                                                    currency: "USD",
-                                                  },
-                                                )}
-                                              </span>
-                                            </div>
-                                            {totalRefunded > 0 && (
-                                              <div>
-                                                <span className="text-gray-500 block text-xs">
-                                                  Total Refunded
-                                                </span>
-                                                <span className="font-semibold text-red-500">
-                                                  {totalRefunded.toLocaleString(
-                                                    "en-US",
-                                                    {
-                                                      style: "currency",
-                                                      currency: "USD",
-                                                    },
-                                                  )}
-                                                </span>
-                                              </div>
-                                            )}
-                                            <div>
-                                              <span className="text-gray-500 block text-xs">
-                                                Balance Due
-                                              </span>
-                                              <span className="font-bold text-[#E06D5E]">
-                                                {displayRemaining.toLocaleString(
-                                                  "en-US",
-                                                  {
-                                                    style: "currency",
-                                                    currency: "USD",
-                                                  },
-                                                )}
-                                              </span>
-                                            </div>
+                                             <div>
+                                               <span className="text-gray-500 block text-xs">
+                                                 Subtotal
+                                               </span>
+                                               <span className="font-semibold text-gray-700">
+                                                 {userType === "agent" &&
+                                                 payAllBlockedByMedia
+                                                   ? "—"
+                                                   : (
+                                                       subtotalVal *
+                                                       splitMultiplier
+                                                     ).toLocaleString("en-US", {
+                                                       style: "currency",
+                                                       currency: "USD",
+                                                     })}
+                                               </span>
+                                             </div>
+                                             {orderTaxDetails &&
+                                             Object.keys(orderTaxDetails)
+                                               .length > 0 ? (
+                                               Object.entries(
+                                                 orderTaxDetails,
+                                               ).map(
+                                                 ([taxKey, taxVal]: [
+                                                   string,
+                                                   any,
+                                                 ]) => {
+                                                   const rate =
+                                                     taxVal?.rate ?? taxRate;
+                                                   const amt = parseFloat(
+                                                     taxVal?.amount || 0,
+                                                   );
+                                                   return (
+                                                     <div key={taxKey}>
+                                                       <span className="text-gray-500 block text-xs">
+                                                         {taxKey} ({rate}%)
+                                                       </span>
+                                                       <span className="font-semibold text-[#DC9600]">
+                                                         {userType ===
+                                                           "agent" &&
+                                                         payAllBlockedByMedia
+                                                           ? "—"
+                                                           : amt.toLocaleString(
+                                                               "en-US",
+                                                               {
+                                                                 style:
+                                                                   "currency",
+                                                                 currency:
+                                                                   "USD",
+                                                               },
+                                                             )}
+                                                       </span>
+                                                     </div>
+                                                   );
+                                                 },
+                                               )
+                                             ) : taxRate > 0 ? (
+                                               <div>
+                                                 <span className="text-gray-500 block text-xs">
+                                                   GST/HST ({taxRate}%)
+                                                 </span>
+                                                 <span className="font-semibold text-[#DC9600]">
+                                                   {userType === "agent" &&
+                                                   payAllBlockedByMedia
+                                                     ? "—"
+                                                     : taxAmount.toLocaleString(
+                                                         "en-US",
+                                                         {
+                                                           style: "currency",
+                                                           currency: "USD",
+                                                         },
+                                                       )}
+                                                 </span>
+                                               </div>
+                                             ) : null}
+                                             <div>
+                                               <span className="text-gray-500 block text-xs">
+                                                 Grand Total
+                                                 {userType === "agent" &&
+                                                 payAllBlockedByMedia
+                                                   ? " (Quote Approx.)"
+                                                   : ""}
+                                               </span>
+                                               <span className="font-bold text-gray-800">
+                                                 {grandTotalVal.toLocaleString(
+                                                   "en-US",
+                                                   {
+                                                     style: "currency",
+                                                     currency: "USD",
+                                                   },
+                                                 )}
+                                               </span>
+                                             </div>
+                                             <div>
+                                               <span className="text-gray-500 block text-xs">
+                                                 Total Paid
+                                               </span>
+                                               <span className="font-semibold text-[#6BAE41]">
+                                                 {userType === "agent" &&
+                                                 payAllBlockedByMedia
+                                                   ? "—"
+                                                   : safeRowTotalPaid.toLocaleString(
+                                                       "en-US",
+                                                       {
+                                                         style: "currency",
+                                                         currency: "USD",
+                                                       },
+                                                     )}
+                                               </span>
+                                             </div>
+                                             {!(
+                                               userType === "agent" &&
+                                               payAllBlockedByMedia
+                                             ) &&
+                                               totalRefunded > 0 && (
+                                               <div>
+                                                 <span className="text-gray-500 block text-xs">
+                                                   Total Refunded
+                                                 </span>
+                                                 <span className="font-semibold text-red-500">
+                                                   {totalRefunded.toLocaleString(
+                                                     "en-US",
+                                                     {
+                                                       style: "currency",
+                                                       currency: "USD",
+                                                     },
+                                                   )}
+                                                 </span>
+                                               </div>
+                                             )}
+                                             <div>
+                                               <span className="text-gray-500 block text-xs">
+                                                 Balance Due
+                                               </span>
+                                               <span className="font-bold text-[#E06D5E]">
+                                                 {userType === "agent" &&
+                                                 payAllBlockedByMedia
+                                                   ? "—"
+                                                   : displayRemaining.toLocaleString(
+                                                       "en-US",
+                                                       {
+                                                         style: "currency",
+                                                         currency: "USD",
+                                                       },
+                                                     )}
+                                               </span>
+                                             </div>
                                           </div>
                                         </div>
 
@@ -3308,13 +3376,28 @@ const Page = () => {
                                         const serviceUuid =
                                           service.uuid ||
                                           service.order_service_uuid;
+                                        const sectionRole:
+                                          | "primary"
+                                          | "co-agent"
+                                          | undefined = orderHasSplits
+                                          ? isCoAgentSection
+                                            ? "co-agent"
+                                            : "primary"
+                                          : undefined;
+                                        const sectionInvoices = sectionRole
+                                          ? filterInvoicesByAgentRole(
+                                              orderInvoices,
+                                              sectionRole,
+                                            )
+                                          : orderInvoices;
                                         const serviceTargetInvoice =
                                           getBestTargetInvoice(
-                                            orderInvoices,
+                                            sectionInvoices,
                                             serviceUuid,
                                             service.service_id,
                                             currentUser,
                                             userType,
+                                            sectionRole,
                                           );
 
                                         const isServiceRefunded =
@@ -3330,25 +3413,34 @@ const Page = () => {
                                             isPartiallyRefunded(
                                               serviceTargetInvoice?.status,
                                             ));
-                                        const isServicePaid =
-                                          (isPaidOrSucceeded(service.status) ||
-                                            isPaidOrSucceeded(
-                                              serviceTargetInvoice?.status,
-                                            ) ||
-                                            billing.status === "paid" ||
-                                            (parseFloat(
-                                              serviceTargetInvoice?.paid_amount ||
-                                                0,
-                                            ) > 0 &&
-                                              parseFloat(
-                                                serviceTargetInvoice?.paid_amount ||
+                                        const isTargetInvoicePaid =
+                                          serviceTargetInvoice
+                                            ? isPaidOrSucceeded(
+                                                serviceTargetInvoice.status,
+                                              ) ||
+                                              (parseFloat(
+                                                serviceTargetInvoice.paid_amount ||
                                                   0,
-                                              ) >=
+                                              ) > 0 &&
                                                 parseFloat(
-                                                  serviceTargetInvoice?.total ||
+                                                  serviceTargetInvoice.paid_amount ||
                                                     0,
-                                                ) -
-                                                  0.01)) &&
+                                                ) >=
+                                                  parseFloat(
+                                                    serviceTargetInvoice.total ||
+                                                      0,
+                                                  ) -
+                                                    0.01)
+                                            : false;
+                                        const isServicePaid =
+                                          (orderHasSplits &&
+                                          serviceTargetInvoice
+                                            ? isTargetInvoicePaid
+                                            : isPaidOrSucceeded(
+                                                service.status,
+                                              ) ||
+                                              isTargetInvoicePaid ||
+                                              billing.status === "paid") &&
                                           !isServiceRefunded &&
                                           !isServicePartiallyRefunded;
                                         const isServiceVoid =
@@ -3464,6 +3556,7 @@ const Page = () => {
                                                             serviceUuid,
                                                             service.amount,
                                                             service.service_id,
+                                                            sectionRole,
                                                           )
                                                         }
                                                         disabled={
@@ -3519,6 +3612,7 @@ const Page = () => {
                                                                 serviceUuid,
                                                                 service.amount,
                                                                 service.service_id,
+                                                                sectionRole,
                                                               )
                                                             }
                                                             disabled={
@@ -3708,13 +3802,21 @@ const Page = () => {
                                                     )}
                                                   </div>
                                                 </div>
+                                                {isServiceInProgress &&
+                                                userType === "agent" ? (
+                                                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-[4px] px-3 py-2 mt-1">
+                                                    Invoices are currently being
+                                                    calculated and will be shown
+                                                    once media is ready.
+                                                  </p>
+                                                ) : (
                                                 <div className="text-sm text-gray-600 space-y-0.5">
                                                   {(() => {
                                                     const pricing =
                                                       getServiceActualInvoicePricing(
                                                         {
                                                           invoices:
-                                                            orderInvoices,
+                                                            sectionInvoices,
                                                           service,
                                                           splitMultiplier:
                                                             currentSplitMultiplier,
@@ -3724,6 +3826,8 @@ const Page = () => {
                                                           currentUser,
                                                           fallbackTaxRate:
                                                             taxRate,
+                                                          targetAgentRole:
+                                                            sectionRole,
                                                         },
                                                       );
 
@@ -3933,8 +4037,13 @@ const Page = () => {
                                                     );
                                                   })()}
                                                 </div>
+                                                )}
 
-                                                {(() => {
+                                                {!(
+                                                  isServiceInProgress &&
+                                                  userType === "agent"
+                                                ) &&
+                                                  (() => {
                                                   const serviceSlot =
                                                     billing.slots.find(
                                                       (s) =>
@@ -4103,6 +4212,63 @@ const Page = () => {
                                                 </div>
                                               </AccordionTrigger>
                                               <AccordionContent className="p-4 space-y-3 bg-white">
+                                                {(() => {
+                                                  const coAgentMainInv =
+                                                    getBestTargetInvoice(
+                                                      orderInvoices,
+                                                      undefined,
+                                                      undefined,
+                                                      currentUser,
+                                                      userType,
+                                                      "co-agent",
+                                                    );
+                                                  if (!coAgentMainInv)
+                                                    return null;
+                                                  return (
+                                                    <div className="flex items-center justify-between px-3 py-2 rounded-[6px] bg-blue-50/70 border border-blue-200">
+                                                      <div className="flex items-center gap-2 text-xs text-blue-950">
+                                                        <span className="font-semibold">
+                                                          Co-Agent Main Invoice:
+                                                        </span>
+                                                        <span>
+                                                          {coAgentMainInv.invoice_number ||
+                                                            `INV-${coAgentMainInv.id}`}
+                                                        </span>
+                                                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-800 uppercase font-medium">
+                                                          {coAgentMainInv.status ||
+                                                            "unpaid"}
+                                                        </span>
+                                                      </div>
+                                                      <Button
+                                                        type="button"
+                                                        disabled={
+                                                          userType ===
+                                                            "agent" &&
+                                                          payAllBlockedByMedia
+                                                        }
+                                                        onClick={() =>
+                                                          handleInvoiceAction(
+                                                            billing,
+                                                            "view",
+                                                            undefined,
+                                                            undefined,
+                                                            undefined,
+                                                            "co-agent",
+                                                          )
+                                                        }
+                                                        className={`h-[30px] px-3 bg-white border border-blue-300 text-blue-700 rounded-[6px] text-xs font-medium transition-colors ${
+                                                          userType ===
+                                                            "agent" &&
+                                                          payAllBlockedByMedia
+                                                            ? "opacity-50 cursor-not-allowed"
+                                                            : "hover:bg-blue-600 hover:text-white cursor-pointer"
+                                                        }`}
+                                                      >
+                                                        View Co-Agent Invoice
+                                                      </Button>
+                                                    </div>
+                                                  );
+                                                })()}
                                                 <div className="space-y-3">
                                                   {billing.services.map(
                                                     (service) =>
